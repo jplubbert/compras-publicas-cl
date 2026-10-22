@@ -45,3 +45,9 @@ module "secrets" {
   secret_accessors = module.iam.secret_accessors
   depends_on       = [module.apis]
 }
+
+module "quotas" {
+  source     = "../modules/quotas"
+  project_id = local.project_id
+  depends_on = [module.apis]
+}

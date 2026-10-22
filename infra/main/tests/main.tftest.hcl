@@ -127,6 +127,39 @@ run "e6_lectura_restringida" {
   }
 }
 
+# REQ-003 E6: daily query quotas of S-07 (50 GiB per project, 20 GiB per user, in MiB).
+run "e6_cuotas_bigquery" {
+  command = plan
+
+  assert {
+    condition     = contains(keys(output.bq_quotas), "QueryUsagePerDay") && contains(keys(output.bq_quotas), "QueryUsagePerUserPerDay")
+    error_message = "both BigQuery query quotas must exist"
+  }
+  assert {
+    condition     = alltrue([for q in values(output.bq_quotas) : q.service == "bigquery.googleapis.com" && q.parent == "projects/demo-proj"])
+    error_message = "the quotas must apply to bigquery.googleapis.com in this project"
+  }
+  assert {
+    condition     = output.bq_quotas["QueryUsagePerDay"].preferred_value == "51200"
+    error_message = "the project quota must be 50 GiB per day"
+  }
+  assert {
+    condition     = output.bq_quotas["QueryUsagePerUserPerDay"].preferred_value == "20480"
+    error_message = "the per-user quota must be 20 GiB per day"
+  }
+}
+
+run "e6_cuota_no_positiva" {
+  command = plan
+  module {
+    source = "../modules/quotas"
+  }
+  variables {
+    query_usage_per_day_gib = 0
+  }
+  expect_failures = [var.query_usage_per_day_gib]
+}
+
 run "secretos_sin_versiones" {
   command = plan
 

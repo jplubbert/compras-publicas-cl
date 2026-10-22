@@ -6,6 +6,8 @@ locals {
     "roles/secretmanager.admin",
     "roles/iam.serviceAccountAdmin",
     "roles/serviceusage.serviceUsageAdmin",
+    # infra/main sets the BigQuery query quotas (S-07).
+    "roles/cloudquotas.admin",
   ]
   # Project-level roles CI may grant to the pipeline accounts; anything else (billing included) is denied.
   ci_grantable_project_roles = ["roles/bigquery.jobUser"]

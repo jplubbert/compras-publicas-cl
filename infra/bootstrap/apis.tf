@@ -7,6 +7,15 @@ resource "google_project_service" "this" {
     "cloudresourcemanager.googleapis.com",
     "serviceusage.googleapis.com",
     "storage.googleapis.com",
+    "cloudbilling.googleapis.com",
+    "billingbudgets.googleapis.com",
+    "pubsub.googleapis.com",
+    "cloudfunctions.googleapis.com",
+    "run.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "eventarc.googleapis.com",
+    "monitoring.googleapis.com",
   ])
 
   project            = local.project_id

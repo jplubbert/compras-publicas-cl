@@ -31,3 +31,47 @@ variable "github_repository" {
     error_message = "github_repository es obligatoria, con la forma owner/nombre."
   }
 }
+
+variable "billing_account" {
+  description = "Billing account the budget watches and the kill switch unlinks, as XXXXXX-XXXXXX-XXXXXX (DEC-003)."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = can(regex("^[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}$", var.billing_account))
+    error_message = "billing_account es obligatoria, con la forma XXXXXX-XXXXXX-XXXXXX (dígitos y mayúsculas)."
+  }
+}
+
+variable "alert_email" {
+  description = "Address that receives the budget alerts (Q-03)."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", var.alert_email))
+    error_message = "alert_email es obligatoria (Q-03): el correo de los avisos del presupuesto; ponla en terraform.tfvars, fuera de git."
+  }
+}
+
+variable "budget_usd" {
+  description = "Monthly budget in USD; at 100 % the kill switch unlinks billing (REQ-003)."
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.budget_usd > 0
+    error_message = "budget_usd debe ser mayor que 0."
+  }
+}
+
+variable "killswitch_billing_role" {
+  description = "Role that lets the kill switch unlink billing: projectManager on the project or admin on the billing account (DEC-009)."
+  type        = string
+  default     = "roles/billing.projectManager"
+
+  validation {
+    condition     = contains(["roles/billing.projectManager", "roles/billing.admin"], var.killswitch_billing_role)
+    error_message = "killswitch_billing_role debe ser roles/billing.projectManager o roles/billing.admin."
+  }
+}

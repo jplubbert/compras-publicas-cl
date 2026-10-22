@@ -39,6 +39,11 @@ output "secret_ids" {
   value       = module.secrets.secret_ids
 }
 
+output "bq_quotas" {
+  description = "BigQuery daily query quotas (S-07)."
+  value       = module.quotas.bq_quotas
+}
+
 output "secret_bindings" {
   description = "Secret grants."
   value       = module.secrets.secret_bindings

@@ -6,6 +6,11 @@ mock_provider "google" {
       name = "projects/demo-proj/serviceAccounts/compras-mock@demo-proj.iam.gserviceaccount.com"
     }
   }
+  mock_data "google_project" {
+    defaults = {
+      number = "123456789012"
+    }
+  }
 }
 mock_provider "google-beta" {}
 
@@ -13,6 +18,8 @@ variables {
   project_id        = "demo-proj"
   region            = "us-central1"
   github_repository = "demo-owner/compras-publicas-cl"
+  billing_account   = "000000-000000-000000"
+  alert_email       = "alertas@example.com"
 }
 
 run "state_bucket_and_wif" {
@@ -48,8 +55,13 @@ run "ci_account_without_billing" {
     error_message = "only the repository may impersonate the CI account"
   }
   assert {
-    condition     = alltrue([for r in output.ci_project_roles : !startswith(r, "roles/billing") && !contains(["roles/owner", "roles/editor"], r)])
-    error_message = "the CI account must not hold billing, owner or editor roles"
+    condition     = alltrue([for r in output.ci_project_roles : !startswith(r, "roles/billing") && !startswith(r, "roles/pubsub") && !contains(["roles/owner", "roles/editor"], r)])
+    error_message = "the CI account must not hold billing, Pub/Sub, owner or editor roles"
+  }
+  assert {
+    condition = alltrue([for m in concat(google_project_iam_member.killswitch_billing, google_billing_account_iam_member.killswitch_billing) :
+    m.member != "serviceAccount:${output.ci_service_account}"])
+    error_message = "the kill switch billing grant must not go to the CI account"
   }
   assert {
     condition     = strcontains(output.ci_iam_admin_condition, "hasOnly") && !strcontains(output.ci_iam_admin_condition, "billing")
@@ -87,4 +99,120 @@ run "e3_region_outside_us" {
     region = "southamerica-west1"
   }
   expect_failures = [var.region]
+}
+
+# REQ-003 E5: budget on actual spend, topic wired to the kill switch, billing role only on the kill switch account.
+run "e5_presupuesto_y_desvinculadora" {
+  command = apply
+
+  assert {
+    condition     = [for r in google_billing_budget.cap.threshold_rules : r.threshold_percent] == [0.5, 0.9, 1.0]
+    error_message = "the budget thresholds must be 0.5, 0.9 and 1.0"
+  }
+  assert {
+    condition     = alltrue([for r in google_billing_budget.cap.threshold_rules : r.spend_basis == "CURRENT_SPEND"])
+    error_message = "every threshold must use actual spend"
+  }
+  assert {
+    condition     = google_billing_budget.cap.all_updates_rule[0].pubsub_topic == google_pubsub_topic.budget.id
+    error_message = "the budget must publish to the kill switch topic"
+  }
+  assert {
+    condition     = google_cloudfunctions2_function.killswitch.event_trigger[0].pubsub_topic == google_pubsub_topic.budget.id
+    error_message = "the kill switch must be triggered by the budget topic"
+  }
+  assert {
+    condition     = google_monitoring_notification_channel.budget_email.labels["email_address"] == "alertas@example.com"
+    error_message = "the alerts must go to alert_email"
+  }
+  assert {
+    condition     = google_billing_budget.cap.amount[0].specified_amount[0].units == "10" && google_billing_budget.cap.amount[0].specified_amount[0].currency_code == "USD"
+    error_message = "the default budget must be USD 10"
+  }
+  assert {
+    condition     = google_billing_budget.cap.budget_filter[0].projects == toset(["projects/123456789012"])
+    error_message = "the budget must watch this project only"
+  }
+  assert {
+    condition = length(google_project_iam_member.killswitch_billing) == 1 && google_project_iam_member.killswitch_billing[0].role == "roles/billing.projectManager" && (
+    google_project_iam_member.killswitch_billing[0].member == "serviceAccount:${output.killswitch_service_account}")
+    error_message = "the kill switch account must hold billing.projectManager on the project by default"
+  }
+  assert {
+    condition     = length(google_billing_account_iam_member.killswitch_billing) == 0
+    error_message = "no billing account grant by default"
+  }
+}
+
+run "rol_billing_admin" {
+  command = apply
+  variables {
+    killswitch_billing_role = "roles/billing.admin"
+  }
+
+  assert {
+    condition = length(google_billing_account_iam_member.killswitch_billing) == 1 && google_billing_account_iam_member.killswitch_billing[0].role == "roles/billing.admin" && (
+    google_billing_account_iam_member.killswitch_billing[0].billing_account_id == "000000-000000-000000")
+    error_message = "with billing.admin the grant must be on the billing account"
+  }
+  assert {
+    condition     = length(google_project_iam_member.killswitch_billing) == 0
+    error_message = "with billing.admin there must be no project grant"
+  }
+  assert {
+    condition     = output.killswitch_billing_grant.scope == "billing_account"
+    error_message = "the grant output must report the billing account scope"
+  }
+}
+
+run "presupuesto_de_simulacro" {
+  command = plan
+  variables {
+    budget_usd = 0.01
+  }
+
+  assert {
+    condition     = google_billing_budget.cap.amount[0].specified_amount[0].units == "0" && google_billing_budget.cap.amount[0].specified_amount[0].nanos == 10000000
+    error_message = "USD 0.01 must be 0 units and 10000000 nanos"
+  }
+}
+
+run "sin_billing_account" {
+  command = plan
+  variables {
+    billing_account = null
+  }
+  expect_failures = [var.billing_account]
+}
+
+run "billing_account_mal_formado" {
+  command = plan
+  variables {
+    billing_account = "billing-123"
+  }
+  expect_failures = [var.billing_account]
+}
+
+run "sin_alert_email" {
+  command = plan
+  variables {
+    alert_email = null
+  }
+  expect_failures = [var.alert_email]
+}
+
+run "presupuesto_cero" {
+  command = plan
+  variables {
+    budget_usd = 0
+  }
+  expect_failures = [var.budget_usd]
+}
+
+run "rol_billing_no_permitido" {
+  command = plan
+  variables {
+    killswitch_billing_role = "roles/owner"
+  }
+  expect_failures = [var.killswitch_billing_role]
 }
