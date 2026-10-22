@@ -12,10 +12,14 @@ mock_provider "google" {
     }
   }
 }
+mock_provider "google" {
+  alias = "backup"
+}
 mock_provider "google-beta" {}
 
 variables {
   project_id        = "demo-proj"
+  backup_project_id = "demo-backup"
   region            = "us-central1"
   github_repository = "demo-owner/compras-publicas-cl"
   billing_account   = "000000-000000-000000"
@@ -215,4 +219,76 @@ run "rol_billing_no_permitido" {
     killswitch_billing_role = "roles/owner"
   }
   expect_failures = [var.killswitch_billing_role]
+}
+
+# REQ-016 E1: versioned backup bucket in the separate project, in var.region, with a single 365-day lifecycle rule.
+run "e1_bucket_de_respaldo" {
+  command = plan
+
+  assert {
+    condition     = google_storage_bucket.state_backup.project == "demo-backup"
+    error_message = "the backup bucket must live in backup_project_id"
+  }
+  assert {
+    condition     = google_storage_bucket.state_backup.location == "US-CENTRAL1"
+    error_message = "the backup bucket must live in var.region"
+  }
+  assert {
+    condition     = google_storage_bucket.state_backup.versioning[0].enabled == true
+    error_message = "the backup bucket must be versioned"
+  }
+  assert {
+    condition     = length(google_storage_bucket.state_backup.lifecycle_rule) == 1
+    error_message = "the backup bucket must have a single lifecycle rule"
+  }
+  assert {
+    condition     = one(google_storage_bucket.state_backup.lifecycle_rule[0].condition).age == 365
+    error_message = "the lifecycle rule must match objects older than 365 days"
+  }
+  assert {
+    condition     = one(google_storage_bucket.state_backup.lifecycle_rule[0].action).type == "Delete"
+    error_message = "the lifecycle rule must delete"
+  }
+}
+
+# REQ-016 E2: CI can only create objects in the backup bucket and holds nothing on the backup project.
+run "e2_ci_solo_crea_objetos" {
+  command = apply
+
+  assert {
+    condition     = google_storage_bucket_iam_member.ci_state_backup.role == "roles/storage.objectCreator"
+    error_message = "the CI role on the backup bucket must be storage.objectCreator"
+  }
+  assert {
+    condition     = google_storage_bucket_iam_member.ci_state_backup.member == "serviceAccount:${output.ci_service_account}"
+    error_message = "the backup bucket grant must go to the CI account"
+  }
+  assert {
+    condition     = google_storage_bucket_iam_member.ci_state_backup.bucket == google_storage_bucket.state_backup.name
+    error_message = "the grant must be on the backup bucket"
+  }
+  assert {
+    condition     = alltrue([for w in ["admin", "viewer", "objectUser", "legacy", "objectViewer"] : !strcontains(output.ci_state_backup_role, w)])
+    error_message = "the CI account must not read or delete in the backup bucket"
+  }
+  assert {
+    condition     = alltrue([for m in values(google_project_iam_member.ci) : m.project == "demo-proj"])
+    error_message = "the CI account must hold no role on the backup project"
+  }
+}
+
+run "sin_backup_project_id" {
+  command = plan
+  variables {
+    backup_project_id = null
+  }
+  expect_failures = [var.backup_project_id]
+}
+
+run "backup_igual_al_proyecto" {
+  command = plan
+  variables {
+    backup_project_id = "demo-proj"
+  }
+  expect_failures = [var.backup_project_id]
 }

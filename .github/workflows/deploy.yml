@@ -1,5 +1,7 @@
 # Deploy on merge to main (REQ-002): the same local checks as ci.yml, then terraform apply of infra/main in the
 # protected environment production, authenticated with WIF (DEC-004, no service account keys).
+# After a successful apply the state is backed up to a bucket in a separate project (REQ-016); the upload uses the
+# Cloud Storage JSON API because the CI service account only holds roles/storage.objectCreator on that bucket.
 # T-08 (REQ-006) adds here the images and the Dataform run in ci.
 name: deploy
 
@@ -49,6 +51,7 @@ jobs:
       TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
       TF_VAR_region: ${{ vars.GCP_REGION }}
       TF_VAR_github_repository: ${{ github.repository }}
+      STATE_BACKUP_BUCKET: ${{ vars.STATE_BACKUP_BUCKET }}
     steps:
       - uses: actions/checkout@v5
       - name: Set up tools
@@ -57,5 +60,20 @@ jobs:
         with:
           workload_identity_provider: ${{ vars.WIF_PROVIDER }}
           service_account: ${{ vars.CI_SERVICE_ACCOUNT }}
+      # Only to mint an access token from the WIF credentials; gcloud storage would also need get/list.
+      - uses: google-github-actions/setup-gcloud@v2
       - name: Terraform apply
         run: scripts/it/tf-apply.sh
+      - name: Back up Terraform state
+        run: |
+          : "${STATE_BACKUP_BUCKET:?STATE_BACKUP_BUCKET is required}"
+          state="$RUNNER_TEMP/infra-main.tfstate"
+          scripts/env.sh terraform -chdir=infra/main state pull > "$state"
+          test -s "$state"
+          token=$(gcloud auth print-access-token)
+          echo "::add-mask::$token"
+          name="infra-main%2F$(date -u +%Y%m%dT%H%M%SZ)-${{ github.sha }}.tfstate"
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+            --data-binary @"$state" \
+            "https://storage.googleapis.com/upload/storage/v1/b/${STATE_BACKUP_BUCKET}/o?uploadType=media&ifGenerationMatch=0&name=${name}"

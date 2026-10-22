@@ -10,6 +10,17 @@ variable "project_id" {
   }
 }
 
+variable "backup_project_id" {
+  description = "Separate GCP project holding the Terraform state backup bucket, outside the budget and the kill switch (REQ-016)."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{4,28}[a-z0-9]$", var.backup_project_id)) && var.backup_project_id != var.project_id
+    error_message = "backup_project_id es obligatoria (S-15): un proyecto GCP aparte, distinto de project_id y fuera del presupuesto."
+  }
+}
+
 variable "region" {
   description = "Region for every regional resource (GCS free tier regions only, DEC-001)."
   type        = string

@@ -94,6 +94,29 @@ def test_e2_deploy_applies_on_push_to_main_in_production_with_wif():
     assert "scripts/it/tf-apply.sh" in "\n".join(runs(apply))
 
 
+def test_e3_deploy_backs_up_state_after_apply():
+    apply = load("deploy.yml")["jobs"]["apply"]
+    steps = apply["steps"]
+
+    def index(predicate):
+        return next(i for i, s in enumerate(steps) if predicate(s))
+
+    applied = index(lambda s: "scripts/it/tf-apply.sh" in s.get("run", ""))
+    backup = index(lambda s: "state pull" in s.get("run", ""))
+    assert applied < backup
+    step = steps[backup]
+    text = step["run"]
+    for literal in ["upload/storage/v1", "uploadType=media", "ifGenerationMatch=0", "${{ github.sha }}"]:
+        assert literal in text, literal
+    assert "infra-main%2F" in text or "/infra-main/" in text
+    assert "gcloud storage" not in text and "gsutil" not in text
+    assert "if" not in step and "continue-on-error" not in step
+    auth = index(lambda s: s.get("uses", "").startswith(AUTH))
+    setup = index(lambda s: s.get("uses", "").startswith("google-github-actions/setup-gcloud@"))
+    assert auth < setup < backup
+    assert apply["env"]["STATE_BACKUP_BUCKET"] == "${{ vars.STATE_BACKUP_BUCKET }}"
+
+
 def test_deploy_checks_match_ci_checks():
     assert runs(load("deploy.yml")["jobs"]["checks"]) == runs(load("ci.yml")["jobs"]["checks"])
 

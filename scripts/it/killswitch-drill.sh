@@ -4,7 +4,8 @@
 # function logs under_budget and billing stays linked) and E1 (at budget: billing is unlinked), finds which billing
 # role is enough (DEC-009) and reads the unit of the BigQuery query quota (S-07). E4 is covered by the local tests.
 #
-#   DRILL_PROJECT_ID=… DRILL_BILLING_ACCOUNT=XXXXXX-XXXXXX-XXXXXX TF_VAR_alert_email=… scripts/it/killswitch-drill.sh
+#   DRILL_PROJECT_ID=… DRILL_BACKUP_PROJECT_ID=… DRILL_BILLING_ACCOUNT=XXXXXX-XXXXXX-XXXXXX TF_VAR_alert_email=… \
+#     scripts/it/killswitch-drill.sh
 #
 # The project must carry the label purpose=killswitch-drill and be new for each drill (the deleted WIF pool "github"
 # lingers for 30 days). Optional: TF_VAR_region (us-central1), DRILL_ROLE (roles/billing.projectManager),
@@ -18,7 +19,7 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 for tool in gcloud curl; do
   command -v "$tool" >/dev/null || { echo "killswitch-drill: $tool is required" >&2; exit 2; }
 done
-for v in DRILL_PROJECT_ID DRILL_BILLING_ACCOUNT TF_VAR_alert_email; do
+for v in DRILL_PROJECT_ID DRILL_BACKUP_PROJECT_ID DRILL_BILLING_ACCOUNT TF_VAR_alert_email; do
   [ -n "${!v:-}" ] || { echo "killswitch-drill: $v is required" >&2; exit 1; }
 done
 
@@ -30,6 +31,7 @@ FUNCTION=billing-killswitch
 TOPIC=billing-budget-alerts
 export TF_VAR_project_id=$P TF_VAR_billing_account=$DRILL_BILLING_ACCOUNT TF_VAR_region=${TF_VAR_region:-us-central1}
 export TF_VAR_github_repository=drill-owner/drill TF_VAR_budget_usd=0.01
+export TF_VAR_backup_project_id=$DRILL_BACKUP_PROJECT_ID
 
 tf() { "$ROOT/scripts/env.sh" terraform -chdir="$ROOT/infra/bootstrap" "$@"; }
 billing_enabled() { gcloud billing projects describe "$P" --format='value(billingEnabled)'; }

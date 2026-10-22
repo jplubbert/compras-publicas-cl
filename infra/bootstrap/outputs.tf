@@ -3,6 +3,16 @@ output "state_bucket" {
   value       = google_storage_bucket.state.name
 }
 
+output "state_backup_bucket" {
+  description = "Bucket holding the state backups (STATE_BACKUP_BUCKET of the production environment, REQ-016)."
+  value       = google_storage_bucket.state_backup.name
+}
+
+output "ci_state_backup_role" {
+  description = "Only role of the CI service account on the state backup bucket."
+  value       = google_storage_bucket_iam_member.ci_state_backup.role
+}
+
 output "workload_identity_provider" {
   description = "Full WIF provider name for google-github-actions/auth."
   value       = google_iam_workload_identity_pool_provider.github.name
