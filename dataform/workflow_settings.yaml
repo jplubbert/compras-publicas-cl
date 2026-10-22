@@ -1,0 +1,5 @@
+# Placeholder project: the release configuration (T-11) and the CI run (T-08) override it at compile time.
+defaultProject: compras-publicas-cl
+defaultLocation: us-central1
+defaultDataset: silver
+defaultAssertionDataset: quarantine

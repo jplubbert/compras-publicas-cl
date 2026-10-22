@@ -1,0 +1,18 @@
+# uv workspace (virtual root). Every dependency allowed by R-01 is declared up front so that later tasks need no
+# network: scripts/setup.sh installs them all.
+[tool.uv.workspace]
+members = ["ingest", "finops/killswitch", "benchmarks"]
+
+[tool.uv]
+python-downloads = "never"
+
+[dependency-groups]
+dev = ["pytest==9.1.1", "respx==0.23.1", "ruff==0.17.1", "pyyaml==6.0.3"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+src = ["ingest/src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"

@@ -1,0 +1,15 @@
+[project]
+name = "compras-ingest"
+version = "0.1.0"
+description = "Ingestion of Mercado Público and Banco Central into GCS and BigQuery"
+requires-python = "==3.12.*"
+dependencies = [
+  "google-cloud-storage==3.17.1",
+  "google-cloud-bigquery==3.46.2",
+  "google-cloud-secret-manager==2.31.0",
+  "httpx==0.28.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"

@@ -1,0 +1,9 @@
+[project]
+name = "compras-killswitch"
+version = "0.1.0"
+description = "Unlinks the project's billing account when the budget is exceeded (DEC-003)"
+requires-python = "==3.12.*"
+dependencies = ["google-auth==2.62.0", "httpx==0.28.1", "functions-framework==3.10.2"]
+
+[tool.uv]
+package = false

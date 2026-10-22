@@ -1,0 +1,10 @@
+# Project-local toolchain (R-01). Installed into .tools/ by scripts/setup.sh; run tools through scripts/env.sh.
+[tools]
+terraform = "1.16.6"
+uv = "0.13.4"
+python = "3.12.15"
+node = "22.23.4"
+
+[settings]
+lockfile = true
+python.compile = false

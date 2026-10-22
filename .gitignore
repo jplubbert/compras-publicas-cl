@@ -1,2 +1,12 @@
 .autopilot/
 .tools/
+.terraform/
+*.tfstate*
+*.tfvars
+!*.tfvars.example
+.venv/
+node_modules/
+.env*
+__pycache__/
+.pytest_cache/
+.ruff_cache/
