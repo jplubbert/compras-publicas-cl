@@ -1,0 +1,77 @@
+{
+  "task": "T-02",
+  "records": [
+    {
+      "task": "T-02",
+      "run": "2026-10-21_233035",
+      "role": "implementer",
+      "attempt": 1,
+      "started": "2026-10-22T02:49:21.000Z",
+      "minutes": 0.9,
+      "tokens": {
+        "input": 48,
+        "output": 4493,
+        "cache_read": 458382,
+        "cache_write": 32623
+      },
+      "exit_code": 0,
+      "test_runs": {
+        "task": 0,
+        "suite": 0,
+        "agent": {
+          "task": 0,
+          "suite": 0
+        },
+        "hook": {
+          "task": 0,
+          "suite": 0
+        },
+        "orchestrator": {
+          "task": 0,
+          "suite": 0
+        }
+      },
+      "gates": [
+        {
+          "name": "audit",
+          "result": "ok"
+        },
+        {
+          "name": "acceptance_guard",
+          "result": "ok"
+        },
+        {
+          "name": "authority",
+          "result": "ok"
+        },
+        {
+          "name": "scope",
+          "result": "ok"
+        },
+        {
+          "name": "result",
+          "result": "ok"
+        }
+      ],
+      "verify_exit_codes": {
+        "hook": null,
+        "close": null
+      },
+      "tree_sha": "6e46af6b8f2d1d1e5ade1a3118a15724aede27f4"
+    }
+  ],
+  "totals": {
+    "records": 1,
+    "minutes": 0.9,
+    "tokens": {
+      "input": 48,
+      "output": 4493,
+      "cache_read": 458382,
+      "cache_write": 32623
+    },
+    "test_runs": {
+      "task": 0,
+      "suite": 0
+    }
+  }
+}

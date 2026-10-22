@@ -1,0 +1,28 @@
+{
+  "question_id": "finding_severity",
+  "instructions": "Does this finding of a plan critique block implementing the plan as written?",
+  "state": {
+    "id": "req-003:dataform-sin-maximum-bytes-billed",
+    "severity": "P1",
+    "evidence_type": "fuente",
+    "evidence": "https://github.com/dataform-co/dataform/blob/main/protos/configs.proto — el mensaje WorkflowSettings no tiene ningún campo de bytes facturados y las configuraciones por acción tampoco; en conflicto con spec/SPEC.md:145 (REQ-003 E6: «workflow_settings.yaml fija maximumBytesBilled») y con DEC-003.",
+    "summary": "El paso 6 da por hecho que existe un argumento de Dataform («defaultMaximumBytesBilled, o el que sea») y el paso 13 solo admite correcciones a S-06 y S-07. Si el campo no existe, el spike no tiene dónde proponer la corrección de REQ-003 E6 y DEC-003, y T-05 se escribe contra un REQ imposible de cumplir.",
+    "fix": "En el paso 6, verificar en configs.proto o en la referencia de workflow settings si existe el campo; si no existe, decirlo con su fuente y documentar la alternativa (tope en las consultas de los scripts, cuota diaria de proyecto). En el paso 13, agregar una línea «corregir: REQ-003 E6 / DEC-003» con la propuesta, para que la registre el usuario."
+  },
+  "options": {
+    "blocking": "P0/P1: the plan cannot be implemented as written without fixing this",
+    "not_blocking": "P2/P3: worth fixing, but the plan can go ahead"
+  },
+  "answer": "blocking",
+  "confidence": 0.98,
+  "probabilities": {
+    "blocking": 0.99,
+    "not_blocking": 0.01
+  },
+  "model": "jev-1.13.0",
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "",
+  "decider": "/home/pepe/Projects/compras-publicas-cl/scripts/agents/decider/jev.sh",
+  "timestamp": "2026-10-22T02:46:56.616Z"
+}
