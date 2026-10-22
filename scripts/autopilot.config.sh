@@ -203,7 +203,7 @@ AUTOPILOT_INTEGRATION_PATTERN='claude-smoke\.sh|jev-smoke\.sh|scripts/it/|terraf
 # configuration ~/.config/autopilot/autopilot.config.sh (or AUTOPILOT_LOCAL_CONFIG): `NTFY_TOPIC=<topic>`.
 
 # --- compras-publicas-cl ---
-AUTOPILOT_IMPL_PROMPT_EXTRA='Run scripts/setup.sh first if .tools/ is missing (it is the only step that uses the network). Never run scripts/it/, terraform plan/apply, gcloud, bq or gsutil: they touch GCP and only the user runs them.'
+AUTOPILOT_IMPL_PROMPT_EXTRA='Run scripts/setup.sh first if .tools/ is missing (it is the only step that uses the network; mise in .tools/, never sudo or global installs). Run every tool through scripts/env.sh <command>. Never run scripts/it/, terraform plan/apply, gcloud, bq or gsutil: they touch GCP and only the user runs them.'
 AUTOPILOT_IMPL_DENIED_EXTRA=("Bash(gcloud *)" "Bash(bq *)" "Bash(gsutil *)" "Bash(scripts/it/*)" "Bash(*terraform*apply*)" "Bash(*terraform*plan*)" "Bash(gh pr *)" "Bash(gh workflow run*)")
 AUTOPILOT_REVIEW_ALLOWED_EXTRA=("Bash(npm run *)" "Bash(uv run pytest*)" "Bash(scripts/acceptance.sh *)")
 AUTOPILOT_REVIEW_COMMANDS='`npm test`, `npm run lint`, `npm run check:repo`, `scripts/acceptance.sh <file>`, `node scripts/check-spec.mjs`'
@@ -213,5 +213,5 @@ AUTOPILOT_RESEARCH=web
 AUTOPILOT_TEST_AUTHOR=on
 AUTOPILOT_ACCEPTANCE_CMD='scripts/acceptance.sh'
 AUTOPILOT_TEST_AUTHOR_PROMPT_EXTRA='Local and offline only (DEC-005). Python: pytest (tests/acceptance/<ID>_*.py) with respx and in-memory fakes. Terraform: tests/acceptance/<ID>_*.tftest.hcl with mock_provider "google". Dataform and repo checks: node:test (tests/acceptance/<ID>_*.test.mjs) over `dataform compile --json` or the script output. One test per REQ example; examples marked "en ci" or "integración" are not written here.'
-AUTOPILOT_ACCEPTANCE_RUNNER_FILES+=('scripts/acceptance.sh' 'pyproject.toml' 'uv.lock' 'dataform/package.json')
+AUTOPILOT_ACCEPTANCE_RUNNER_FILES+=('scripts/acceptance.sh' 'scripts/env.sh' 'mise.toml' 'mise.lock' 'pyproject.toml' 'uv.lock' 'dataform/package.json')
 AUTOPILOT_SENSITIVE_GLOBS+=('infra/bootstrap/*' 'finops/*' '.github/workflows/*')

@@ -4,7 +4,7 @@
     {
       "id": "T-01",
       "title": "Entorno fijado y esqueleto andante del repo",
-      "description": "Espacio de trabajo uv en la raíz (pyproject.toml, uv.lock, .python-version 3.12) con los miembros ingest/, finops/killswitch/ y benchmarks/; scripts/setup.sh (la única con red: instala Terraform fijado en .tools/ verificando su sha256, corre uv sync y npm ci de dataform/, fija y precarga con terraform providers mirror en .tools/providers todos los proveedores que usará el corte (google, google-beta, archive, random) e inicializa infra/bootstrap e infra/main con -backend=false y -plugin-dir, para que el verify no use red); scripts/acceptance.sh <archivo> (runner por extensión, DEC-005: .py → uv run pytest, .tftest.hcl → terraform test, .test.mjs → node --test; comprueba S-10 y deja anotado en notes si hace falta copiar el archivo al módulo); esqueleto andante: infra/bootstrap e infra/main con un módulo vacío que valida, ingest/ con un paquete compras_ingest y una prueba trivial, dataform/ con workflow_settings.yaml (us-central1) y una declaración de fuente que compila; scripts/ci/check-repo.mjs (sin dependencias: falla ante google_composer_environment, IDs de proyecto o números de cuenta literales en infra/, credentials_json, llaves de cuenta de servicio y google_secret_manager_secret_version con secret_data) con sus pruebas node:test; package.json con lint (ruff + terraform fmt -check), test (todas las pruebas unitarias más test:sdd), test:infra, test:ingest, test:dataform, check:repo; .gitignore (conserva .autopilot/ y agrega .tools/, .terraform/, *.tfstate*, *.tfvars salvo *.tfvars.example —ahí va alert_email, Q-03—, .venv/, node_modules/, .env*). Sin cambios en GCP.",
+      "description": "Espacio de trabajo uv en la raíz (pyproject.toml, uv.lock; python lo da mise) con los miembros ingest/, finops/killswitch/ y benchmarks/; Herramientas con mise, sin sudo y sin nada global (pedido del usuario, 2026-10-21): mise.toml en la raíz fija terraform, uv, python 3.12 y node 22 (versiones exactas, con mise.lock y checksums); scripts/setup.sh (la única con red) descarga el binario de mise de una versión fijada a .tools/bin/mise verificando su sha256 (no usa el mise del sistema), instala las herramientas con MISE_DATA_DIR=.tools/mise (Terraform queda en .tools/, DEC-005), corre uv sync y npm ci de dataform/, fija y precarga con terraform providers mirror en .tools/providers todos los proveedores del corte (google, google-beta, archive, random) e inicializa infra/bootstrap e infra/main con -backend=false y -plugin-dir; scripts/env.sh <comando…> exporta MISE_DATA_DIR y MISE_CONFIG_DIR dentro de .tools/, ignora el PATH global de herramientas y ejecuta el comando con .tools/bin/mise exec, de modo que node, npm, terraform, uv y python salen solo de .tools/ (si .tools/ falta, sale distinto de 0 y pide correr scripts/setup.sh). Los scripts de package.json que usan terraform, uv, python o dataform los llaman a través de scripts/env.sh, y scripts/acceptance.sh también. scripts/acceptance.sh <archivo> (runner por extensión, DEC-005: .py → uv run pytest, .tftest.hcl → terraform test, .test.mjs → node --test; comprueba S-10 y deja anotado en notes si hace falta copiar el archivo al módulo); esqueleto andante: infra/bootstrap e infra/main con un módulo vacío que valida, ingest/ con un paquete compras_ingest y una prueba trivial, dataform/ con workflow_settings.yaml (us-central1) y una declaración de fuente que compila; scripts/ci/check-repo.mjs (sin dependencias: falla ante google_composer_environment, IDs de proyecto o números de cuenta literales en infra/, credentials_json, llaves de cuenta de servicio y google_secret_manager_secret_version con secret_data) con sus pruebas node:test; package.json con lint (ruff + terraform fmt -check), test (todas las pruebas unitarias más test:sdd), test:infra, test:ingest, test:dataform, check:repo; .gitignore (conserva .autopilot/ y agrega .tools/, .terraform/, *.tfstate*, *.tfvars salvo *.tfvars.example —ahí va alert_email, Q-03—, .venv/, node_modules/, .env*). Sin cambios en GCP. Prueba (en scripts/ci/tests, node:test) que scripts/env.sh resuelve node, terraform, uv y python dentro de .tools/ con PATH=/usr/bin:/bin.",
       "reqs": [],
       "decisions": [
         "DEC-001",
@@ -14,13 +14,12 @@
       "depends_on": [],
       "status": "ready",
       "blocked_by": null,
-      "notes": "",
+      "notes": "2026-10-21: herramientas con mise local en .tools/, sin sudo; verify a través de scripts/env.sh (pedido de José Pedro Lübbert).",
       "kind": "tooling",
       "touches": [
         "package.json",
         "pyproject.toml",
         "uv.lock",
-        ".python-version",
         ".gitignore",
         "scripts/setup.sh",
         "scripts/acceptance.sh",
@@ -29,9 +28,12 @@
         "dataform/",
         "infra/",
         "finops/",
-        "benchmarks/"
+        "benchmarks/",
+        "mise.toml",
+        "mise.lock",
+        "scripts/env.sh"
       ],
-      "verify": "npm run lint && npm test && npm run check:repo && npm run check:spec",
+      "verify": "scripts/env.sh bash -c 'npm run lint && npm test && npm run check:repo && npm run check:spec'",
       "status_log": [
         {
           "from": "specified",
@@ -96,7 +98,7 @@
         "package.json",
         "scripts/setup.sh"
       ],
-      "verify": "npm run test:infra && npm run check:repo && npm run check:spec",
+      "verify": "scripts/env.sh bash -c 'npm run test:infra && npm run check:repo && npm run check:spec'",
       "verify_integration": "scripts/it/tf-plan.sh bootstrap && scripts/it/tf-plan.sh main",
       "status_log": [
         {
@@ -131,7 +133,7 @@
         "scripts/it/",
         "package.json"
       ],
-      "verify": "npm run test:workflows && npm run check:repo && npm run check:spec",
+      "verify": "scripts/env.sh bash -c 'npm run test:workflows && npm run check:repo && npm run check:spec'",
       "verify_integration": "scripts/it/last-ci-run.sh",
       "status_log": [
         {
@@ -170,7 +172,7 @@
         "uv.lock",
         "scripts/setup.sh"
       ],
-      "verify": "npm run test:finops && npm run test:infra && npm run check:spec",
+      "verify": "scripts/env.sh bash -c 'npm run test:finops && npm run test:infra && npm run check:spec'",
       "verify_integration": "scripts/it/killswitch-drill.sh",
       "status_log": [
         {
@@ -204,7 +206,7 @@
         "ingest/",
         "scripts/it/"
       ],
-      "verify": "npm run test:ingest && npm run check:spec",
+      "verify": "scripts/env.sh bash -c 'npm run test:ingest && npm run check:spec'",
       "verify_integration": "scripts/it/ingest-mp.sh",
       "status_log": [
         {
@@ -237,7 +239,7 @@
         "ingest/",
         "scripts/it/"
       ],
-      "verify": "npm run test:ingest && npm run check:spec",
+      "verify": "scripts/env.sh bash -c 'npm run test:ingest && npm run check:spec'",
       "verify_integration": "scripts/it/ingest-indicadores.sh",
       "status_log": [
         {
@@ -276,7 +278,7 @@
         "scripts/ci/",
         "scripts/it/"
       ],
-      "verify": "npm run test:ingest && npm run test:infra && npm run test:workflows && npm run check:spec",
+      "verify": "scripts/env.sh bash -c 'npm run test:ingest && npm run test:infra && npm run test:workflows && npm run check:spec'",
       "verify_integration": "scripts/it/run-jobs.sh",
       "status_log": [
         {
@@ -314,7 +316,7 @@
         "package.json",
         ".github/workflows/ci.yml"
       ],
-      "verify": "npm run test:dataform && npm run check:descriptions && npm run check:spec",
+      "verify": "scripts/env.sh bash -c 'npm run test:dataform && npm run check:descriptions && npm run check:spec'",
       "verify_integration": "scripts/it/dataform-ci.sh",
       "status_log": [
         {
@@ -348,7 +350,7 @@
         "dataform/",
         "scripts/it/"
       ],
-      "verify": "npm run test:dataform && npm run check:descriptions && npm run check:spec",
+      "verify": "scripts/env.sh bash -c 'npm run test:dataform && npm run check:descriptions && npm run check:spec'",
       "verify_integration": "scripts/it/dataform-ci.sh",
       "status_log": [
         {
@@ -386,7 +388,7 @@
         "package.json",
         "scripts/setup.sh"
       ],
-      "verify": "npm run test:infra && npm run test:orchestration && npm run check:spec",
+      "verify": "scripts/env.sh bash -c 'npm run test:infra && npm run test:orchestration && npm run check:spec'",
       "verify_integration": "scripts/it/run-workflow.sh",
       "status_log": [
         {
@@ -419,7 +421,7 @@
         "dataform/",
         "scripts/it/"
       ],
-      "verify": "npm run test:dataform && npm run check:descriptions && npm run check:spec",
+      "verify": "scripts/env.sh bash -c 'npm run test:dataform && npm run check:descriptions && npm run check:spec'",
       "verify_integration": "scripts/it/dataform-ci.sh",
       "status_log": [
         {
@@ -454,7 +456,7 @@
         "scripts/it/",
         "package.json"
       ],
-      "verify": "npm run test:benchmarks && npm run check:spec",
+      "verify": "scripts/env.sh bash -c 'npm run test:benchmarks && npm run check:spec'",
       "verify_integration": "scripts/it/benchmark.sh",
       "status_log": [
         {
@@ -493,7 +495,7 @@
         "scripts/setup.sh",
         "orchestration/"
       ],
-      "verify": "npm run test:infra && npm run test:dataform && npm run check:spec",
+      "verify": "scripts/env.sh bash -c 'npm run test:infra && npm run test:dataform && npm run check:spec'",
       "verify_integration": "scripts/it/policy-tags.sh",
       "status_log": [
         {
@@ -530,7 +532,7 @@
         "scripts/ci/",
         "package.json"
       ],
-      "verify": "npm run check:readme && npm run check:spec",
+      "verify": "scripts/env.sh bash -c 'npm run check:readme && npm run check:spec'",
       "status_log": [
         {
           "from": "specified",
@@ -538,6 +540,31 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:23:37.766Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
+    },
+    {
+      "id": "T-16",
+      "title": "Habilitar la cobertura desde aceptación (DEC-011 de sdd-base)",
+      "description": "Creada por adelantado con el título que usa el orquestador (ensureCoverageTasks), para que no la vuelva a crear. Fuera de este corte por S-11: no hace falta spec/COVERAGE.json.",
+      "kind": "tooling",
+      "reqs": [],
+      "decisions": [],
+      "depends_on": [],
+      "status": "superseded",
+      "blocked_by": null,
+      "touches": [
+        "package.json"
+      ],
+      "verify": "npm run check:coverage && npm test",
+      "notes": "",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "superseded",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:26:18.046Z",
+          "reason": "S-11: sin spec/COVERAGE.json en el corte 1; pedido del usuario en sesión (2026-10-21)"
         }
       ]
     }

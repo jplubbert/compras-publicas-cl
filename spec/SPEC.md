@@ -49,8 +49,9 @@ de cuenta de servicio; (3) el README trae la tabla del benchmark con números re
   Manager, Artifact Registry, Pub/Sub para el presupuesto, Cloud Monitoring, IAM, policy tags de BigQuery); Terraform ≥
   1.7 con el proveedor `google`; Python 3.12 con uv (dependencias: `google-cloud-storage`, `google-cloud-bigquery`,
   `google-cloud-secret-manager`, `google-auth`, `httpx`, `functions-framework` (solo la desvinculadora); desarrollo: `pytest`, `respx`, `ruff`, `pyyaml`); Node.js ≥ 22 para Dataform
-  (`@dataform/core` y `@dataform/cli`) y las guardas del protocolo; GitHub Actions. Otra dependencia necesita una DEC —
-  fuente: usuario, DEC-001.
+  (`@dataform/core` y `@dataform/cli`) y las guardas del protocolo; GitHub Actions. Herramientas instaladas con mise dentro de `.tools/` (mise
+  incluido, sin sudo); ningún `verify` depende de herramientas globales (se corre con `scripts/env.sh`). Otra dependencia
+  necesita una DEC — fuente: usuario, DEC-001. (Previamente: sin la oración de mise, cambiado en LOG 2026-10-21.)
 - R-02 Región `us-central1` para todo recurso regional y para los datasets — fuente: DEC-001.
 - R-03 Costo: USD 0 a 1 al mes en uso normal y corte duro a los USD 10; nada que cobre por hora encendido (Composer,
   instancias de Cloud SQL o de GKE) — fuente: usuario, DEC-003.

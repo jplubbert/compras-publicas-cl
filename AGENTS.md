@@ -36,7 +36,8 @@ No cargues la spec completa si la tarea no la cita. Nunca reconstruyas estado de
   orquestador; no los edites
 
 ## Comandos
-- Preparar entorno: `scripts/setup.sh`
+- Preparar entorno: `scripts/setup.sh` (mise local en `.tools/`, sin sudo; es el único paso con red). Todo comando de
+  herramientas va con `scripts/env.sh <comando>`: no uses terraform, node, uv ni python globales
 - Pruebas: `npm test` | Aceptación: `scripts/acceptance.sh <archivo>` | Lint/tipos: `npm run lint`
 - Desplegar: merge a `main` (GitHub Actions aplica `infra/main`); `infra/bootstrap` lo aplica el usuario a mano (solo el usuario; ver Autoridad)
 - Validar protocolo: `npm run check:spec` (también lo corre el hook `commit-msg` de `.githooks/`)

@@ -57,3 +57,19 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Pendiente deploy: ninguno
 - Bloqueos nuevos: ninguno
 - Próxima acción autorizada: el despachador (o `scripts/autopilot.sh`) toma T-01 y T-02, que no tienen dependencias
+
+## 2026-10-21 23:55 · Claude (sesión interactiva)
+- Hecho: pedidos de José Pedro Lübbert. (1) T-16 «Habilitar la cobertura desde aceptación (DEC-011 de sdd-base)» se creó
+  por adelantado con el título que usa el orquestador y quedó `superseded` a su nombre (S-11). `ensureCoverageTasks` la
+  reconoce como existente y no crea otra. (2) T-01 instala las herramientas con mise, que también queda en `.tools/`
+  (mise fijado en `.tools/bin`, `MISE_DATA_DIR=.tools/mise`), sin sudo. Su verify corre con `scripts/env.sh`, que solo
+  usa herramientas de `.tools/` (sin nada global). R-01 se actualizó, y AGENTS.md y autopilot.config.sh indican usar
+  `scripts/env.sh`.
+- Interpretaciones: los verify de T-03 a T-15 también pasan por `scripts/env.sh`, para que ninguna tarea dependa de
+  node, terraform, uv ni python globales (reversible; criterio «decidir sin preguntar lo reversible»). DEC-005 no
+  cambia: Terraform sigue en `.tools/`, ahora a través de mise.
+- check:spec: ok · check-adr: ok
+- Pendiente manual: ninguna nueva
+- Pendiente deploy: ninguno
+- Bloqueos nuevos: ninguno
+- Próxima acción autorizada: el encadenado de sdd-base toma el repo y arranca con T-01 y T-02
