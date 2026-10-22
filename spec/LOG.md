@@ -686,3 +686,7 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Bloqueos nuevos: ninguno.
 - Motivo de parada: presupuesto de tareas alcanzado (1).
 - Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.
+
+## 2026-10-22 18:11 · autopilot (scripts/autopilot.sh): plan de T-12
+- Decisión: escalar T-12 al usuario (DEC-010): el planificador no escribió plans/T-12.md (ronda 1, código 0). Queda `blocked` por Q-08, nueva en «Preguntas abiertas» de SPEC.md.
+- Próxima acción autorizada: el usuario responde Q-08; el orquestador no vuelve a tomar T-12 mientras siga blocked.

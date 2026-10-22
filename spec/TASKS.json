@@ -1440,9 +1440,9 @@
       "depends_on": [
         "T-10"
       ],
-      "status": "ready",
-      "blocked_by": null,
-      "notes": "",
+      "status": "blocked",
+      "blocked_by": "Q-08",
+      "notes": "2026-10-22: escalada por el orquestador (DEC-005): el planificador no escribió plans/T-12.md (ronda 1, código 0); sin informe; bloqueada por Q-08.",
       "touches": [
         "dataform/",
         "scripts/it/"
@@ -1456,6 +1456,13 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:23:37.529Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        },
+        {
+          "from": "ready",
+          "to": "blocked",
+          "by": "escalate",
+          "at": "2026-10-22T21:11:15.451Z",
+          "reason": "escalada al usuario por Q-08"
         }
       ]
     },
