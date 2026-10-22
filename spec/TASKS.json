@@ -1037,7 +1037,41 @@
           "at": "2026-10-22T02:23:37.290Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
         }
-      ]
+      ],
+      "plan_review": {
+        "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 1,
+        "plan": "plans/T-09.md",
+        "plan_sha": "5fedf29af8fac100de4326730e12c1c7470cfe81",
+        "plan_commit": "0965a3f",
+        "findings": [
+          {
+            "id": "req-008:e3-no-ejercita-self",
+            "severity": "P2",
+            "evidence_type": "archivo",
+            "evidence": "plans/T-09.md:167 — antes de la corrida 2 solo se agrega la versión 5 vieja sin quitar de raw_ci las versiones 5 y 8 cargadas antes, todas con _ingest_date = D dentro de la ventana de 3 días.",
+            "summary": "En la corrida incremental, el CTE nuevas sigue conteniendo la versión 8, así que el QUALIFY la elige aunque la unión con ${self()} no exista o esté mal filtrada. E3 se cumple literalmente, pero no comprueba en BigQuery el mecanismo que el riesgo «El MERGE escribe una versión vieja» dice mitigar en el paso 18; la semántica de STRUCT IN y la unión con el destino quedan sin ejecutarse de verdad."
+          },
+          {
+            "id": "req-008:ventana-descarta-recargas-viejas",
+            "severity": "P2",
+            "evidence_type": "archivo",
+            "evidence": "plans/T-09.md:225 — la ventana de 3 días sobre MAX(_ingest_date) del destino deja fuera las cargas a particiones viejas; spec/SPEC.md:430 (S-20) dice que _ingest_date viaja en cada línea de bronze con la fecha de la corrida original, y spec/SPEC.md:432 (S-22) que el subcomando load recarga corridas.",
+            "summary": "Si una corrida de ingesta falla al cargar y se recarga con load más de 3 días después, sus filas caen en una partición vieja de raw y el modo incremental nunca las lleva a silver: se pierden sin aviso hasta un --full-refresh. Contradice que la idempotencia y el reproceso sean propiedad de silver (DEC-006)."
+          },
+          {
+            "id": "req-014:rut-sin-tag-en-silver",
+            "severity": "P3",
+            "evidence_type": "archivo",
+            "evidence": "spec/SPEC.md:350 — REQ-014 pone la tag solo en silver.proveedores y gold.dim_proveedor, y exige que MERGE y joins usen proveedor_key; el plan agrega rut_proveedor en silver.ordenes_compra y rut_proveedor_adjudicado en silver.licitacion_items.",
+            "summary": "Silver no es un dataset restringido por IAM (REQ-001), así que el RUT de personas naturales queda legible en dos tablas de silver que REQ-014 no menciona. No rompe T-09, pero T-14 lo tiene que cubrir."
+          }
+        ],
+        "opinion_blockers": [],
+        "date": "2026-10-22"
+      }
     },
     {
       "id": "T-10",
