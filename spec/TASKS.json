@@ -264,7 +264,34 @@
           "at": "2026-10-22T03:52:59.329Z",
           "reason": "Q-05: el test-author no puede escribir su resultado (falla de sdd-base); se apaga AUTOPILOT_TEST_AUTHOR y T-03 sigue con el implementador"
         }
-      ]
+      ],
+      "plan_review": {
+        "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 1,
+        "plan": "plans/T-03.md",
+        "plan_sha": "d43e9fff4f2732ab9235b3208c643d1967c30193",
+        "plan_commit": "d54ad48",
+        "findings": [
+          {
+            "id": "dec-003:ci-serviceaccountadmin-suplanta-desvinculadora",
+            "severity": "P2",
+            "evidence_type": "fuente",
+            "evidence": "https://git.disroot.org/0x22bb/hacktricks/raw/commit/dd633218bb822c14e60da88253022eb41b914134/cloud-security/gcp-security/gcp-interesting-permissions/gcp-privesc-to-other-principals.md — iam.serviceAccounts.setIamPolicy permite concederse serviceAccountTokenCreator sobre otra cuenta de servicio; ver también spec/SPEC.md:137 («La cuenta de servicio de CI no deberá tener roles de billing»).",
+            "summary": "El paso 6 da a la cuenta de CI roles/iam.serviceAccountAdmin a nivel de proyecto. Con ese rol puede concederse roles/iam.serviceAccountTokenCreator sobre cualquier cuenta de servicio del proyecto, incluida la de la desvinculadora que T-05 agregará con roles/billing.projectManager o billing.admin, y así eludir la garantía de DEC-003 de que CI no puede quitar el tope. La prueba del paso 16 solo revisa nombres de roles y no lo detecta. Es comparable al riesgo residual de run.admin que DEC-003 ya acepta, por eso es P2."
+          },
+          {
+            "id": "req-001:supuestos-api-sin-fuente",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "Supuestos del plan: «Un dataset creado con bloques access explícitos no recibe los READER/WRITER por defecto…» y «GCS acepta los miembros projectOwner:<id>».",
+            "summary": "E6 en terraform test con mock_provider solo comprueba la configuración, no lo que la API realmente guarda. Si BigQuery agrega lectores por defecto o GCS normaliza projectOwner a número de proyecto, el verify local pasa igual y el error aparece solo en la integración, como una diferencia perpetua."
+          }
+        ],
+        "opinion_blockers": [],
+        "date": "2026-10-22"
+      }
     },
     {
       "id": "T-04",
