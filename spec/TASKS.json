@@ -627,7 +627,55 @@
           "at": "2026-10-22T02:23:37.048Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
         }
-      ]
+      ],
+      "plan_review": {
+        "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 1,
+        "plan": "plans/T-06.md",
+        "plan_sha": "2eaff396fe17d96503d7f57df18f2473feb73fa9",
+        "plan_commit": "fe7ad93",
+        "findings": [
+          {
+            "id": "req-004:auth-error-en-detalle-bloquea",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "Plan, paso 7: 'Un estado 400, 401 o 403 en cualquier respuesta lanza AuthError: escribe la línea, vacía los búferes, guarda el cursor y sale con 1'. REQ-004 pide que un detalle que falla quede como línea de error y el job continúe.",
+            "summary": "Un 400 en un único detalle (por ejemplo, un código mal formado en el listado) corta toda la corrida con 1. Si el cursor no avanza más allá de ese código (el plan no lo deja claro para este camino), cada corrida siguiente vuelve a fallar en el mismo código y el pipeline diario queda detenido."
+          },
+          {
+            "id": "req-004:sin-pausa-ante-429-10500",
+            "severity": "P2",
+            "evidence_type": "fuente",
+            "evidence": "https://github.com/nasdep1/radar-publico-chile — documenta HTTP 429 con Codigo 10500 'peticiones simultáneas'; https://github.com/Yakazor/MercadoPublico usa una pausa de 2 s y esperas de 2 a 16 s",
+            "summary": "Sin pausa entre requests y con un backoff total de 7 s, la limitación de la API puede convertir detalles en líneas de error definitivas y gastar el presupuesto en reintentos, lo que pone en riesgo el cálculo de capacidad de S-06."
+          },
+          {
+            "id": "req-004:handlers-de-logging-acumulados",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "Plan, paso 1 y paso 9: configure_logging agrega un StreamHandler(sys.stderr) en la raíz en cada llamada a main(); las pruebas llaman a main muchas veces con capsys.",
+            "summary": "Los handlers se acumulan entre pruebas y apuntan a streams de capsys ya cerrados; esto produce 'Logging error' y líneas duplicadas en stderr, que pueden enturbiar E5 y las comprobaciones de stderr de E4."
+          },
+          {
+            "id": "req-004:bronzewriter-sin-secretos",
+            "severity": "P3",
+            "evidence_type": "opinión",
+            "evidence": "Plan, paso 5: 'BronzeWriter(store, run_id, flush_every=500, on_flush=None)' y a la vez 'comprueba que ningún valor de los secretos aparece en el texto'.",
+            "summary": "La firma no recibe los secretos que la comprobación necesita."
+          },
+          {
+            "id": "req-004:retry-after-sin-tope",
+            "severity": "P3",
+            "evidence_type": "opinión",
+            "evidence": "Plan, Riesgos: 'Un Retry-After muy largo deja el job esperando ... el timeout de tarea de 7 h de T-08 acota la espera'.",
+            "summary": "Un Retry-After grande puede consumir la ventana de R-04 y terminar con un timeout de la tarea (Workflow en error) en vez de salir en 0 con el cursor guardado."
+          }
+        ],
+        "opinion_blockers": [],
+        "date": "2026-10-22"
+      }
     },
     {
       "id": "T-07",
