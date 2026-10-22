@@ -776,7 +776,48 @@
           "at": "2026-10-22T02:23:37.128Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
         }
-      ]
+      ],
+      "plan_review": {
+        "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 1,
+        "plan": "plans/T-07.md",
+        "plan_sha": "d02b50c0534a07495e3fc3989c5273d630470a56",
+        "plan_commit": "c4daf5e",
+        "findings": [
+          {
+            "id": "bcentral:codigo-no-cero-como-token-rechazado",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "Paso 3 del plan: rechazo() trata cualquier Codigo distinto de 0 como rechazo. Paso 5: lanza TokenRechazado, no pide las series restantes ni mindicador y registra «token de la BDE rechazado».",
+            "summary": "Si un código de S-08 no existe o cambió, la BDE probablemente responde con un Codigo distinto de 0 que no tiene que ver con el token. El job lo informaría como «token rechazado», dejaría de pedir las demás series y también mindicador. La salida sigue siendo distinta de 0, así que REQ-005 se cumple, pero el diagnóstico sería falso y se perderían datos válidos de esa corrida."
+          },
+          {
+            "id": "req-005:e4-timeout-total-sin-probar",
+            "severity": "P2",
+            "evidence_type": "archivo",
+            "evidence": "spec/SPEC.md:192 — E4: «mindicador da timeout | aviso en el registro, sin archivo de mindicador y sale en 0».",
+            "summary": "La prueba de E4 del plan solo hace fallar la UF y comprueba que sí existe el objeto del dólar. El caso literal del ejemplo, en que mindicador entero da timeout y no queda ningún archivo bajo mindicador/, no se prueba."
+          },
+          {
+            "id": "bronze:chequeo-de-secretos-vs-descripcion",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "Paso 5 (TokenRechazado: «flush() del escritor de la BDE (la línea del rechazo queda en bronze, redactada)») y Riesgos («la comprobación de secretos de BronzeWriter»).",
+            "summary": "En E3, la Descripcion repite el token. Si la comprobación de secretos de BronzeWriter (T-06) lanza una excepción en vez de redactar, el flush del camino de rechazo falla. El job terminaría por el manejador genérico, no con el mensaje «token de la BDE rechazado» que la prueba de E3 espera, o no quedaría la línea que el plan dice que queda. El plan no aclara si el registro se redacta antes de esa comprobación."
+          },
+          {
+            "id": "req-005:traza-de-prueba-fuera-de-acceptance",
+            "severity": "P3",
+            "evidence_type": "archivo",
+            "evidence": "spec/SPEC.md:193 — «prueba: tests/acceptance/T-07*».",
+            "summary": "La traza de REQ-005 apunta a tests/acceptance/T-07*, pero el plan pone E1 a E4 en ingest/tests/test_indicadores.py. Es lo mismo que se hizo en T-06, que fue aprobada, y el test-author está apagado (Q-05)."
+          }
+        ],
+        "opinion_blockers": [],
+        "date": "2026-10-22"
+      }
     },
     {
       "id": "T-08",
