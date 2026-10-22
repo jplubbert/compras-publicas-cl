@@ -491,7 +491,7 @@
       "depends_on": [
         "T-03"
       ],
-      "status": "verified_auto",
+      "status": "reviewed",
       "blocked_by": null,
       "notes": "La unidad MiBy de QueryUsagePerDay y QueryUsagePerUserPerDay (S-07) y que roles/billing.projectManager baste para desvincular (DEC-009) siguen sin confirmar hasta el simulacro; terraform test solo comprueba los valores 51200 y 20480. E4 se prueba solo en local (sin billing la función no correría en el simulacro). El aviso por correo usa un canal de notificación de Monitoring (monitoring_notification_channels del presupuesto). CI recibe roles/cloudquotas.admin para crear las quota_preference de infra/main; con él podría subir la cuota diaria, pero no toca billing ni el presupuesto. Cambiar el Enforced-by de DEC-003 a cmd: npm run test:finops queda para el usuario (spec/).",
       "touches": [
@@ -526,6 +526,13 @@
           "by": "record_evidence.py",
           "at": "2026-10-22T14:24:03+00:00",
           "reason": "verify con código 0: 24/24 pasan, 0 fallan"
+        },
+        {
+          "from": "verified_auto",
+          "to": "reviewed",
+          "by": "set-review",
+          "at": "2026-10-22T14:24:48.705Z",
+          "reason": "veredicto approved confirmado por el decisor"
         }
       ],
       "plan_review": {
@@ -569,6 +576,20 @@
         "commit": "6cbb836104b07337878e1d7faaefc06f90b1b68a",
         "timestamp": "2026-10-22T14:24:03+00:00",
         "result": "24/24 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-05/verify.log)"
+      },
+      "review": {
+        "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Verificado sin modificar nada: sha256 de artifacts/T-05/verify.log coincide; npm run test:finops (18 pasan) y npm run test:infra (24 pasan) re-ejecutados con el mismo resultado; npm run lint, npm run check:repo y check-spec salen con 0. Observaciones no bloqueantes: (1) REQ-003 traza la prueba a tests/acceptance/T-05*, pero el directorio tests/acceptance/ no existe en el repo; las pruebas de aceptación viven en finops/killswitch/tests y en los tftest.hcl. (2) La unidad MiBy de las cuotas (S-07) y que roles/billing.projectManager baste para desvincular (DEC-009) siguen sin confirmar hasta que el usuario corra scripts/it/killswitch-drill.sh; E6 solo comprueba 51200/20480. (3) Con roles/cloudquotas.admin, CI podría subir las cuotas diarias; no toca billing ni Pub/Sub, así que no viola DEC-003, pero conviene declararlo en el README junto al riesgo residual de run.admin. (4) El simulacro no aplica las quota_preference de infra/main en la nube (hallazgo P2 del crítico, ronda 2); un rechazo de Cloud Quotas aparecería recién en deploy.yml. (5) El presupuesto no fija disable_default_iam_recipients, así que también avisará a los administradores de la cuenta de facturación, además de alert_email.",
+        "date": "2026-10-22",
+        "decision": {
+          "question_id": "review_verdict",
+          "decider": "jev",
+          "confidence": 0.92,
+          "threshold": 0.8,
+          "timestamp": "2026-10-22T14:24:48.248Z"
+        }
       }
     },
     {

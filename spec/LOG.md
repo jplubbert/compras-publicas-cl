@@ -354,3 +354,8 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Pendiente del usuario: el bootstrap pide ahora billing_account y alert_email en terraform.tfvars (fuera de git) antes de reaplicarlo; cambiar el Enforced-by de DEC-003 a «cmd: npm run test:finops» (spec/, fuera de los touches de T-05).
 - Verificado y cómo: `scripts/env.sh bash -c 'npm run test:finops && npm run test:infra && npm run check:spec'` → 24/24 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-05/verify.log), commit 6cbb836.
 - Próxima acción autorizada: revisión independiente de T-05; después, que el usuario corra el simulacro scripts/it/killswitch-drill.sh y siga con la siguiente tarea ready.
+
+## 2026-10-22 11:24 · revisor independiente (claude -p 2.1.295 (Claude Code)) vía autopilot
+- Hecho: revisión independiente de T-05 con contexto limpio (solo diff + REQ/DEC de la tarea). Veredicto: **approved** → estado `reviewed`. Hallazgos: sin hallazgos bloqueantes.
+- Verificado y cómo: veredicto completo en TASKS.json (`review` de T-05); salida íntegra en .autopilot/2026-10-22_105248/T-05-review-output.txt.
+- Próxima acción autorizada: continúa el autopilot; el usuario decide accepted después de la corrida.
