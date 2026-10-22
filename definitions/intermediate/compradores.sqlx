@@ -1,0 +1,54 @@
+config {
+  type: "incremental",
+  schema: "silver",
+  tags: ["silver"],
+  uniqueKey: ["codigo_organismo"],
+  description: "Organismos compradores vistos en las licitaciones y las órdenes de compra de Mercado Público, una fila por código con su versión más reciente (REQ-008).",
+  columns: {
+    codigo_organismo: "Código del organismo comprador (clave natural)",
+    nombre_organismo: "Nombre del organismo comprador en su versión más reciente",
+    run_id: "Identificador de la corrida de ingesta que trajo esta versión",
+    _ingest_date: "Fecha UTC de inicio de la corrida que trajo esta versión (partición de raw)",
+    ingested_at: "Momento UTC en que se recibió la respuesta de esta versión",
+    fecha_cambio: "Momento del cambio que ordena las versiones; para compradores es ingested_at"
+  }
+}
+
+js {
+  const columnas = ["codigo_organismo", "nombre_organismo", "run_id", "_ingest_date", "ingested_at", "fecha_cambio"];
+}
+
+WITH documentos AS (
+  SELECT
+    JSON_VALUE(doc, '$.Comprador.CodigoOrganismo') AS codigo_organismo,
+    JSON_VALUE(doc, '$.Comprador.NombreOrganismo') AS nombre_organismo,
+    run_id,
+    _ingest_date,
+    ingested_at,
+    ingested_at AS fecha_cambio
+  FROM ${ref("mercadopublico_licitaciones")}, UNNEST(JSON_QUERY_ARRAY(payload, '$.Listado')) AS doc
+  WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'detalle'
+    ${when(incremental(), `AND ${silver.ventanaIncremental(self())}`)}
+  UNION ALL
+  SELECT
+    JSON_VALUE(doc, '$.Comprador.CodigoOrganismo') AS codigo_organismo,
+    JSON_VALUE(doc, '$.Comprador.NombreOrganismo') AS nombre_organismo,
+    run_id,
+    _ingest_date,
+    ingested_at,
+    ingested_at AS fecha_cambio
+  FROM ${ref("mercadopublico_ordenes_compra")}, UNNEST(JSON_QUERY_ARRAY(payload, '$.Listado')) AS doc
+  WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'detalle'
+    ${when(incremental(), `AND ${silver.ventanaIncremental(self())}`)}
+),
+nuevas AS (
+  SELECT ${columnas.join(", ")} FROM documentos WHERE codigo_organismo IS NOT NULL
+),
+candidatas AS (
+  SELECT ${columnas.join(", ")} FROM nuevas
+  ${when(incremental(), `UNION ALL
+  SELECT ${columnas.join(", ")} FROM ${self()}
+  WHERE codigo_organismo IN (SELECT codigo_organismo FROM nuevas)`)}
+)
+SELECT ${columnas.join(", ")} FROM candidatas
+QUALIFY ROW_NUMBER() OVER (PARTITION BY codigo_organismo ORDER BY fecha_cambio DESC, ingested_at DESC) = 1

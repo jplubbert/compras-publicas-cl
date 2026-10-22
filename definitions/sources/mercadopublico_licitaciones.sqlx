@@ -1,6 +1,0 @@
-config {
-  type: "declaration",
-  schema: "raw",
-  name: "mercadopublico_licitaciones",
-  description: "Licitaciones de Mercado Público cargadas desde bronze, sin transformar (DEC-006)."
-}
