@@ -42,7 +42,34 @@
           "at": "2026-10-22T02:23:36.654Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
         }
-      ]
+      ],
+      "plan_review": {
+        "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "REVISAR",
+        "effective": "REVISAR",
+        "round": 1,
+        "plan": "plans/T-01.md",
+        "plan_sha": "6c1c1095dca96af028f4cdbd27774795bc12b66f",
+        "plan_commit": "525f4b6",
+        "findings": [
+          {
+            "id": "setup:relock-antes-de-instalar",
+            "severity": "P1",
+            "evidence_type": "archivo",
+            "evidence": "plans/T-01.md:62 — el paso 3.4 (--relock) corre uv lock, npm install --package-lock-only y terraform providers lock antes del paso 3.5 (plans/T-01.md:68), que instala las herramientas y escribe .tools/.setup-ok.",
+            "summary": "En un clon nuevo (paso 14 ejecuta primero scripts/setup.sh --relock) todavía no hay uv, node, npm ni terraform en .tools/. Además scripts/env.sh sale en 1 si falta .tools/.setup-ok y exporta MISE_EXEC_AUTO_INSTALL=false, así que mise exec no instala lo que falta. uv lock, npm install y terraform providers lock fallan y el entorno no se puede generar como está escrito."
+          },
+          {
+            "id": "env:mise-locked-y-config-sistema",
+            "severity": "P3",
+            "evidence_type": "fuente",
+            "evidence": "https://mise.jdx.dev/configuration/settings.html — existen locked (MISE_LOCKED: «Require tool versions and download URLs to come from the lockfile») y una configuración de sistema en /etc/mise/config.toml.",
+            "summary": "env.sh no exporta MISE_LOCKED ni anula la configuración de sistema de mise, así que una configuración en /etc/mise o un mise.lock desactualizado podrían cambiar silenciosamente de dónde salen las herramientas. Sin red no rompe el verify; endurecerlo es opcional."
+          }
+        ],
+        "opinion_blockers": [],
+        "date": "2026-10-22"
+      }
     },
     {
       "id": "T-02",
