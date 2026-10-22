@@ -293,3 +293,8 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Pendiente manual: el usuario crea en GitHub el environment `production` y las variables `GCP_PROJECT_ID`, `GCP_REGION`, `WIF_PROVIDER` y `CI_SERVICE_ACCOUNT`, abre un PR hacia `main` desde una rama del repo y corre `scripts/it/last-ci-run.sh` (debe imprimir `last-ci-run: success`).
 - Verificado y cómo: `scripts/env.sh bash -c 'npm run test:workflows && npm run check:repo && npm run check:spec'` → 24/24 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-04/verify.log), commit b4d47d1.
 - Próxima acción autorizada: revisión independiente de T-04; luego seguir con la siguiente tarea `ready` (T-05).
+
+## 2026-10-22 10:14 · revisor independiente (claude -p 2.1.295 (Claude Code)) vía autopilot
+- Hecho: revisión independiente de T-04 con contexto limpio (solo diff + REQ/DEC de la tarea). Veredicto: **approved** → estado `reviewed`. Hallazgos: sin hallazgos bloqueantes.
+- Verificado y cómo: veredicto completo en TASKS.json (`review` de T-04); salida íntegra en .autopilot/2026-10-22_092855/T-04-review-output.txt.
+- Próxima acción autorizada: continúa el autopilot; el usuario decide accepted después de la corrida.
