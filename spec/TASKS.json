@@ -911,7 +911,55 @@
           "at": "2026-10-22T02:23:37.208Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
         }
-      ]
+      ],
+      "plan_review": {
+        "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "REVISAR",
+        "effective": "REVISAR",
+        "round": 1,
+        "plan": "plans/T-08.md",
+        "plan_sha": "1f1b96c62ee28f2f335b06f2acc2af55c8a330ea",
+        "plan_commit": "32c9b32",
+        "findings": [
+          {
+            "id": "infra:actas-sin-orden-ni-propagacion",
+            "severity": "P1",
+            "evidence_type": "fuente",
+            "evidence": "https://discuss.hashicorp.com/t/handle-perms-eventual-consistency-propagation-time/74572 — depends_on no resuelve la propagación de IAM; https://docs.cloud.google.com/run/docs/configuring/jobs/service-identity — el desplegador necesita roles/iam.serviceAccountUser (actAs) sobre la cuenta del job.",
+            "summary": "El paso 9 crea el binding ci_actas_ingest en module.iam, y el paso 8 crea los google_cloud_run_v2_job, que dependen solo de module.iam.emails['ingest'] y no del binding. En el primer apply de deploy.yml, Terraform puede crear el job antes que el binding o antes de que se propague, y la creación falla por falta de iam.serviceAccounts.actAs. El apply queda en error."
+          },
+          {
+            "id": "deploy:fallo-permisos-en-apply-no-release",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "Plan, Riesgos: «el fallo se ve en el job release, después de apply y del respaldo del estado».",
+            "summary": "El repositorio de Artifact Registry y los Cloud Run Jobs se crean en el job apply (infra/main), que ya necesita roles/run.admin, roles/artifactregistry.admin y actAs. Sin el bootstrap reaplicado, falla el apply, no el release, y el riesgo está mal descrito."
+          },
+          {
+            "id": "it:conteo-run-jobs-solo-fecha-d",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "Plan, paso 14: cuenta las líneas de los archivos bajo fecha=D y las compara con las filas de raw con ese run_id.",
+            "summary": "Una corrida de Mercado Público que termina días pendientes del cursor (REQ-004 E8) escribe, con el mismo run_id, archivos en varias fecha=…; raw tendría más filas que las líneas de fecha=D y la integración falla sin error real."
+          },
+          {
+            "id": "infra:apis-run-artifactregistry",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "Plan, pasos 8 y 9: no mencionan google_project_service para run.googleapis.com ni artifactregistry.googleapis.com.",
+            "summary": "Si T-03 no habilitó esas APIs, el apply falla al crear el repositorio y los jobs."
+          },
+          {
+            "id": "req-006:ingest-date-requerida-bronze-antiguo",
+            "severity": "P3",
+            "evidence_type": "opinión",
+            "evidence": "Plan, pasos 1, 2 y 4: _ingest_date REQUIRED y subcomando load para reprocesar por run_id.",
+            "summary": "Los archivos de bronze escritos antes de este cambio (integración de T-06 y T-07) no traen _ingest_date, así que reprocesarlos con load falla."
+          }
+        ],
+        "opinion_blockers": [],
+        "date": "2026-10-22"
+      }
     },
     {
       "id": "T-09",
