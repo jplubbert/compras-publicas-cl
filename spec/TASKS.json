@@ -474,6 +474,11 @@
           "threshold": 0.8,
           "timestamp": "2026-10-22T13:14:54.413Z"
         }
+      },
+      "merged": {
+        "into": "master",
+        "commit": "608138f7721533f62371c44a97116ce3d26bd2b4",
+        "at": "2026-10-22T20:26:13.808Z"
       }
     },
     {
@@ -593,6 +598,11 @@
           "threshold": 0.8,
           "timestamp": "2026-10-22T14:24:48.248Z"
         }
+      },
+      "merged": {
+        "into": "master",
+        "commit": "608138f7721533f62371c44a97116ce3d26bd2b4",
+        "at": "2026-10-22T20:26:13.966Z"
       }
     },
     {
@@ -743,6 +753,11 @@
           "threshold": 0.8,
           "timestamp": "2026-10-22T16:11:40.651Z"
         }
+      },
+      "merged": {
+        "into": "master",
+        "commit": "608138f7721533f62371c44a97116ce3d26bd2b4",
+        "at": "2026-10-22T20:26:14.126Z"
       }
     },
     {
@@ -872,6 +887,11 @@
           "threshold": 0.8,
           "timestamp": "2026-10-22T19:02:12.622Z"
         }
+      },
+      "merged": {
+        "into": "master",
+        "commit": "608138f7721533f62371c44a97116ce3d26bd2b4",
+        "at": "2026-10-22T20:26:14.294Z"
       }
     },
     {
@@ -1002,6 +1022,11 @@
           "decider": "user",
           "by": "José Pedro Lübbert"
         }
+      },
+      "merged": {
+        "into": "master",
+        "commit": "608138f7721533f62371c44a97116ce3d26bd2b4",
+        "at": "2026-10-22T20:26:14.452Z"
       }
     },
     {
@@ -1128,6 +1153,11 @@
           "timestamp": "2026-10-22T20:25:11.906Z",
           "rule": "review_approved_without_findings"
         }
+      },
+      "merged": {
+        "into": "master",
+        "commit": "608138f7721533f62371c44a97116ce3d26bd2b4",
+        "at": "2026-10-22T20:26:14.605Z"
       }
     },
     {
@@ -1474,6 +1504,11 @@
           "threshold": 0.8,
           "timestamp": "2026-10-22T15:04:41.007Z"
         }
+      },
+      "merged": {
+        "into": "master",
+        "commit": "608138f7721533f62371c44a97116ce3d26bd2b4",
+        "at": "2026-10-22T20:26:14.751Z"
       }
     }
   ]
