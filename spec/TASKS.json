@@ -1471,7 +1471,48 @@
           "at": "2026-10-22T21:13:24.564Z",
           "reason": "Q-08 respondida en sesión con la regla del usuario (decisión reversible con opción recomendada): reintentar el planificador"
         }
-      ]
+      ],
+      "plan_review": {
+        "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 1,
+        "plan": "plans/T-12.md",
+        "plan_sha": "454f3e7eec2d95ff4462a13567214675db69a609",
+        "plan_commit": "d61f5f7",
+        "findings": [
+          {
+            "id": "req-009:assertions-integradas-hechos",
+            "severity": "P2",
+            "evidence_type": "archivo",
+            "evidence": "spec/SPEC.md:265 — REQ-009 E1: «cada modelo de silver y gold tiene assertions uniqueKey y nonNull». El paso 8 del plan reemplaza las integradas de los hechos por assertions propias (assert_fct_*).",
+            "summary": "La sustitución está justificada por require_partition_filter, pero si la prueba de aceptación protegida de T-10 (tests/acceptance/T-10*) busca assertions integradas en cada tabla de gold, fallará y T-12 no puede tocarla. El plan solo actualiza dataform/tests/assertions.test.mjs."
+          },
+          {
+            "id": "req-012:e3-igualdad-numerica",
+            "severity": "P2",
+            "evidence_type": "fuente",
+            "evidence": "https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/conversion_rules — al mezclar NUMERIC y FLOAT64 el supertipo es FLOAT64.",
+            "summary": "La comprobación de E3 usa monto_usd = NUMERIC '1000000' / NUMERIC '$DOLAR_VIERNES'. REQ-008 garantiza NUMERIC para los montos, pero no para valor de indicadores_diarios; si es FLOAT64, monto_usd sale FLOAT64 y la igualdad puede fallar por redondeo aunque el cálculo sea correcto."
+          },
+          {
+            "id": "req-012:assert-proveedor-sin-dimension",
+            "severity": "P2",
+            "evidence_type": "archivo",
+            "evidence": "spec/SPEC.md:433 — S-23: el RUT se valida solo en la OC; los RUT de los ítems de licitación no se validan.",
+            "summary": "assert_fct_licitaciones exige que todo proveedor_key adjudicado (de licitacion_items, sin validar ni necesariamente normalizado igual) exista en dim_proveedor. Si silver.proveedores sale solo de las OC, la assertion puede fallar con datos legítimos, impedir la promoción de mart_organismo_mes y hacer fallar la integración sin un error real."
+          },
+          {
+            "id": "req-012:e6-omision-dependientes",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "No encontré documentación oficial que diga que dataform run omite las acciones dependientes de una assertion fallida; solo que termina con código distinto de 0.",
+            "summary": "E6 depende de que la CLI no ejecute fct_licitaciones cuando falla la assertion uniqueKey de silver.licitaciones. El plan lo mitiga bien con M2 > M1 y la comparación posterior, pero el supuesto queda sin verificar hasta la integración."
+          }
+        ],
+        "opinion_blockers": [],
+        "date": "2026-10-22"
+      }
     },
     {
       "id": "T-13",
