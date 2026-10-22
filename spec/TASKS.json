@@ -610,9 +610,9 @@
         "T-01",
         "T-02"
       ],
-      "status": "ready",
-      "blocked_by": null,
-      "notes": "",
+      "status": "blocked",
+      "blocked_by": "Q-06",
+      "notes": "2026-10-22: escalada por el orquestador (DEC-005): el decisor (jev) no resolvió la causa del fallo (confidence 0.45 < 0.8 (threshold)); sin informe; bloqueada por Q-06.",
       "touches": [
         "ingest/",
         "scripts/it/"
@@ -626,6 +626,13 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:23:37.048Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        },
+        {
+          "from": "ready",
+          "to": "blocked",
+          "by": "escalate",
+          "at": "2026-10-22T14:52:48.561Z",
+          "reason": "escalada al usuario por Q-06"
         }
       ],
       "plan_review": {
