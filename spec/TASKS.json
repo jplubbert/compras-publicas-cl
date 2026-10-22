@@ -387,7 +387,41 @@
           "at": "2026-10-22T02:23:36.891Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
         }
-      ]
+      ],
+      "plan_review": {
+        "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 1,
+        "plan": "plans/T-04.md",
+        "plan_sha": "8ecf91f873a10a70861566e48fc1504d0b16d248",
+        "plan_commit": "271e2b3",
+        "findings": [
+          {
+            "id": "req-002:ansi-en-salida-del-plan",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "El paso 1 busca '^Plan: [0-9]+ to add…' en la salida de 'scripts/it/tf-plan.sh main | tee plan.txt'; el plan solo menciona -no-color para tf-apply.sh (paso 2), no confirma que tf-plan.sh lo use.",
+            "summary": "Si tf-plan.sh no pasa -no-color, la salida en CI trae secuencias ANSI (terraform colorea por defecto), la regex anclada no coincide, plan-comment.sh sale 1 y el job plan falla sin publicar el comentario. Las pruebas locales usan texto plano y no lo detectan."
+          },
+          {
+            "id": "req-002:comentario-duplicado-por-push",
+            "severity": "P3",
+            "evidence_type": "opinión",
+            "evidence": "El paso 4.5 usa 'gh pr comment … --body-file comment.md' sin --edit-last ni búsqueda del marcador <!-- tf-plan:infra/main -->.",
+            "summary": "Cada push al PR agrega un comentario nuevo; el marcador no se usa para actualizarlo. No incumple REQ-002, pero llena el PR de comentarios."
+          },
+          {
+            "id": "req-002:concurrency-cancela-pendientes",
+            "severity": "P3",
+            "evidence_type": "opinión",
+            "evidence": "Paso 5: concurrency group deploy-production con cancel-in-progress: false.",
+            "summary": "GitHub mantiene una sola corrida pendiente por grupo y cancela las pendientes más viejas; algunos push intermedios a main quedan sin apply propio (el último aplica el estado final). Es aceptable, pero no está en los Riesgos."
+          }
+        ],
+        "opinion_blockers": [],
+        "date": "2026-10-22"
+      }
     },
     {
       "id": "T-05",
