@@ -1192,7 +1192,55 @@
           "at": "2026-10-22T02:23:37.368Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
         }
-      ]
+      ],
+      "plan_review": {
+        "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 1,
+        "plan": "plans/T-10.md",
+        "plan_sha": "bb3c6dce48d11f0a0f84c3ff66908ab2516601ac",
+        "plan_commit": "5ce68b5",
+        "findings": [
+          {
+            "id": "req-010:ventana-cuarentena-desfasada-de-silver",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "Paso 2 y paso 3 del plan: la cuarentena incremental filtra raw con _ingest_date >= CURRENT_DATE() - LOOKBACK_DIAS, mientras que, según el mismo plan, silver usa MAX(_ingest_date) de su propio destino como ventana.",
+            "summary": "Si Dataform no corre más de LOOKBACK_DIAS días mientras la ingesta sigue cargando raw (por ejemplo, el token de GitHub de DEC-009 caducó o falla la compilación), al volver silver se pone al día desde su marca de agua y excluye las filas malas con pasaSql, pero la cuarentena ya no ve esas cargas. Las filas malas no quedan en ningún lado, contra 'deberá escribirla en quarantine.<entidad>' de REQ-010. El riesgo del plan solo menciona cargas viejas (S-22), no este caso."
+          },
+          {
+            "id": "req-009:ventana-continuidad-anclada-a-ultima-observacion",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "Paso 6 y Supuestos del plan: limites = GREATEST(DATE_SUB(MAX(fecha), INTERVAL 29 DAY), MIN(fecha)); 'Que la serie esté al día no lo controla esta assertion'.",
+            "summary": "REQ-009 pide continuidad sobre 'los últimos 30 días'. Al anclar la ventana a la última observación cargada, una serie de UF o dólar que dejó de cargarse pasa siempre. Es una interpretación razonable (evita que deploy.yml falle en otro día), pero cambia el sentido del requisito y no queda registrada en el SPEC."
+          },
+          {
+            "id": "req-009:nonnull-solo-fechas-obligatorias",
+            "severity": "P3",
+            "evidence_type": "opinión",
+            "evidence": "Paso 5 del plan: 'Las fechas que pueden faltar (adjudicación, envío, aceptación) no van en nonNull'; REQ-009 dice 'nonNull sobre la clave y las fechas'.",
+            "summary": "El plan aplica nonNull solo a las fechas obligatorias más fecha_cambio. Es correcto en la práctica, porque exigir todas haría fallar la corrida diaria, pero se aparta de la letra del requisito sin dejarlo como supuesto."
+          },
+          {
+            "id": "req-010:not-in-con-fila-id-nulo",
+            "severity": "P3",
+            "evidence_type": "opinión",
+            "evidence": "Paso 3 del plan: fila_id = TO_HEX(SHA256(CONCAT(run_id, '|', CAST(ingested_at AS STRING), '|', TO_JSON_STRING(doc)))) y 'WHERE fila_id NOT IN (SELECT fila_id FROM self())'.",
+            "summary": "CONCAT con un NULL da NULL. Si alguna vez entra una fila con fila_id nulo en la cuarentena, NOT IN da NULL para todas las filas siguientes y ya no se inserta nada más en cuarentena."
+          },
+          {
+            "id": "req-010:motivos-js-listas-ausentes",
+            "severity": "P3",
+            "evidence_type": "opinión",
+            "evidence": "Paso 7 del plan: las pruebas de E2–E4 llaman a motivos({ claves: [\"X\"], rut: … }) sin fechasObligatorias, y E3 exige exactamente [\"monto_negativo\", \"moneda_desconocida\"].",
+            "summary": "Si motivos() no trata como vacías las listas que faltan (fechasObligatorias, fechas, montos), E3 y E4 pueden dar fecha_fuera_de_rango o lanzar un error."
+          }
+        ],
+        "opinion_blockers": [],
+        "date": "2026-10-22"
+      }
     },
     {
       "id": "T-11",
