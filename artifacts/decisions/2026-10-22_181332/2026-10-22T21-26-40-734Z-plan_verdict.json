@@ -1,0 +1,99 @@
+{
+  "question_id": "plan_verdict",
+  "instructions": "Given this critique of an implementation plan, what is the verdict?",
+  "state": "**Veredicto: APROBAR.** El plan cumple REQ-012 y DEC-008 dentro de DEC-001. No encontré ningún P0 ni P1. Dejo cuatro P2 para que el implementador los tenga en cuenta.\n\n**Supuestos de riesgo y respaldo encontrado:**\n- **Assertions integradas sin filtro de partición:** que fallen sobre una tabla con `require_partition_filter` lo respaldan la documentación de BigQuery y un bug de Google Issue Tracker. Por eso las assertions propias con `WHERE` del paso 8 son la práctica correcta. La página del bug pide iniciar sesión, así que solo vi su resumen en el buscador.\n- **`dependOnDependencyAssertions` con `ref()`:** la documentación de Dataform dice que la opción también agrega las assertions de lo referenciado con `ref()`. Además, la prueba E5 (b) lo comprueba en el grafo compilado.\n- **Saltar gold si falla una assertion (REQ-012 E6):** que `dataform run` salga con código distinto de 0 cuando falla una assertion lo confirma solo una fuente de terceros. No encontré documentación que diga si las acciones dependientes se saltan. El plan lo mitiga exigiendo `M2 > M1` antes de comprobar E6, y lo comprueba la integración.\n- **Filtro `fecha_documento >= DATE '2000-01-01'`:** no busqué fuente. Las reglas de BigQuery exigen un predicado sobre la columna de partición y este lo es, así que el riesgo es bajo.\n\n**Hallazgos P2 (no bloquean):**\n1. **Assertions de los hechos frente a REQ-009 E1** (`spec/SPEC.md:265`): REQ-009 E1 pide assertions `uniqueKey` y `nonNull` en cada modelo de gold. Los hechos las reemplazan por assertions propias. Si una prueba protegida de `tests/acceptance/T-10*` busca las integradas en gold, fallará y T-12 no la puede cambiar. Antes de empezar hay que confirmarlo y, si pasa, escalarlo.\n2. **Comparación exacta de E3:** `monto_usd = NUMERIC/NUMERIC` solo es segura si el dólar y `total` son NUMERIC. REQ-008 garantiza NUMERIC para los montos, pero no para `valor` de `indicadores_diarios`. Si es FLOAT64, la igualdad puede fallar por redondeo. Conviene comparar con tolerancia o fijar el tipo con `CAST`.\n3. **Assertion `proveedor_sin_dimension`:** el RUT adjudicado de los ítems no se valida (S-23) y puede faltar en `dim_proveedor`. Si falla, `mart_organismo_mes` no se actualiza y la integración falla sin un error real. Hay que confirmar contra qué entidades se construye `silver.proveedores` o bajar esa regla a una advertencia.\n4. **Salto de las acciones dependientes:** sin respaldo en la documentación, como se dijo arriba. Lo comprueba la integración.\n\n```json\n{\"verdict\": \"APROBAR\", \"assumptions\": [{\"assumption\": \"Las assertions integradas de Dataform (uniqueKey/rowConditions) consultan la tabla sin predicado de partición y BigQuery las rechaza sobre una tabla con require_partition_filter = true; por eso los hechos necesitan assertions propias con filtro.\", \"practice\": \"BigQuery exige un predicado sobre la columna de partición en toda consulta a esas tablas; hay un bug reportado en Issue Tracker por assertions de Dataform que fallan con requirePartitionFilter. La práctica es escribir la assertion a mano con el filtro de partición o quitar la opción.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/managing-partitioned-tables\", \"https://issuetracker.google.com/issues/314048084\"]}, {\"assumption\": \"dependOnDependencyAssertions: true agrega a la acción las assertions directas de todas sus dependencias, incluidas las que vienen de ref() en el cuerpo SQL.\", \"practice\": \"La documentación oficial muestra que con dependOnDependencyAssertions las assertions de la acción referenciada con ref() se agregan en la compilación; includeDependentAssertions sirve para afinar cada dependencia. El plan además lo comprueba en el grafo compilado (E5 b).\", \"sources\": [\"https://docs.cloud.google.com/dataform/docs/dependencies\"]}, {\"assumption\": \"dataform run sale con código distinto de 0 cuando falla una assertion y no ejecuta las acciones que dependen de ella, así que gold_ci.fct_licitaciones conserva su lastModifiedTime (E6).\", \"practice\": \"Se documenta que dataform run termina con código distinto de 0 si falla una assertion y que una assertion puede ser dependencia de otras acciones. No encontré documentación explícita de que las acciones dependientes se omitan: se comprueba empíricamente, y el plan lo hace en la integración con M2 > M1 y M2 sin cambios.\", \"sources\": [\"https://kestra.io/blueprints/dataform-run-with-assertions-gate\"]}, {\"assumption\": \"Un filtro fecha_documento >= DATE '2000-01-01' sobre una tabla particionada por DATE_TRUNC(fecha_documento, MONTH) satisface require_partition_filter.\", \"practice\": \"BigQuery acepta como filtro de partición un predicado sobre la columna de partición; con partición mensual por DATE_TRUNC, el predicado sobre la columna DATE poda. No busqué una fuente específica para el caso mensual con un rango abierto.\", \"sources\": []}, {\"assumption\": \"Las igualdades exactas de la integración (monto_uf = 25, monto_usd = NUMERIC '1000000' / NUMERIC 'dólar') se cumplen con los tipos de silver.\", \"practice\": \"Entre NUMERIC y FLOAT64 el supertipo es FLOAT64 y la igualdad en coma flotante no es fiable; con FLOAT64 en un lado se compara con tolerancia o se fija el tipo con CAST.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/conversion_rules\"]}], \"findings\": [{\"id\": \"req-009:assertions-integradas-hechos\", \"severity\": \"P2\", \"evidence_type\": \"archivo\", \"evidence\": \"spec/SPEC.md:265 — REQ-009 E1: «cada modelo de silver y gold tiene assertions uniqueKey y nonNull». El paso 8 del plan reemplaza las integradas de los hechos por assertions propias (assert_fct_*).\", \"summary\": \"La sustitución está justificada por require_partition_filter, pero si la prueba de aceptación protegida de T-10 (tests/acceptance/T-10*) busca assertions integradas en cada tabla de gold, fallará y T-12 no puede tocarla. El plan solo actualiza dataform/tests/assertions.test.mjs.\", \"fix\": \"Antes de implementar, confirmar que ninguna prueba de tests/acceptance/ exige assertions integradas en los hechos de gold; si alguna lo exige, escalar al usuario en vez de cambiar la prueba.\"}, {\"id\": \"req-012:e3-igualdad-numerica\", \"severity\": \"P2\", \"evidence_type\": \"fuente\", \"evidence\": \"https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/conversion_rules — al mezclar NUMERIC y FLOAT64 el supertipo es FLOAT64.\", \"summary\": \"La comprobación de E3 usa monto_usd = NUMERIC '1000000' / NUMERIC '$DOLAR_VIERNES'. REQ-008 garantiza NUMERIC para los montos, pero no para valor de indicadores_diarios; si es FLOAT64, monto_usd sale FLOAT64 y la igualdad puede fallar por redondeo aunque el cálculo sea correcto.\", \"fix\": \"Comparar con tolerancia (ABS(monto_usd - x) < 1e-6) o fijar el tipo con CAST(... AS NUMERIC) en montosSql y documentar el tipo de las columnas de monto de los hechos.\"}, {\"id\": \"req-012:assert-proveedor-sin-dimension\", \"severity\": \"P2\", \"evidence_type\": \"archivo\", \"evidence\": \"spec/SPEC.md:433 — S-23: el RUT se valida solo en la OC; los RUT de los ítems de licitación no se validan.\", \"summary\": \"assert_fct_licitaciones exige que todo proveedor_key adjudicado (de licitacion_items, sin validar ni necesariamente normalizado igual) exista en dim_proveedor. Si silver.proveedores sale solo de las OC, la assertion puede fallar con datos legítimos, impedir la promoción de mart_organismo_mes y hacer fallar la integración sin un error real.\", \"fix\": \"Confirmar de qué entidades se construye silver.proveedores y que los ítems usan la misma normalización del RUT; si no está garantizado, sacar esa regla de la assertion que bloquea o construir dim_proveedor también con los adjudicados.\"}, {\"id\": \"req-012:e6-omision-dependientes\", \"severity\": \"P2\", \"evidence_type\": \"opinión\", \"evidence\": \"No encontré documentación oficial que diga que dataform run omite las acciones dependientes de una assertion fallida; solo que termina con código distinto de 0.\", \"summary\": \"E6 depende de que la CLI no ejecute fct_licitaciones cuando falla la assertion uniqueKey de silver.licitaciones. El plan lo mitiga bien con M2 > M1 y la comparación posterior, pero el supuesto queda sin verificar hasta la integración.\", \"fix\": \"Mantener la comprobación del paso 10 tal cual y anotar en el log de la tarea el resultado de la primera corrida de integración para E6.\"}], \"summary\": \"El plan cubre REQ-012 completo: los hechos con partitionBy, clusterBy y requirePartitionFilter; dependOnDependencyAssertions en los 5 modelos, comprobado por el texto del SQLX y por su efecto en el grafo; el dólar imputado con LAST_VALUE IGNORE NULLS y fx_imputado; la UF nula sin perder la fila gracias al LEFT JOIN; y E2, E3, E4 y E6 en la corrida de ci con controles de no trivialidad. Respeta DEC-001 (outputs en gold) y DEC-008 (separa rut_empresa y rut_persona_natural con la regla de S-04, sin tag y con proveedor_key provisional en una sola función, como pide la descripción de la tarea). Los supuestos de más riesgo tienen respaldo o mitigación: las assertions propias de los hechos evitan el rechazo de BigQuery por require_partition_filter, y la documentación de Dataform confirma que dependOnDependencyAssertions incluye las dependencias de ref(). Quedan cuatro P2: confirmar que ninguna prueba de aceptación protegida exige assertions integradas en los hechos, que la igualdad exacta de E3 no falle por FLOAT64, que la integridad referencial con dim_proveedor no bloquee con datos legítimos, y que la omisión de las acciones dependientes no tiene respaldo documental y se comprueba en la integración. No hay P0 ni P1.\"}\n```",
+  "options": {
+    "APROBAR": "no P0/P1 finding: the implementer may start with this plan",
+    "REVISAR": "the planner must fix P0/P1 findings before implementing",
+    "ESCALAR": "it needs a decision of the user"
+  },
+  "answer": "APROBAR",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule critic_approves_without_p0_p1 (DEC-051)",
+  "decider": "rule",
+  "rule": "critic_approves_without_p0_p1",
+  "facts": {
+    "verdict": "APROBAR",
+    "effective": "APROBAR",
+    "assumptions": [
+      {
+        "assumption": "Las assertions integradas de Dataform (uniqueKey/rowConditions) consultan la tabla sin predicado de partición y BigQuery las rechaza sobre una tabla con require_partition_filter = true; por eso los hechos necesitan assertions propias con filtro.",
+        "practice": "BigQuery exige un predicado sobre la columna de partición en toda consulta a esas tablas; hay un bug reportado en Issue Tracker por assertions de Dataform que fallan con requirePartitionFilter. La práctica es escribir la assertion a mano con el filtro de partición o quitar la opción.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/managing-partitioned-tables",
+          "https://issuetracker.google.com/issues/314048084"
+        ]
+      },
+      {
+        "assumption": "dependOnDependencyAssertions: true agrega a la acción las assertions directas de todas sus dependencias, incluidas las que vienen de ref() en el cuerpo SQL.",
+        "practice": "La documentación oficial muestra que con dependOnDependencyAssertions las assertions de la acción referenciada con ref() se agregan en la compilación; includeDependentAssertions sirve para afinar cada dependencia. El plan además lo comprueba en el grafo compilado (E5 b).",
+        "sources": [
+          "https://docs.cloud.google.com/dataform/docs/dependencies"
+        ]
+      },
+      {
+        "assumption": "dataform run sale con código distinto de 0 cuando falla una assertion y no ejecuta las acciones que dependen de ella, así que gold_ci.fct_licitaciones conserva su lastModifiedTime (E6).",
+        "practice": "Se documenta que dataform run termina con código distinto de 0 si falla una assertion y que una assertion puede ser dependencia de otras acciones. No encontré documentación explícita de que las acciones dependientes se omitan: se comprueba empíricamente, y el plan lo hace en la integración con M2 > M1 y M2 sin cambios.",
+        "sources": [
+          "https://kestra.io/blueprints/dataform-run-with-assertions-gate"
+        ]
+      },
+      {
+        "assumption": "Un filtro fecha_documento >= DATE '2000-01-01' sobre una tabla particionada por DATE_TRUNC(fecha_documento, MONTH) satisface require_partition_filter.",
+        "practice": "BigQuery acepta como filtro de partición un predicado sobre la columna de partición; con partición mensual por DATE_TRUNC, el predicado sobre la columna DATE poda. No busqué una fuente específica para el caso mensual con un rango abierto.",
+        "sources": []
+      },
+      {
+        "assumption": "Las igualdades exactas de la integración (monto_uf = 25, monto_usd = NUMERIC '1000000' / NUMERIC 'dólar') se cumplen con los tipos de silver.",
+        "practice": "Entre NUMERIC y FLOAT64 el supertipo es FLOAT64 y la igualdad en coma flotante no es fiable; con FLOAT64 en un lado se compara con tolerancia o se fija el tipo con CAST.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/conversion_rules"
+        ]
+      }
+    ],
+    "findings": [
+      {
+        "id": "req-009:assertions-integradas-hechos",
+        "severity": "P2",
+        "evidence_type": "archivo",
+        "evidence": "spec/SPEC.md:265 — REQ-009 E1: «cada modelo de silver y gold tiene assertions uniqueKey y nonNull». El paso 8 del plan reemplaza las integradas de los hechos por assertions propias (assert_fct_*).",
+        "summary": "La sustitución está justificada por require_partition_filter, pero si la prueba de aceptación protegida de T-10 (tests/acceptance/T-10*) busca assertions integradas en cada tabla de gold, fallará y T-12 no puede tocarla. El plan solo actualiza dataform/tests/assertions.test.mjs.",
+        "fix": "Antes de implementar, confirmar que ninguna prueba de tests/acceptance/ exige assertions integradas en los hechos de gold; si alguna lo exige, escalar al usuario en vez de cambiar la prueba."
+      },
+      {
+        "id": "req-012:e3-igualdad-numerica",
+        "severity": "P2",
+        "evidence_type": "fuente",
+        "evidence": "https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/conversion_rules — al mezclar NUMERIC y FLOAT64 el supertipo es FLOAT64.",
+        "summary": "La comprobación de E3 usa monto_usd = NUMERIC '1000000' / NUMERIC '$DOLAR_VIERNES'. REQ-008 garantiza NUMERIC para los montos, pero no para valor de indicadores_diarios; si es FLOAT64, monto_usd sale FLOAT64 y la igualdad puede fallar por redondeo aunque el cálculo sea correcto.",
+        "fix": "Comparar con tolerancia (ABS(monto_usd - x) < 1e-6) o fijar el tipo con CAST(... AS NUMERIC) en montosSql y documentar el tipo de las columnas de monto de los hechos."
+      },
+      {
+        "id": "req-012:assert-proveedor-sin-dimension",
+        "severity": "P2",
+        "evidence_type": "archivo",
+        "evidence": "spec/SPEC.md:433 — S-23: el RUT se valida solo en la OC; los RUT de los ítems de licitación no se validan.",
+        "summary": "assert_fct_licitaciones exige que todo proveedor_key adjudicado (de licitacion_items, sin validar ni necesariamente normalizado igual) exista en dim_proveedor. Si silver.proveedores sale solo de las OC, la assertion puede fallar con datos legítimos, impedir la promoción de mart_organismo_mes y hacer fallar la integración sin un error real.",
+        "fix": "Confirmar de qué entidades se construye silver.proveedores y que los ítems usan la misma normalización del RUT; si no está garantizado, sacar esa regla de la assertion que bloquea o construir dim_proveedor también con los adjudicados."
+      },
+      {
+        "id": "req-012:e6-omision-dependientes",
+        "severity": "P2",
+        "evidence_type": "opinión",
+        "evidence": "No encontré documentación oficial que diga que dataform run omite las acciones dependientes de una assertion fallida; solo que termina con código distinto de 0.",
+        "summary": "E6 depende de que la CLI no ejecute fct_licitaciones cuando falla la assertion uniqueKey de silver.licitaciones. El plan lo mitiga bien con M2 > M1 y la comparación posterior, pero el supuesto queda sin verificar hasta la integración.",
+        "fix": "Mantener la comprobación del paso 10 tal cual y anotar en el log de la tarea el resultado de la primera corrida de integración para E6."
+      }
+    ],
+    "blocking": [],
+    "opinion_blockers": [],
+    "repeated": [],
+    "summary": "El plan cubre REQ-012 completo: los hechos con partitionBy, clusterBy y requirePartitionFilter; dependOnDependencyAssertions en los 5 modelos, comprobado por el texto del SQLX y por su efecto en el grafo; el dólar imputado con LAST_VALUE IGNORE NULLS y fx_imputado; la UF nula sin perder la fila gracias al LEFT JOIN; y E2, E3, E4 y E6 en la corrida de ci con controles de no trivialidad. Respeta DEC-001 (outputs en gold) y DEC-008 (separa rut_empresa y rut_persona_natural con la regla de S-04, sin tag y con proveedor_key provisional en una sola función, como pide la descripción de la tarea). Los supuestos de más riesgo tienen respaldo o mitigación: las assertions propias de los hechos evitan el rechazo de BigQuery por require_partition_filter, y la documentación de Dataform confirma que dependOnDependencyAssertions incluye las dependencias de ref(). Quedan cuatro P2: confirmar que ninguna prueba de aceptación protegida exige assertions integradas en los hechos, que la igualdad exacta de E3 no falle por FLOAT64, que la integridad referencial con dim_proveedor no bloquee con datos legítimos, y que la omisión de las acciones dependientes no tiene respaldo documental y se comprueba en la integración. No hay P0 ni P1."
+  },
+  "timestamp": "2026-10-22T21:26:40.734Z"
+}

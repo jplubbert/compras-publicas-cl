@@ -1,0 +1,25 @@
+{
+  "question_id": "review_verdict",
+  "instructions": "Does this independent review approve the change? Approve only if it reports no blocking finding.",
+  "state": "I approve T-12. I found no blocking findings.\n\n1. **Requirements:**\n   - **Run here:** the evidence log's hash matches the recorded one (`a6546ff6…`), and the log shows 89 of 89 tests passing. Running the T-12 tests by name matched no individual test, because none of their names contain \"T-12\". That run only shows that `gold.test.mjs` loads, so for test results I relied on the log.\n   - **Checked by reading the diff:** REQ-012 E1 and E5 are covered by `gold.test.mjs` on the compiled graph. E5 is checked two ways: the setting is in every gold file, and each gold model depends on the silver assertions, including the one E6 needs.\n   - **Not run, cloud-only:** E2, E3, E4 and E6 are in `scripts/it/dataform-ci.sh`, which only the user can run against GCP. I couldn't run it. I did check that `valor` in `indicadores_diarios` is `NUMERIC`, so the exact comparisons in E2 and E3 shouldn't fail on rounding.\n2. **Scope:** the implementation commit only touches `dataform/` and `scripts/it/`, which are the task's declared areas. The spec files were changed by the orchestrator's commits.\n3. **Decisions:** DEC-001 holds: the models are in `definitions/outputs` and write to the `gold` dataset. DEC-008 holds: `dim_proveedor` splits the RUT into `rut_empresa` and `rut_persona_natural`, has no policy tag yet, and keeps the provisional `proveedor_key` in a single function for T-14 to replace.\n\n```json\n{\"verdict\": \"approved\", \"findings\": [], \"notes\": \"El hash de artifacts/T-12/verify.log coincide (a6546ff6…) y el log muestra 89/89 pruebas en verde. El patrón T-12 no selecciona ninguna prueba individual porque los nombres no citan T-12; la corrida filtrada solo confirmó que gold.test.mjs carga, y para los resultados me apoyé en el log. REQ-012 E1 y E5 se prueban localmente sobre el grafo compilado; E5 se comprueba por el texto del SQLX y por los dependencyTargets (incluye silver_licitaciones_assertions_uniqueKey_0, que sostiene E6). E2, E3, E4 y E6 quedan solo en scripts/it/dataform-ci.sh y no se pudieron correr sin GCP; está pendiente el verify_integration del usuario. Comprobé que indicadores_diarios.valor es NUMERIC, así que las igualdades exactas de E2 y E3 no deberían fallar por redondeo de FLOAT64. Los hechos usan assertions propias con filtro de partición en vez de las integradas, por require_partition_filter; queda cubierto en assertions.test.mjs. No hay cambios fuera de dataform/ y scripts/it/ en el commit de implementación. Ni DEC-001 ni DEC-008 se violan: no hay policy tags y proveedor_key es provisional en una sola función para T-14.\"}\n```",
+  "options": {
+    "approved": "the review finds no blocking problem: the change can be accepted",
+    "rejected": "the review reports at least one blocking problem"
+  },
+  "answer": "approved",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule review_approved_without_findings (DEC-051)",
+  "decider": "rule",
+  "rule": "review_approved_without_findings",
+  "facts": {
+    "verdict": "approved",
+    "findings": [],
+    "notes": "El hash de artifacts/T-12/verify.log coincide (a6546ff6…) y el log muestra 89/89 pruebas en verde. El patrón T-12 no selecciona ninguna prueba individual porque los nombres no citan T-12; la corrida filtrada solo confirmó que gold.test.mjs carga, y para los resultados me apoyé en el log. REQ-012 E1 y E5 se prueban localmente sobre el grafo compilado; E5 se comprueba por el texto del SQLX y por los dependencyTargets (incluye silver_licitaciones_assertions_uniqueKey_0, que sostiene E6). E2, E3, E4 y E6 quedan solo en scripts/it/dataform-ci.sh y no se pudieron correr sin GCP; está pendiente el verify_integration del usuario. Comprobé que indicadores_diarios.valor es NUMERIC, así que las igualdades exactas de E2 y E3 no deberían fallar por redondeo de FLOAT64. Los hechos usan assertions propias con filtro de partición en vez de las integradas, por require_partition_filter; queda cubierto en assertions.test.mjs. No hay cambios fuera de dataform/ y scripts/it/ en el commit de implementación. Ni DEC-001 ni DEC-008 se violan: no hay policy tags y proveedor_key es provisional en una sola función para T-14."
+  },
+  "timestamp": "2026-10-22T21:33:28.742Z"
+}
