@@ -1318,9 +1318,9 @@
         "T-05",
         "T-10"
       ],
-      "status": "ready",
+      "status": "verified_auto",
       "blocked_by": null,
-      "notes": "",
+      "notes": "Se siguió el plan aprobado. Única desviación interna: secret_names se construye como projects/<project>/secrets/<secret_id> en lugar de leer .id, porque el mock de terraform test genera un id aleatorio y la aserción de t11_repositorio_dataform no podía verlo; el formato es el mismo que el id real del proveedor. E2 queda cubierto en parte hasta que T-14 agregue vars.policy_tag_rut a la compilación.",
       "touches": [
         "orchestration/",
         "infra/",
@@ -1337,6 +1337,20 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:23:37.448Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "apply-result",
+          "at": "2026-10-22T21:00:32.975Z",
+          "reason": "resultado del implementador de T-11 vía autopilot (claude)"
+        },
+        {
+          "from": "in_progress",
+          "to": "verified_auto",
+          "by": "record_evidence.py",
+          "at": "2026-10-22T21:00:45+00:00",
+          "reason": "verify con código 0: 55/55 pasan, 0 fallan"
         }
       ],
       "plan_review": {
@@ -1365,6 +1379,21 @@
         ],
         "opinion_blockers": [],
         "date": "2026-10-22"
+      },
+      "claims": {
+        "manual_pending": "Reaplicar infra/bootstrap (scripts/it/tf-apply.sh bootstrap o a mano) antes del merge; cargar la versión del token fine-grained en dataform-github-token; tras deploy.yml en verde: GOOGLE_CLOUD_PROJECT=… GCP_REGION=us-central1 scripts/it/run-workflow.sh (espera 'run-workflow: ok execution=…' y la invocación en Dataform sin PERMISSION_DENIED); E5: deshabilitar la versión vigente de mercadopublico-ticket, correr scripts/it/run-workflow.sh --expect-failure (sale 0), volver a habilitarla, confirmar el correo 'Workflow compras-diario falló' y que finished_execution_count muestra status=FAILED en el Explorador de métricas."
+      },
+      "evidence": {
+        "command": "scripts/env.sh bash -c 'npm run test:infra && npm run test:orchestration && npm run check:spec'",
+        "exit_code": 0,
+        "passed": 55,
+        "failed": 0,
+        "total": 55,
+        "log_path": "artifacts/T-11/verify.log",
+        "log_sha256": "e5d5aae074aab2d818991503164b1dcfb8eb982d492d7e7621731a58d8bac6ef",
+        "commit": "cfad187cffe1f9539c7b3c2c0c1feaa3098558e9",
+        "timestamp": "2026-10-22T21:00:45+00:00",
+        "result": "55/55 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-11/verify.log)"
       }
     },
     {
