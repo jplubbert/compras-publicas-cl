@@ -1609,40 +1609,26 @@
       ],
       "plan_review": {
         "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
-        "verdict": "REVISAR",
-        "effective": "REVISAR",
-        "round": 1,
+        "verdict": "ESCALAR",
+        "effective": "ESCALAR",
+        "round": 2,
         "plan": "plans/T-13.md",
-        "plan_sha": "c83932e9ec9782c5507c4538a72b6313a9742109",
-        "plan_commit": "8fab91e",
+        "plan_sha": "46fe4dc96415c6dc951904dc199e65b0c2333ce9",
+        "plan_commit": "d24db1e",
         "findings": [
           {
             "id": "req-013:sin-prueba-de-aceptacion",
             "severity": "P1",
             "evidence_type": "archivo",
-            "evidence": "spec/SPEC.md:341 — 'Trazas: ... prueba: tests/acceptance/T-13*'",
-            "summary": "REQ-013 traza su prueba de aceptación a tests/acceptance/T-13*, y DEC-005 dice que las pruebas de aceptación viven en tests/acceptance/ y que las corre scripts/acceptance.sh según la extensión. El plan pone E1–E4 solo en benchmarks/tests/ y no crea ningún archivo tests/acceptance/T-13*; como el test-author está apagado en este repo (Q-05), nadie más lo creará. La traza apunta a un archivo que no existe y scripts/acceptance.sh no tiene nada que correr para T-13."
+            "evidence": "spec/SPEC.md:341 — la traza de REQ-013 es «prueba: tests/acceptance/T-13*»; spec/adr/0005-verificacion-local-sin-nube-y-verificacion-de-integracion.md:33 — «Las pruebas de aceptación viven en `tests/acceptance/`».",
+            "summary": "El plan sigue sin dejar un archivo tests/acceptance/T-13*: pone E1–E4 en benchmarks/tests/test_acceptance_req013.py y deja tests/acceptance/T-13_benchmark.py como pendiente manual (paso 12) porque el directorio está protegido para el implementador. Al cerrar la tarea, la traza de REQ-013 apunta a un archivo inexistente, y la aceptación no vive donde manda DEC-005. El planificador no lo puede resolver dentro de los touches de T-13: hace falta que el usuario decida quién crea el archivo o que acepte otra ubicación."
           },
           {
-            "id": "bench:filtro-particion-subconsulta-r2",
-            "severity": "P2",
-            "evidence_type": "opinión",
-            "evidence": "Paso 5 (r2_self_join_antes) y paso 9 ('cada archivo de queries/ filtra por fecha_publicacion')",
-            "summary": "La versión 'antes' de r2 lee la tabla dos veces (consulta externa y subconsulta con MAX/GROUP BY). Con require_partition_filter, cada referencia necesita su propio filtro de partición. La prueba local solo comprueba que 'fecha_publicacion' aparece en el archivo, así que no detecta una subconsulta sin filtro; el error saldría recién en la integración."
-          },
-          {
-            "id": "bench:etiqueta-de-dry-runs",
+            "id": "bench:generacion-40m-sin-plan-b",
             "severity": "P3",
             "evidence_type": "opinión",
-            "evidence": "Paso 6.2 y paso 7 (JOBS_SQL filtra por bench_run y statement_type = 'SELECT')",
-            "summary": "El paso 6.2 hace dry runs de los 13 jobs con job_config, que lleva la etiqueta bench_run. La documentación de JOBS no dice si los dry runs aparecen en la vista; si aparecieran, el informe vería 26 filas y mezclaría estimaciones con mediciones."
-          },
-          {
-            "id": "dec-003:cuota-diaria-acumulada",
-            "severity": "P3",
-            "evidence_type": "opinión",
-            "evidence": "Paso 6.2 (abortar si la suma de dry runs supera 18 GiB)",
-            "summary": "La cuota QueryUsagePerUserPerDay de 20 GiB es acumulativa en el día. El chequeo de 18 GiB solo mira la corrida actual, así que una segunda corrida el mismo día (o otras consultas del usuario) puede chocar con la cuota a mitad de camino y dejar un informe incompleto."
+            "evidence": "El CTAS de 40 M filas a partir de UNNEST(GENERATE_ARRAY) sin tabla de entrada puede paralelizarse mal y chocar con 'Resources exceeded' o tardar mucho; las fuentes de práctica recomiendan generar por tramos si ocurre.",
+            "summary": "Si el CTAS falla, recién se ve en scripts/it/benchmark.sh, y el plan no dice qué hacer en ese caso. No rompe la verificación local."
           }
         ],
         "opinion_blockers": [],
