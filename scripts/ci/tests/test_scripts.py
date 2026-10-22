@@ -1,0 +1,123 @@
+"""Local checks of the CI scripts (REQ-002): no network, no credentials, gh replaced by a fake (DEC-005)."""
+
+import os
+import shutil
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+PLAN_COMMENT = ROOT / "scripts" / "ci" / "plan-comment.sh"
+LAST_CI_RUN = ROOT / "scripts" / "it" / "last-ci-run.sh"
+TF_APPLY = ROOT / "scripts" / "it" / "tf-apply.sh"
+BASH = shutil.which("bash")
+MARKER = "<!-- tf-plan:infra/main -->"
+URL = "https://github.com/owner/repo/actions/runs/1"
+
+
+def run(script, args=(), env=None):
+    r = subprocess.run([BASH, str(script), *args], check=False, capture_output=True, text=True, env=env)
+    return r.returncode, r.stdout, r.stderr
+
+
+def plan_comment(tmp_path, text):
+    plan = tmp_path / "plan.txt"
+    plan.write_text(text)
+    return run(PLAN_COMMENT, [str(plan)])
+
+
+def test_plan_comment_with_changes(tmp_path):
+    line = "Plan: 3 to add, 0 to change, 0 to destroy."
+    code, out, err = plan_comment(tmp_path, f"Terraform will perform the following actions:\n\n{line}\n")
+    assert code == 0, err
+    assert out.startswith(MARKER)
+    assert line in out
+
+
+def test_plan_comment_without_changes(tmp_path):
+    code, out, err = plan_comment(tmp_path, "No changes. Your infrastructure matches the configuration.\n")
+    assert code == 0, err
+    assert "No changes." in out
+
+
+def test_plan_comment_without_summary_exits_1(tmp_path):
+    code, _, err = plan_comment(tmp_path, "Error: something failed\n")
+    assert code == 1
+    assert "no plan summary found" in err
+
+
+def test_plan_comment_without_argument_exits_2():
+    code, _, _ = run(PLAN_COMMENT)
+    assert code == 2
+
+
+def test_plan_comment_truncates_long_output(tmp_path):
+    text = ("x" * 99 + "\n") * 2000 + "Plan: 1 to add, 0 to change, 0 to destroy.\n"
+    code, out, err = plan_comment(tmp_path, text)
+    assert code == 0, err
+    assert len(out) < 65536
+    assert "(salida recortada)" in out
+
+
+def fake_gh(tmp_path, output):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    gh = bin_dir / "gh"
+    gh.write_text('#!/bin/bash\necho "$@" >> "$FAKE_GH_LOG"\nprintf "%s" "$FAKE_GH_OUT"\n')
+    gh.chmod(0o755)
+    log = tmp_path / "gh.log"
+    env = {**os.environ, "PATH": f"{bin_dir}:/usr/bin:/bin", "FAKE_GH_OUT": output, "FAKE_GH_LOG": str(log)}
+    code, out, err = run(LAST_CI_RUN, env=env)
+    return code, out + err, log.read_text()
+
+
+def test_last_ci_run_success(tmp_path):
+    code, out, args = fake_gh(tmp_path, f"completed\tsuccess\t{URL}\tfeat")
+    assert code == 0, out
+    assert "last-ci-run: success feat" in out
+    assert URL in out
+    assert "run list" in args
+    assert "--workflow ci.yml" in args
+    assert "--event pull_request" in args
+
+
+def test_last_ci_run_failure(tmp_path):
+    code, out, _ = fake_gh(tmp_path, f"completed\tfailure\t{URL}\tfeat")
+    assert code == 1
+    assert "completed/failure" in out
+
+
+def test_last_ci_run_in_progress(tmp_path):
+    code, out, _ = fake_gh(tmp_path, f"in_progress\t\t{URL}\tfeat")
+    assert code == 1
+    assert f"in_progress/ {URL}" in out
+
+
+def test_last_ci_run_without_runs(tmp_path):
+    code, out, _ = fake_gh(tmp_path, "")
+    assert code == 1
+    assert "no ci.yml run" in out
+
+
+def test_last_ci_run_without_gh_exits_2(tmp_path):
+    bin_dir = tmp_path / "nogh"
+    bin_dir.mkdir()
+    (bin_dir / "bash").symlink_to(BASH)
+    code, _, err = run(LAST_CI_RUN, env={"PATH": str(bin_dir)})
+    assert code == 2
+    assert "gh is required" in err
+
+
+def clean_env(**extra):
+    return {**{k: v for k, v in os.environ.items() if not k.startswith("TF_VAR_")}, **extra}
+
+
+def test_tf_apply_names_missing_project_id():
+    code, _, err = run(TF_APPLY, env=clean_env(TF_VAR_region="us-central1", TF_VAR_github_repository="owner/repo"))
+    assert code == 1
+    assert "TF_VAR_project_id" in err
+
+
+def test_tf_apply_with_argument_exits_2():
+    code, _, err = run(TF_APPLY, ["main"], env=clean_env())
+    assert code == 2
+    assert "usage" in err

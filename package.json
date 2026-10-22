@@ -7,12 +7,13 @@
     "check:adr": "node scripts/check-adr.mjs",
     "test:sdd": "node --test --test-reporter=spec \"scripts/test/*.test.mjs\"",
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
-    "lint": "scripts/env.sh uv run --frozen ruff check ingest finops benchmarks && scripts/env.sh uv run --frozen ruff format --check ingest finops benchmarks && scripts/env.sh terraform fmt -check -recursive infra",
+    "lint": "scripts/env.sh uv run --frozen ruff check ingest finops benchmarks scripts/ci && scripts/env.sh uv run --frozen ruff format --check ingest finops benchmarks scripts/ci && scripts/env.sh terraform fmt -check -recursive infra",
     "test:ci": "node --test --test-reporter=spec \"scripts/ci/tests/*.test.mjs\"",
     "test:ingest": "scripts/env.sh uv run --frozen pytest ingest/tests",
     "test:infra": "scripts/ci/tf-test.sh",
     "test:dataform": "scripts/env.sh bash -c '[ -d dataform/node_modules ] || npm ci --prefix dataform --silent' && scripts/env.sh node --test --test-reporter=spec \"dataform/tests/*.test.mjs\"",
+    "test:workflows": "scripts/env.sh uv run --frozen pytest scripts/ci/tests",
     "check:repo": "node scripts/ci/check-repo.mjs",
-    "test": "npm run test:ci && npm run test:ingest && npm run test:infra && npm run test:dataform && npm run test:sdd"
+    "test": "npm run test:ci && npm run test:ingest && npm run test:infra && npm run test:dataform && npm run test:sdd && npm run test:workflows"
   }
 }

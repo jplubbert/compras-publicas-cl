@@ -1,0 +1,61 @@
+# Deploy on merge to main (REQ-002): the same local checks as ci.yml, then terraform apply of infra/main in the
+# protected environment production, authenticated with WIF (DEC-004, no service account keys).
+# T-08 (REQ-006) adds here the images and the Dataform run in ci.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Set up tools
+        run: scripts/setup.sh
+      - name: Lint
+        run: scripts/env.sh npm run lint
+      - name: Test
+        run: scripts/env.sh npm test
+      - name: Check repo
+        run: scripts/env.sh npm run check:repo
+      - name: Check spec
+        run: scripts/env.sh npm run check:spec
+      - name: Dataform compile
+        run: scripts/env.sh bash -c 'cd dataform && node_modules/.bin/dataform compile'
+
+  apply:
+    needs: checks
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+      TF_VAR_region: ${{ vars.GCP_REGION }}
+      TF_VAR_github_repository: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up tools
+        run: scripts/setup.sh
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.CI_SERVICE_ACCOUNT }}
+      - name: Terraform apply
+        run: scripts/it/tf-apply.sh
