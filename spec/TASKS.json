@@ -1175,7 +1175,7 @@
       "depends_on": [
         "T-09"
       ],
-      "status": "verified_auto",
+      "status": "reviewed",
       "blocked_by": null,
       "notes": "Dataform 3.1.2 genera las assertions de los modelos como quarantine.silver_<modelo>_assertions_uniqueKey_0 y quarantine.silver_<modelo>_assertions_rowConditions (nonNull incluido como '<col> IS NOT NULL'), con la etiqueta y el parentAction del modelo, tal como suponía el plan; la compilación acepta silver.licitaciones y quarantine.licitaciones con el mismo nombre. El script de integración lee el nombre de la assertion uniqueKey de licitaciones desde el grafo compilado. En los fixtures, la IPC conserva base 39000 en el nuevo generador de series.",
       "touches": [
@@ -1205,6 +1205,13 @@
           "by": "record_evidence.py",
           "at": "2026-10-22T20:43:50+00:00",
           "reason": "verify con código 0: 64/64 pasan, 0 fallan"
+        },
+        {
+          "from": "verified_auto",
+          "to": "reviewed",
+          "by": "set-review",
+          "at": "2026-10-22T20:45:20.545Z",
+          "reason": "veredicto approved confirmado por el decisor"
         }
       ],
       "plan_review": {
@@ -1269,6 +1276,21 @@
         "commit": "a69dd336787e91647943ff9f09513e80dc4ffb78",
         "timestamp": "2026-10-22T20:43:50+00:00",
         "result": "64/64 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-10/verify.log)"
+      },
+      "review": {
+        "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Evidencia: sha256 de artifacts/T-10/verify.log coincide (ab448b70…); 64/64 pasan, check:descriptions ok (8 modelos), check:spec ok (también corrido aquí). Las corridas --test-name-pattern=T-10 de los cuatro archivos pasan, pero ningún nombre de prueba cita T-10, así que el filtro no selecciona ninguna prueba y solo confirma que los archivos cargan y compilan; npm test y node --test sin filtro fueron negados por la guarda. Observaciones no bloqueantes: (1) REQ-010: el hallazgo P2 del crítico sigue abierto: la ventana incremental de la cuarentena se ancla a CURRENT_DATE() - 3 días y la de silver a MAX(_ingest_date) de su destino; si Dataform no corre por más de 3 días, al reanudar silver excluye filas malas que la cuarentena ya no ve. (2) REQ-009: nonNull cubre la clave, las fechas obligatorias y fecha_cambio, no 'las fechas' en general (fecha_cierre, adjudicación, envío y aceptación quedan fuera); S-23 solo nombra las fechas obligatorias de la cuarentena. (3) No se ejecutó bash -n sobre scripts/it/dataform-ci.sh (no está en los comandos permitidos); revisado a mano parece correcto, y los ejemplos E2–E5 de REQ-009 y la cuarentena en ci (fixtures: dólar índices 4–8 → hueco de 5, UF D-1 39011.55 vs 39010.55 → diferencia 1) quedan para el verify_integration del usuario. (4) Las trazas de REQ-009/REQ-010 apuntan a tests/acceptance/T-10*, que no existe; el repo no tiene tests/acceptance y las pruebas viven en dataform/tests. (5) El commit a126fb8 agrega S-23 y S-24 a spec/SPEC.md, fuera de touches (dataform/, scripts/it/); lo recomendó el crítico y no contradice ningún REQ ni DEC. (6) El RUT de los ítems adjudicados de licitaciones (que alimenta silver.proveedores) no se valida, según S-23. (7) El riesgo P3 de NOT IN con fila_id nulo sigue abierto (se mantuvo NOT IN, no NOT EXISTS).",
+        "date": "2026-10-22",
+        "decision": {
+          "question_id": "review_verdict",
+          "decider": "rule",
+          "confidence": 1,
+          "threshold": 0.8,
+          "timestamp": "2026-10-22T20:45:19.501Z",
+          "rule": "review_approved_without_findings"
+        }
       }
     },
     {
