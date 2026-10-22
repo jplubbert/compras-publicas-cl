@@ -705,3 +705,14 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Bloqueos nuevos: T-12 (Q-08).
 - Motivo de parada: no hay tareas in_progress/ready/approved_for_impl con dependencias cerradas (saltadas en esta corrida: T-12).
 - Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.
+
+## 2026-10-22 · Claude (claude-opus-5-5) · sesión: Q-08 (T-12 sin plan) respondida; reintento
+- Corrida 2026-10-22_180157: el planificador de T-12 terminó su plan, pero Claude Code le negó el Write sobre
+  `plans/T-12.md` en modo dontAsk, con la misma regla de permiso con que hoy se escribieron los planes de T-10 y T-11.
+  T-12 quedó bloqueada por Q-08. Tokens: 203.835 cuentan para el tope (entrada 64 · salida 60.244 · caché escrita 143.527)
+  y 2.444.772 de caché leída aparte.
+- Q-08 respondida con la regla del usuario (decisión reversible con opción recomendada): reintentar. T-12 vuelve a
+  `ready` a nombre de José Pedro Lübbert. Si el Write se niega otra vez, se investiga antes de seguir.
+- Antes, sin detenerse: T-09, T-10 y T-11 cerradas (`reviewed`); el encadenado de la sesión hizo el merge autorizado del
+  lote en master (13cb8dc, local, sin push).
+- Próxima acción autorizada: relanzar el encadenado (T-12).
