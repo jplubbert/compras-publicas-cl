@@ -121,6 +121,12 @@ agent_claude_command() {
       allowed+=(Edit Write MultiEdit TodoWrite)
     elif [ "${#PROFILE_WRITE[@]}" -gt 0 ]; then
       for p in "${PROFILE_WRITE[@]}"; do allowed+=("$(rule Write "$p")" "$(rule Edit "$p")"); done
+      # Its result file too (T-99): --add-dir alone does not let dontAsk write it. Only that file, never the directory;
+      # "//" is Claude Code's prefix for an absolute path.
+      local result=${AUTOPILOT_RESULT:-}
+      if [ -n "$PROFILE_RESULT_DIR" ] && [ -n "$result" ] && [ "${result%/*}" = "$PROFILE_RESULT_DIR" ]; then
+        allowed+=("Write(/$result)" "Edit(/$result)")
+      fi
       denied+=(MultiEdit NotebookEdit)
     else
       denied+=(Edit Write MultiEdit NotebookEdit)

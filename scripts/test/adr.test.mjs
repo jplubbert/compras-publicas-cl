@@ -145,6 +145,30 @@ describe('new ADRs are born proposed and Jev accepts them; agents get only the d
     expect(adr('accept', '0008', '--decider', decider('{"answer":"accept","confidence":0.9}'))).toMatchObject({ status: 1, stderr: expect.stringContaining('only a proposed ADR') });
   });
 
+  it('accept --by: the user accepts it by name without asking the decider, with the same conditions (T-91)', () => {
+    const asked = join(root, '..', `${root.split('/').pop()}-asked`);
+    const spy = join(root, '..', `${root.split('/').pop()}-spy.sh`);
+    writeFileSync(spy, `#!/usr/bin/env bash\ntouch '${asked}'\necho '{"answer":"reject","confidence":0.99}'\n`);
+    adr('new', 'Cache de compilación compartida');
+    withOptions('0008');
+    const ok = adr('accept', '0008', '--by', 'Pepe', '--reason', 'aceptado en sesión', '--decider', spy);
+    expect(ok.stderr).toBe('');
+    expect(ok.status).toBe(0);
+    expect(existsSync(asked)).toBe(false);
+    const t = readFileSync(file('0008'), 'utf8');
+    expect(t).toContain('- Estado: accepted');
+    expect(t).toMatch(/- Aprobador: Pepe, \d{4}-\d{2}-\d{2} \(aprobación nominal en sesión: «aceptado en sesión»\)\n/);
+    expect(readFileSync(join(root, 'spec/DECISIONS.md'), 'utf8')).toContain('| DEC-008 | Cache de compilación compartida | accepted |');
+    expect(existsSync(join(root, 'artifacts/decisions/adr'))).toBe(false);
+    adr('new', 'Otra decisión');   // 0009 keeps the placeholder options: not two real ones
+    const one = adr('accept', '0009', '--by', 'Pepe', '--decider', spy);
+    expect(one).toMatchObject({ status: 1, stderr: expect.stringContaining('needs at least two options') });
+    expect(readFileSync(file('0009'), 'utf8')).toContain('- Estado: proposed');
+    expect(adr('accept', '0008', '--by', 'Pepe', '--decider', spy)).toMatchObject({ status: 1, stderr: expect.stringContaining('only a proposed ADR') });
+    expect(existsSync(asked)).toBe(false);
+    rmSync(spy, { force: true });
+  });
+
   it('select: the decisions the task cites, the most recent in force and those whose Módulos cross its touches; never superseded or proposed (DEC-036)', () => {
     adr('migrate', '--ids', 'DEC-001,DEC-002,DEC-005');
     const set = (n, a, b) => writeFileSync(file(n), readFileSync(file(n), 'utf8').replace(a, b));

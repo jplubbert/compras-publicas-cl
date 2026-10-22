@@ -1,11 +1,12 @@
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { expect } from './expect.mjs';
-import { mapAnswer } from '../lib/decide.mjs';
+import { mapAnswer, userCriteriaPath, withUserCriteria } from '../lib/decide.mjs';
 
 // The port decide (DEC-015, DEC-013): a pure core that maps a decider's answer to an action, tested without any decider;
 // the Jev adapter (scripts/agents/decider/jev.sh) tested apart against a curl double; and that the adapter is reached
@@ -64,6 +65,46 @@ describe('decide CLI: runs the adapter, maps its answer and records the decision
     expect(JSON.parse(ask(decider('sleep 5'), ['--timeout', '1']).stdout)).toMatchObject({ action: 'escalate' });
     expect(JSON.parse(ask(decider('echo not json')).stdout)).toMatchObject({ action: 'escalate' });
     expect(readdirSync(join(dir, 'decisions')).length).toBe(3);
+  });
+});
+
+describe('T-92: the user criteria reach the decider, and the record keeps their hash (DEC-050)', () => {
+  const decider = () => { const f = join(dir, 'decider.sh'); writeFileSync(f, `#!/usr/bin/env bash\ncat > ${join(dir, 'seen.json')}\necho '{"answer":"design","confidence":0.9}'\n`); chmodSync(f, 0o755); return f; };
+  const ask = (env) => {
+    writeFileSync(join(dir, 'q.json'), JSON.stringify(question));
+    const r = spawnSync('node', [DECIDE, 'ask', '--decider', decider(), '--question', join(dir, 'q.json'), '--threshold', '0.8', '--record-dir', join(dir, 'decisions')], { encoding: 'utf8', env: { ...process.env, ...env } });
+    return { seen: JSON.parse(readFileSync(join(dir, 'seen.json'), 'utf8')), record: JSON.parse(readFileSync(JSON.parse(r.stdout).record, 'utf8')) };
+  };
+  const criteria = '- Informar el consumo en tokens, no en dólares. Porqué: el tope es de tokens. Origen: DEC-048.\n';
+
+  it('DEC-050: with the file, the adapter gets the criteria in the instructions and the record has its sha256', () => {
+    const file = join(dir, 'criterios-usuario.md');
+    writeFileSync(file, criteria);
+    const { seen, record } = ask({ AUTOPILOT_USER_CRITERIA: file });
+    expect(seen.instructions.startsWith(question.instructions)).toBe(true);
+    expect(seen.instructions).toContain(criteria.trim());
+    expect(seen).toMatchObject({ id: question.id, state: question.state, options: question.options });
+    expect(record.user_criteria_sha256).toBe(createHash('sha256').update(criteria).digest('hex'));
+  });
+
+  it('DEC-050: without the file, the question goes as today and the record has a null hash', () => {
+    const { seen, record } = ask({ AUTOPILOT_USER_CRITERIA: join(dir, 'missing.md') });
+    expect(seen).toEqual(question);
+    expect(record.user_criteria_sha256).toBe(null);
+  });
+
+  it('DEC-050: the default path is ${XDG_CONFIG_HOME:-~/.config}/autopilot/criterios-usuario.md', () => {
+    expect(userCriteriaPath({ XDG_CONFIG_HOME: '/x' })).toBe('/x/autopilot/criterios-usuario.md');
+    expect(userCriteriaPath({})).toBe(join(homedir(), '.config/autopilot/criterios-usuario.md'));
+    expect(userCriteriaPath({ AUTOPILOT_USER_CRITERIA: '/y.md', XDG_CONFIG_HOME: '/x' })).toBe('/y.md');
+    mkdirSync(join(dir, 'autopilot'));
+    writeFileSync(join(dir, 'autopilot', 'criterios-usuario.md'), criteria);
+    const { seen } = ask({ XDG_CONFIG_HOME: dir, AUTOPILOT_USER_CRITERIA: '' });
+    expect(seen.instructions).toContain(criteria.trim());
+  });
+
+  it('DEC-050: an empty file counts as no file', () => {
+    expect(withUserCriteria(question, '  \n')).toEqual({ question, sha256: null });
   });
 });
 

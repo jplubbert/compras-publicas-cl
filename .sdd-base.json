@@ -1,17 +1,17 @@
 {
-  "sdd_base_commit": "3b7868581419952991876d256d754b947e1e17a0",
+  "sdd_base_commit": "145f9461f19bb8347860c76dbf81579d869e5a09",
   "files": {
     ".githooks/commit-msg": {
       "sha256": "5fd42695dee574d130aac83a04a5adcf89bc86096023d3b2a5febfedc39b633e"
     },
     "scripts/adr.mjs": {
-      "sha256": "1ab7d80cdb9e15cb799f5b7bc181bc24a6e752d96dfc107c388f7f0a5ea3cf67"
+      "sha256": "086ad2e743f8b3e2486a0028b3f2f50be958b06f367d46440488ad1f5b17f5d3"
     },
     "scripts/agents/claude-access-hook.mjs": {
       "sha256": "eba56ea1c1fd3562b020ce862bb292eb9a17e7161fe23e8963f6ba962cd14e52"
     },
     "scripts/agents/claude.sh": {
-      "sha256": "e7f100ffdafea1777ae88ee67ad1776efa6a000da50def29f2807c47256e0f15"
+      "sha256": "aca6e825f214e5521950a894ea95ca3554c9a95f55efb99d1ac02c17c27eab8e"
     },
     "scripts/agents/decider/jev-smoke.sh": {
       "sha256": "1aa0e6573f5ffecef606b65562cefe5944a3028028a8a00c9a1f941488983b7e"
@@ -41,7 +41,7 @@
       "sha256": "291c2613899199f744bbfc92c0220536a3bd9deb90b07d3e336ac6a28fc7190b"
     },
     "scripts/autopilot.sh": {
-      "sha256": "07d9309d7131f0d4f0b172a7bb9e399fdc37d22ec2a339aacc36e4a9344633c6"
+      "sha256": "27b7823d4b1e7390bda0d5928674c7b7bff348ef77dc4d335b766ebfa2a9b0b2"
     },
     "scripts/check-adr.mjs": {
       "sha256": "f39235b05ed3bb1a946107ddcd9e0df9ed13c0cb6f12304dd6d05b28b25c3b81"
@@ -50,7 +50,7 @@
       "sha256": "61b4ceaa1548b05ea1576ba3a195205a7fa5d438beab547a54ddd74d9bdfe23b"
     },
     "scripts/check-spec.mjs": {
-      "sha256": "f64623595d877c077f7426ec4e49ec48646cc79f5f5a91ab6b18776119463bf7"
+      "sha256": "b111a9017d04aa153ed601232d877a0f83f4db3731f58dfc008136b310938b49"
     },
     "scripts/critic-gate.sh": {
       "sha256": "53c3642158635015ac0d34b6c936ded01f37e5918cb1242b2125b2803e6c44f6"
@@ -62,13 +62,13 @@
       "sha256": "73ae8ea9cea28e62ce6c07ad0baec0ad1b332f0172ae926b00aee92f7555cdca"
     },
     "scripts/lib/autopilot-stream.mjs": {
-      "sha256": "60b1d998bcf2b535d41f89f56f8f12e37eaaea3fd2b08a15b8aaead479a16bcd"
+      "sha256": "e962210f8f6e04d8b2cbd32176e90e35c16390d37c6475db132c1cab8f0347c2"
     },
     "scripts/lib/autopilot-tasks.mjs": {
-      "sha256": "56c0caca7147385e59e62e8e0ce3c49d44776bf035adf2470e1c2cb2c869e8e2"
+      "sha256": "d4fcaf78569338076d938c0182822aebeab1a1c25fc1b414ca1ab68c02b721c7"
     },
     "scripts/lib/decide.mjs": {
-      "sha256": "4dcc0301fcf98f6ae3eba37e2f40f41f906579828d5d467063bf51edea9ab762"
+      "sha256": "0fe26e1f28c302bdaa89f1e8fe8f1a16cf16f7e9fae120dffeb2938758f9b48d"
     },
     "scripts/lib/instrument.mjs": {
       "sha256": "dd6a71b7dc6704b2d7db033b968117ea9ff7f7ecf205c3dc278bffe8614c722c"
@@ -80,13 +80,13 @@
       "sha256": "841ae919a670026d7017d563a2ca7dfe34625ba1659bc127de44a23d6aed7cdf"
     },
     "scripts/test/adr.test.mjs": {
-      "sha256": "6e7a3573c3459794bad0853268a2c044ce2b09800f4e9656712caa65fbd42747"
+      "sha256": "32f865f7fb1872efd3a6a1ff5a2a7b556b8b5557f34487d6d705b10de22a27a1"
     },
     "scripts/test/autopilot-stream.test.mjs": {
-      "sha256": "cffd3787e62bfa2142f0d84dec2824caeb3f8d3324964e5a45a2b401d508dd25"
+      "sha256": "cf2f5447feb58ad1c51097bc28c9eda581288de85879c9624df82ea1e5e61c78"
     },
     "scripts/test/autopilot-tasks.test.mjs": {
-      "sha256": "d5f92b8c9b6aed40498c99cd760e9cba0ec3a825602d73abd869d809b9ad5a34"
+      "sha256": "dfe08e9a07e637b5b895145847b58df4d0f9af15b1f0031ceec1aa5905a8f391"
     },
     "scripts/test/check-adr.test.mjs": {
       "sha256": "4485ecb221b2db33bf0c964919d229b93cd0667ab271dd3f5be8488c910ead38"
@@ -95,10 +95,10 @@
       "sha256": "45ea024a949d0d526f9876426e61136c60f01dd82a2a2ccb96baeddb5f06611f"
     },
     "scripts/test/check-spec.test.mjs": {
-      "sha256": "be5523f2dc3d3254630e6f22bb820eb34729bf610c647f182ca27cbe2625a8ad"
+      "sha256": "bcf8aefa151640a175fa4446b20d08fcc095f650e4220157a0d5b472c23351df"
     },
     "scripts/test/decide.test.mjs": {
-      "sha256": "e869639f2eb5e2a0413fe9d09302905d704ac0e6cfac17bb22539420811ccbd3"
+      "sha256": "057d14eca56f96833931f73e998eee79c0ab912d6a26496be83dd06e831b199a"
     },
     "scripts/test/expect.mjs": {
       "sha256": "ded1cf80112c28f365ce6cd118f738f1f253422a8365b28f0bf53f2b99eeab07"
@@ -116,7 +116,7 @@
       "sha256": "9e6ca3ce598ff96b0065c393b0814650502602e9e51d86f8dc49e514707e1cc3"
     },
     "scripts/test/fixtures/dispatch-stub/autopilot.sh": {
-      "sha256": "adb40165bf3c8bebf508a502527c2a96d834ceb1e6abac7085bf05b07622d686"
+      "sha256": "4dc89f07b7edf067f847daa9e750e1cf81b6b7a43e03c7478e2f61babd0b953a"
     },
     "scripts/test/fixtures/spec/DECISIONS.md": {
       "sha256": "299e16357e362fd2634d02a240a481bfbec9a6a3a9c54b9434c67b51d03944a1"

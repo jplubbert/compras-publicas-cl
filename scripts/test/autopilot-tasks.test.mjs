@@ -1137,6 +1137,23 @@ describe('autopilot.sh', () => {
       expect(cmd('T-03')).not.toContain('--deny-write'); // T-03 is a spec task
     });
 
+    it('the test-author may write its result file and nothing else outside tests/acceptance/<ID>*; the implementer is unchanged (T-99)', () => {
+      fixtureRepo();
+      const cmd = (role, result) => spawnSync('bash', [join(root, 'scripts/autopilot.sh'), '--print-agent-command', role, '/tmp/x', 'T-03'], {
+        encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, AUTOPILOT_TEST_AUTHOR: 'on', AUTOPILOT_ACCEPTANCE_CMD: 'sh',
+          ...(result ? { AUTOPILOT_RESULT: result } : {}) } }).stdout;
+      const allowed = (s) => s.slice(s.indexOf('--allowedTools'), s.indexOf('--disallowedTools'));
+      const author = allowed(cmd('test_author', '/tmp/x/T-03-tests-result.json'));
+      expect(author).toContain('Write\\(//tmp/x/T-03-tests-result.json\\)');
+      expect(author).toContain('Edit\\(//tmp/x/T-03-tests-result.json\\)');
+      expect(author).not.toContain('Write\\(//tmp/x/\\*\\*\\)');   // the file, not the directory
+      expect(author).not.toContain('Write\\(./src');
+      // a result outside its result directory gets no rule
+      expect(allowed(cmd('test_author', '/tmp/y/T-03-tests-result.json'))).not.toContain('//tmp/y');
+      const impl = (r) => cmd('implementer', r);
+      expect(impl('/tmp/x/T-03-result-1.json')).toBe(impl(''));
+    });
+
     it('--print-agent-command prints the exact command of a role and exits, without a run', () => {
       fixtureRepo();
       const r = spawnSync('bash', [join(root, 'scripts/autopilot.sh'), '--print-agent-command', 'reviewer', '', 'T-03'], {
@@ -1550,6 +1567,78 @@ describe('autopilot.sh', () => {
       });
     });
 
+    describe('T-84: a result rejected for its format is rewritten once, without asking the decider', () => {
+      const approved = { STUB_VERDICT: '{"verdict":"approved","findings":[],"notes":"ok"}' };
+      // Wraps the claude double: the implementer's first result carries a "- Verificado" line; the relaunch whose prompt
+      // says "Result rejected (T-84)" only rewrites the result (fixed, or still invalid with WRAP_RETRY_BAD).
+      beforeEach(() => {
+        cpSync(join(bin, 'claude'), join(bin, 'claude-real'));
+        writeFileSync(join(bin, 'claude'), `#!/usr/bin/env bash
+real="$(dirname "$0")/claude-real"
+[ "$1" = -p ] || exec "$real" "$@"
+input=$(cat)
+case "$input" in
+  "Read AGENTS.md and execute "*"Result rejected (T-84)"*)
+    n=$(( $(cat .autopilot/wrap-retry-count 2>/dev/null || echo 0) + 1 )); echo "$n" >.autopilot/wrap-retry-count
+    printf '%s' "$input" >".autopilot/wrap-retry-prompt-$n.txt"
+    echo '{"type":"system","subtype":"init","model":"stub","session_id":"w1"}'
+    log='- Hecho: resultado reescrito.'; [ -n "\${WRAP_RETRY_BAD:-}" ] && log='- Verificado: 3 tests passed.'
+    WRAP_LOG=$log node -e 'require("fs").writeFileSync(process.env.AUTOPILOT_RESULT, JSON.stringify({ log: process.env.WRAP_LOG }))'
+    echo '{"type":"result","subtype":"success","result":"rewrote the result","num_turns":1,"is_error":false}'
+    exit 0 ;;
+  "Read AGENTS.md and execute "*)
+    rc=0; printf '%s' "$input" | "$real" "$@" || rc=$?
+    node -e 'const fs=require("fs");const f=process.env.AUTOPILOT_RESULT;const r=JSON.parse(fs.readFileSync(f,"utf8"));
+      r.log+="\\n- Verificado y cómo: npm test → 25 pasan.";fs.writeFileSync(f,JSON.stringify(r))'
+    exit $rc ;;
+esac
+printf '%s' "$input" | exec "$real" "$@"
+`);
+      });
+      const retries = () => (existsSync(join(root, '.autopilot/wrap-retry-count')) ? Number(readFileSync(join(root, '.autopilot/wrap-retry-count'), 'utf8')) : 0);
+
+      it('T-84: a result with "- Verificado" is relaunched once with the validation error and, fixed, is applied', () => {
+        const r = autopilot(approved, '--max-tasks', '1');
+        expect(r.status).toBe(0);
+        expect(r.stdout).toContain('"log" must not state test results');
+        expect(r.stdout).toContain('T-03: result rejected for its format; relaunching the implementer once to rewrite only the result (T-84)');
+        expect(r.stdout).toContain('T-03: the rewritten result is valid (T-84)');
+        expect(r.stdout).not.toContain('decide failure_cause');
+        expect(r.stdout).not.toContain('failure 1/');
+        expect(retries()).toBe(1);
+        const prompt = readFileSync(join(root, '.autopilot/wrap-retry-prompt-1.txt'), 'utf8');
+        expect(prompt).toContain('Result rejected (T-84)');
+        expect(prompt).toContain('"log" must not state test results');
+        expect(prompt).toContain('do not change files and do not commit');
+        expect(prompt).toContain('- Verificado y cómo: npm test → 25 pasan.'); // the rejected result
+        expect(t03().status).toBe('reviewed');
+        const log = readFileSync(join(root, 'spec/LOG.md'), 'utf8');
+        expect(log).toContain('- Hecho: resultado reescrito.');
+        expect(log).not.toContain('npm test → 25 pasan');
+        expect(git('log', '--format=%s').split('\n').filter((s) => s === 'T-03: stub')).toHaveLength(1); // its commits, kept
+        expect(git('status', '--porcelain')).toBe('');
+      });
+
+      it('T-84: a second rejection fails as before: the decider classifies it and, under its threshold, it escalates', () => {
+        const r = autopilot({ ...approved, WRAP_RETRY_BAD: '1', STUB_DECIDE_failure_cause: 'reviewer_error:0.47' });
+        expect(retries()).toBe(1);
+        expect(r.stdout).toContain('decide failure_cause (stub)');
+        expect(r.stdout).not.toContain('attempt 2');
+        expect(t03().status).toBe('blocked');
+        expect(t03().blocked_by).toMatch(/^Q-\d+$/);
+        expect(readFileSync(join(root, 'spec/LOG.md'), 'utf8')).toContain('T-03: resultado del implementador inválido también tras reescribirlo una vez (T-84');
+        const ctx = readdirSync(join(root, '.autopilot'), { recursive: true }).find((f) => f.endsWith('T-03-cause-context.md'));
+        expect(readFileSync(join(root, '.autopilot', ctx), 'utf8')).toContain('### Validation of the rewritten result');
+      });
+
+      it('T-84: a missing result is not relaunched (only a format rejection is)', () => {
+        const r = autopilot({ STUB_MODE: 'noresult' }, '--max-failures', '1');
+        expect(retries()).toBe(0);
+        expect(r.stdout).not.toContain('relaunching the implementer once');
+        expect(r.stdout).toContain('left no result in');
+      });
+    });
+
     describe('the status comes from facts, not from the implementer (DEC-014, T-34)', () => {
       const approved = { STUB_VERDICT: '{"verdict":"approved","findings":[],"notes":"ok"}' };
 
@@ -1663,7 +1752,9 @@ describe('autopilot.sh', () => {
         expect(readFileSync(join(root, 'scripts/autopilot.sh'), 'utf8')).not.toContain('SELF-EDITED');
       });
 
-      for (const [mode, err] of [['noresult', 'left no result in'], ['badresult', 'not valid JSON']]) {
+      // badresult: the double commits again when relaunched to rewrite its result, which T-84 does not apply
+      for (const [mode, err, why] of [['noresult', 'left no result in', 'T-03: resultado del implementador ausente o inválido'],
+        ['badresult', 'not valid JSON', 'T-03: al reescribir su resultado el implementador hizo commits']]) {
         it(`a ${mode === 'noresult' ? 'missing' : 'invalid'} result counts as a failure: retried, then abandoned; nothing applied`, () => {
           const r = autopilot({ ...approved, STUB_MODE: mode });
           expect(r.status).toBe(1);
@@ -1671,7 +1762,7 @@ describe('autopilot.sh', () => {
           expect(r.stdout).toContain('failure 2/2 on T-03');
           expect(git('log', '--format=%s', 'HEAD')).not.toContain('T-03: stub'); // never integrated
           expect(t03().status).toBe('ready');
-          expect(readFileSync(join(root, 'spec/LOG.md'), 'utf8')).toContain('T-03: resultado del implementador ausente o inválido');
+          expect(readFileSync(join(root, 'spec/LOG.md'), 'utf8')).toContain(why);
           expect(git('status', '--porcelain')).toBe('');
         });
       }
@@ -2926,6 +3017,20 @@ describe('autopilot.sh', () => {
         expect(result()).toMatchObject({ mode: 'review_only', queue: 5, done: [] });
       });
 
+      it('AUTOPILOT_REVIEW_SKIP takes its tasks out of the queue: not reviewed, not counted, not in --check (T-93)', () => {
+        queue(['T-02', 'T-04', 'T-05', 'T-06', 'T-07']);
+        const skip = { AUTOPILOT_REVIEW_SKIP: 'T-02, T-04 T-05,T-06' };
+        const check = autopilot({ ...approved, ...skip }, '--check');
+        expect(check.stdout).toContain('pending reviews: T-07');
+        expect(check.stdout).not.toContain('T-02');
+        const r = autopilot({ ...approved, ...skip });
+        expect(r.stdout).toContain('queue policy (DEC-023): 1 in verified_auto (≤ 4): one review and one implementation');
+        expect(reviews()).toBe(1);
+        expect(task(readTasks(), 'T-07').status).toBe('reviewed');
+        for (const id of ['T-02', 'T-04', 'T-05', 'T-06']) expect(task(readTasks(), id).status).toBe('verified_auto');
+        expect(result()).toMatchObject({ mode: 'implement_and_review', queue: 1, done: ['T-03'] });
+      });
+
       it('4 or fewer: reviews the oldest, implements one and leaves it in the queue', () => {
         queue(['T-02', 'T-06']);
         const r = autopilot(approved);
@@ -3045,6 +3150,58 @@ describe('autopilot.sh', () => {
         expect(res.status).toBe('sigterm');
         expect(res.branch).toMatch(/^autopilot\/.+\/T-03-1$/);
         expect(readFileSync(join(current(), 'partial.patch'), 'utf8')).toContain('half-done T-03');
+      });
+
+      it('T-98: a signal on its task branch: back on the batch branch, uncommitted work in a named stash, partial.patch kept', async () => {
+        const child = asyncRun({ ...approved, AUTOPILOT_BATCH: 'on', STUB_MODE: 'hang', STUB_HANG_SECONDS: '3' });
+        const done = exited(child);
+        await new Promise((res) => { const t = setInterval(() => { if (existsSync(join(root, '.autopilot/stub-hang-T-03'))) { clearInterval(t); res(); } }, 100); });
+        child.kill('SIGTERM');
+        await done;
+        const res = result();
+        expect(res.status).toBe('sigterm');
+        expect(res.branch).toMatch(/^autopilot\/.+\/T-03-1$/);   // where its commits are
+        expect(res.recovered).toMatchObject({ checkout: 'autopilot/lote', stash: expect.stringContaining('uncommitted work on autopilot/') });
+        expect(res.stop_reason).toContain('back on autopilot/lote');
+        expect(git('symbolic-ref', '--short', 'HEAD').trim()).toBe('autopilot/lote');
+        expect(git('status', '--porcelain')).toBe('');
+        expect(git('stash', 'list')).toContain('(T-98)');
+        expect(readFileSync(join(current(), 'partial.patch'), 'utf8')).toContain('half-done T-03');
+      });
+
+      it('T-98: a run started on a task branch never takes an autopilot/* branch as the batch target nor records merged', () => {
+        const target = git('symbolic-ref', '--short', 'HEAD').trim();
+        expect(autopilot({ ...approved, AUTOPILOT_BATCH: 'on' }, '--max-tasks', '1').status).toBe(0);   // T-03 into the open batch
+        // what the interrupted run of 2026-10-22 left: HEAD on a task branch, and a target pointing at it
+        git('checkout', '-q', '-b', 'autopilot/2026-10-22_010033/T-03-1');
+        git('config', 'autopilot.batchtarget', 'autopilot/2026-10-22_010033/T-03-1');
+        const r = autopilot({ ...approved, AUTOPILOT_BATCH: 'on' }, '--max-tasks', '1');
+        expect(r.stdout).toContain('the run started on autopilot/2026-10-22_010033/T-03-1, not a target');
+        expect(r.stdout).toContain(`continuing on autopilot/lote`);
+        expect(t03().merged).toBe(undefined);
+        expect(git('config', '--get', 'autopilot.batchtarget').trim()).toBe(target);
+        expect(result().batch).toMatchObject({ branch: 'autopilot/lote', target });
+      });
+
+      it('T-98: set-merged refuses an autopilot/* target', () => {
+        const r = spawnSync('node', [SCRIPT, 'set-merged', 'T-03', '--into', 'autopilot/lote', '--commit', 'HEAD', '--root', root], { encoding: 'utf8' });
+        expect(r.status).not.toBe(0);
+        expect(r.stderr).toContain('an autopilot/* branch is not a merge target (T-98)');
+        expect(t03().merged).toBe(undefined);
+      });
+
+      it('T-98: a wall-clock gap without heartbeats (the machine asleep) does not cut the agent as inactive', async () => {
+        const child = asyncRun({ ...approved, STUB_MODE: 'hang', STUB_HANG_SECONDS: '7', AUTOPILOT_STALL_SECONDS: '3', AUTOPILOT_HEARTBEAT_SECONDS: '1' });
+        const done = exited(child);
+        await new Promise((res) => { const t = setInterval(() => { if (existsSync(join(root, '.autopilot/stub-hang-T-03'))) { clearInterval(t); res(); } }, 100); });
+        const hb = JSON.parse(readFileSync(join(current(), 'heartbeat'), 'utf8')).heartbeat_pid;
+        process.kill(hb, 'SIGSTOP');   // as a suspend: no heartbeat for 5 s, live.log unchanged
+        await new Promise((res) => setTimeout(res, 5000));
+        process.kill(hb, 'SIGCONT');
+        const { out } = await done;
+        expect(out).not.toContain('no activity from the agent');
+        expect(result().status).not.toBe('stalled');
+        expect(readFileSync(join(current(), 'live.log'), 'utf8')).toMatch(/clock gap: no heartbeat for \d+s .*the inactivity deadline restarts \(T-98\)/);
       });
 
       it('an agent with no activity for AUTOPILOT_STALL_SECONDS: INT to the agent and the run ends stalled', async () => {
@@ -3798,6 +3955,41 @@ describe('autopilot.sh', () => {
       const d = spawnSync('bash', [join(root, 'scripts/autopilot.sh'), '--dry-run'], { encoding: 'utf8', env });
       expect(d.status).toBe(0);
       expect(d.stderr).toContain('warning: dirty working tree');
+    } finally {
+      rmSync(bin, { recursive: true, force: true });
+    }
+  });
+
+  it('T-87: with the lock held by another run, --dry-run warns and exits 0; a real run still stops', () => {
+    copyAutopilot();
+    const git = gitIn(root);
+    git('init', '-q');
+    git('add', '-A');
+    git('commit', '-q', '-m', 'base\n\nTask: none\nReq: none');
+    mkdirSync(join(root, '.autopilot/2026-01-01_000000'), { recursive: true });
+    writeFileSync(join(root, '.autopilot/.gitignore'), '*\n');
+    writeFileSync(join(root, '.autopilot/2026-01-01_000000/live.log'), 'the run holding the lock, still going\n');
+    const lock = join(root, '.autopilot/lock');
+    writeFileSync(lock, '');
+    const bin = stubBin();
+    try {
+      const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+      const run = (...args) => // flock holds the lock while the autopilot runs, as the orchestrator does during a verify
+        spawnSync('flock', [lock, 'bash', join(root, 'scripts/autopilot.sh'), ...args], { encoding: 'utf8', env });
+      const d = run('--dry-run');
+      expect(d.status).toBe(0);
+      expect(d.stderr).toContain('warning: another autopilot run is in progress (.autopilot/lock); the dry run goes on');
+      expect(d.stdout).toContain('== Dry run (--dry-run)');
+      expect(d.stdout).not.toContain('crashed_orphan'); // the other run is not an orphan
+      expect(git('status', '--porcelain')).toBe('');
+      expect(git('log', '--format=%s')).toBe('base\n');
+      expect(readdirSync(join(root, '.autopilot')).flatMap((n) => {
+        try { return readdirSync(join(root, '.autopilot', n)); } catch { return []; }
+      })).not.toContain('result.json');
+      const r = run();
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain('another autopilot run is in progress (.autopilot/lock)');
+      expect(r.stderr).not.toContain('warning:');
     } finally {
       rmSync(bin, { recursive: true, force: true });
     }

@@ -427,7 +427,7 @@ describe('check:spec', () => {
       write('b.txt');
       commit('Made up\n\nTask: T-99\nReq: REQ-999');
       const r = check();
-      expect(r.out).toMatch(/must have exactly one "Task:" trailer/);
+      expect(r.out).toMatch(/missing the "Task:" trailer/);
       expect(r.out).toMatch(/missing the "Req:" trailer/);
       expect(r.out).toContain('Task T-99 does not exist');
       expect(r.out).toContain('Req REQ-999 does not exist');
@@ -446,6 +446,62 @@ describe('check:spec', () => {
       expect(r.out.match(/"Req: N\/A" is only allowed for tasks with kind "tooling"/g)).toHaveLength(2);
     });
 
+    describe('several tasks in Task: (T-90, DEC-049)', () => {
+      it('accepts a list "Task: T-01, T-02" and several Task: lines (T-90, DEC-049)', () => {
+        write('a.txt');
+        commit('Shared\n\nTask: T-01, T-02\nReq: none');
+        write('b.txt');
+        commit('Shared\n\nTask: T-01\nTask: T-02\nReq: none');
+        expect(check()).toMatchObject({ code: 0 });
+      });
+
+      it('rejects none inside a list (T-90, DEC-049)', () => {
+        write('a.txt');
+        commit('Mixed\n\nTask: T-01, none\nReq: none');
+        expect(check()).toMatchObject({ code: 1, out: expect.stringContaining('"Task: none" goes alone, not in a list (T-01, none)') });
+      });
+
+      it('rejects a task of the list that does not exist (T-90, DEC-049)', () => {
+        write('a.txt');
+        commit('Made up\n\nTask: T-01, T-99\nReq: none');
+        const r = check();
+        expect(r.code).toBe(1);
+        expect(r.out).toContain('Task T-99 does not exist');
+        expect(r.out).not.toContain('Task T-01 does not exist');
+      });
+
+      it('accepts "Req: N/A" only if every task of the list is tooling (T-90, DEC-049)', () => {
+        editTasks((ts) => { task(ts, 'T-07').kind = 'tooling'; });
+        commit('T-07 tooling\n\nTask: none\nReq: none');
+        write('a.txt');
+        commit('Orchestrator\n\nTask: T-07, T-08\nReq: N/A');
+        expect(check()).toMatchObject({ code: 0 });
+        write('b.txt');
+        commit('Mixed\n\nTask: T-08, T-04\nReq: N/A');
+        expect(check()).toMatchObject({ code: 1, out: expect.stringContaining('"Req: N/A" is only allowed for tasks with kind "tooling"') });
+      });
+
+      it('tests/acceptance/ with a list needs every task to be a spec task (T-90, DEC-049)', () => {
+        write('tests/acceptance/req_002.test.mjs');
+        commit('Acceptance\n\nTask: T-03, T-04\nReq: REQ-002');
+        expect(check()).toMatchObject({ code: 1, out: expect.stringContaining('with Task T-04, which is not a spec task') });
+      });
+
+      it('the commit-msg hook accepts a list and rejects none inside it (T-90, DEC-049)', () => {
+        git('config', 'core.hooksPath', join(REPO, '.githooks'));
+        const tryCommit = (message) => {
+          git('add', '-A');
+          return spawnSync('git', ['-C', root, '-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', message], { encoding: 'utf8' });
+        };
+        write('a.txt');
+        expect(tryCommit('Shared\n\nTask: T-01, T-02\nReq: none').status).toBe(0);
+        write('b.txt');
+        const r = tryCommit('Mixed\n\nTask: T-01, none\nReq: none');
+        expect(r.status).not.toBe(0);
+        expect(r.stderr).toContain('pending commit: "Task: none" goes alone');
+      });
+    });
+
     it('accepts Task/Req in a paragraph before Co-Authored-By', () => {
       write('a.txt');
       commit('Something\n\nTask: T-02\nReq: none\n\nCo-Authored-By: X <x@example.com>');
@@ -462,7 +518,7 @@ describe('check:spec', () => {
       expect(check()).toMatchObject({ code: 0 });
       write('new.txt');
       commit('New without trailers');
-      expect(check()).toMatchObject({ code: 1, out: expect.stringContaining('must have exactly one "Task:" trailer') });
+      expect(check()).toMatchObject({ code: 1, out: expect.stringContaining('missing the "Task:" trailer') });
     });
 
     it('an invalid or missing history_since is an error', () => {
@@ -495,7 +551,7 @@ describe('check:spec', () => {
       write('a.txt');
       const r = tryCommit('No trailers');
       expect(r.status).not.toBe(0);
-      expect(r.stderr).toContain('pending commit: must have exactly one "Task:" trailer');
+      expect(r.stderr).toContain('pending commit: missing the "Task:" trailer');
     });
 
     it('rejects an implementation task that edits tests/acceptance/', () => {
