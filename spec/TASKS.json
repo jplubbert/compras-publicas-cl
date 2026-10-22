@@ -1077,28 +1077,13 @@
       ],
       "plan_review": {
         "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
-        "verdict": "REVISAR",
-        "effective": "REVISAR",
-        "round": 1,
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 2,
         "plan": "plans/T-17.md",
-        "plan_sha": "a68d991d446d767c32fb34551c69be2a3f24dd78",
-        "plan_commit": "3aad2f9",
-        "findings": [
-          {
-            "id": "req-016:gcloud-cp-requiere-get-con-objectcreator",
-            "severity": "P1",
-            "evidence_type": "fuente",
-            "evidence": "https://docs.cloud.google.com/storage/docs/uploading-objects — storage.objects.get y storage.objects.list: «only required if you plan on using the Google Cloud CLI to perform the tasks on this page»; roles/storage.objectCreator solo trae storage.objects.create.",
-            "summary": "El paso 6 sube el estado de infra/main con `gcloud storage cp` y REQ-016 limita la cuenta de servicio de CI a roles/storage.objectCreator. Según la documentación oficial, gcloud necesita además get y list para subir, así que el respaldo fallaría con 403 en cada deploy. El plan reconoce el riesgo, pero lo deja para que lo detecte el verify_integration; el job quedaría rojo en cada merge y E3/E6 no se cumplirían. Ampliar el rol rompería REQ-016 E2."
-          },
-          {
-            "id": "req-016:state-pull-sin-init",
-            "severity": "P3",
-            "evidence_type": "opinión",
-            "evidence": "El plan supone que scripts/it/tf-apply.sh deja infra/main/.terraform inicializado; no se pudo leer el script para confirmarlo.",
-            "summary": "Si tf-apply.sh inicializa con un TF_DATA_DIR temporal o en otro directorio, `terraform state pull` fallaría por falta de backend inicializado. El fallo se vería (el job termina en error), pero haría falta otro ciclo para corregirlo."
-          }
-        ],
+        "plan_sha": "d0131779a62f6c0ef2e45e825613c2921f65c729",
+        "plan_commit": "a1cef28",
+        "findings": [],
         "opinion_blockers": [],
         "date": "2026-10-22"
       }
