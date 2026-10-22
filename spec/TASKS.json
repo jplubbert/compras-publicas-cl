@@ -452,11 +452,14 @@
         "passed": 24,
         "failed": 0,
         "total": 24,
-        "log_path": "artifacts/T-04/verify.log",
-        "log_sha256": "95e4cf92954d34901daca79b262f3023f07f8bb68aac0aa16c585ba3f987b35f",
-        "commit": "b4d47d10612dc5c4b48c07c956a01478cfc7d29b",
-        "timestamp": "2026-10-22T13:14:29+00:00",
-        "result": "24/24 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-04/verify.log)"
+        "log_path": "artifacts/batch-T-04/verify.log",
+        "log_sha256": "2a83dd7634c40c3e2ef97f82cb07222e7c1d181cae3ee07534111b495edacfca",
+        "commit": "17b3b31dd0ea0e7b4aedca8f7a21b999e0347976",
+        "timestamp": "2026-10-22T13:14:56+00:00",
+        "result": "24/24 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-04/verify.log)",
+        "batch": [
+          "T-04"
+        ]
       },
       "review": {
         "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
