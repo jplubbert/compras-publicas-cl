@@ -1,0 +1,86 @@
+
+> test:dataform
+> scripts/env.sh bash -c '[ -d dataform/node_modules ] || npm ci --prefix dataform --silent' && scripts/env.sh node --test --test-reporter=spec "dataform/tests/*.test.mjs"
+
+✔ the project compiles without errors and has the 6 silver models (1.458701ms)
+✔ REQ-009 E1: silver.compradores has uniqueKey and non-null key assertions tagged silver (0.308632ms)
+✔ REQ-009 E1: silver.compradores checks its domain row conditions (0.107132ms)
+✔ REQ-009 E1: silver.indicadores_diarios has uniqueKey and non-null key assertions tagged silver (0.067457ms)
+✔ REQ-009 E1: silver.indicadores_diarios checks its domain row conditions (0.121238ms)
+✔ REQ-009 E1: silver.licitacion_items has uniqueKey and non-null key assertions tagged silver (0.0583ms)
+✔ REQ-009 E1: silver.licitacion_items checks its domain row conditions (0.097864ms)
+✔ REQ-009 E1: silver.licitaciones has uniqueKey and non-null key assertions tagged silver (0.057889ms)
+✔ REQ-009 E1: silver.licitaciones checks its domain row conditions (0.239342ms)
+✔ REQ-009 E1: silver.ordenes_compra has uniqueKey and non-null key assertions tagged silver (0.278826ms)
+✔ REQ-009 E1: silver.ordenes_compra checks its domain row conditions (0.121298ms)
+✔ REQ-009 E1: silver.proveedores has uniqueKey and non-null key assertions tagged silver (0.054082ms)
+✔ REQ-009 E1: silver.proveedores checks its domain row conditions (0.03719ms)
+✔ REQ-009: the continuity and reconciliation assertions read silver.indicadores_diarios and are tagged silver (0.14842ms)
+✔ a graph whose models and columns all have descriptions passes (35.285259ms)
+✔ REQ-011 E2: a column without description fails naming the model and the column (28.72589ms)
+✔ a model without description fails naming it (28.57792ms)
+✔ a model that declares no columns fails (28.58262ms)
+✔ REQ-011 E3: a raw declaration without column descriptions is not checked (31.104294ms)
+✔ a model in silver_ci with schemaSuffix ci is checked (30.992905ms)
+✔ an operation with output in silver is checked (30.607428ms)
+✔ a model outside silver, gold and quarantine is not checked (30.471471ms)
+✔ a graph with compilation errors fails (27.796366ms)
+✔ an unknown argument exits 2 (36.021266ms)
+✔ a project without the Dataform binary exits 2 naming it (30.226529ms)
+✔ REQ-011 E1: the repository passes check:descriptions (509.167033ms)
+✔ the Dataform project compiles offline and declares the raw source in us-central1 (472.513496ms)
+✔ REQ-010 E1: quarantine.licitaciones is incremental, tagged silver and keeps motivos, run_id and quarantined_at (0.800289ms)
+✔ REQ-010 E1: quarantine.licitaciones keeps the rows that fail the shared predicate with all their reasons (0.345141ms)
+✔ REQ-010 E1: quarantine.ordenes_compra is incremental, tagged silver and keeps motivos, run_id and quarantined_at (0.075823ms)
+✔ REQ-010 E1: quarantine.ordenes_compra keeps the rows that fail the shared predicate with all their reasons (0.224343ms)
+✔ REQ-010 E1: silver.licitaciones filters with the same predicate as the quarantine (0.150273ms)
+✔ REQ-010 E1: silver.licitacion_items filters with the same predicate as the quarantine (0.069841ms)
+✔ REQ-010 E1: silver.ordenes_compra filters with the same predicate as the quarantine (0.131898ms)
+✔ REQ-010 E1: silver.compradores filters with the same predicate as the quarantine (0.091412ms)
+✔ REQ-010 E1: silver.proveedores filters with the same predicate as the quarantine (0.216178ms)
+✔ REQ-010 E2: a RUT with a wrong check digit gives rut_dv_invalido (2.443768ms)
+✔ REQ-010 E3: a negative amount and an unknown currency give both reasons in order (0.669974ms)
+✔ REQ-010 E4: a valid row gives no reasons (0.230795ms)
+✔ the check digit follows modulo 11 with K for 10 (0.114957ms)
+✔ clave_nula for a null or empty key; currency is case-insensitive and a null one is no reason (0.153129ms)
+✔ dates must fall between 2000-01-01 and D+1; a null required date is a reason, a null optional one is not (0.272875ms)
+✔ a row that breaks the 5 rules carries the 5 codes in the order of CODIGOS (0.171614ms)
+✔ motivosSql keeps the codes of each entity in order with the same currencies and date limits (0.4456ms)
+✔ REQ-008 E1: silver.licitaciones is incremental by codigo_licitacion and merges with its own rows before QUALIFY (1.000597ms)
+✔ REQ-011: every column of the final SELECT of silver.licitaciones is a declared column (0.331044ms)
+✔ REQ-008 E1: silver.ordenes_compra is incremental by codigo_oc and merges with its own rows before QUALIFY (0.137409ms)
+✔ REQ-011: every column of the final SELECT of silver.ordenes_compra is a declared column (0.084298ms)
+✔ REQ-008 E1: silver.licitacion_items is incremental by codigo_licitacion + correlativo and merges with its own rows before QUALIFY (0.139243ms)
+✔ REQ-011: every column of the final SELECT of silver.licitacion_items is a declared column (0.076184ms)
+✔ REQ-008 E1: silver.compradores is incremental by codigo_organismo and merges with its own rows before QUALIFY (0.158449ms)
+✔ REQ-011: every column of the final SELECT of silver.compradores is a declared column (0.112863ms)
+✔ REQ-008 E1: silver.proveedores is incremental by rut_proveedor and merges with its own rows before QUALIFY (0.219825ms)
+✔ REQ-011: every column of the final SELECT of silver.proveedores is a declared column (0.288554ms)
+✔ REQ-008 E1: silver.indicadores_diarios is incremental by serie + fecha and merges with its own rows before QUALIFY (0.113935ms)
+✔ REQ-011: every column of the final SELECT of silver.indicadores_diarios is a declared column (0.071505ms)
+✔ the 7 raw tables are declared in raw by default (0.155684ms)
+✔ the raw_dataset variable moves the declarations to raw_ci (458.255879ms)
+✔ the ci schema suffix moves the models to silver_ci and keeps the declarations in raw (457.184177ms)
+✔ REQ-008: the tender state catalog translates the 6 codes of T-02 (0.250823ms)
+✔ REQ-008: the purchase order state catalog translates the 8 codes of T-02 (0.157617ms)
+✔ REQ-008: tender and purchase order models translate the state with their catalog (0.076263ms)
+✔ REQ-008: indicadores_diarios turns ND into a NULL valor with es_nd (0.239151ms)
+✔ the incremental window reads raw partitions from 3 days before the newest one in the target (0.094648ms)
+ℹ tests 64
+ℹ suites 0
+ℹ pass 64
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1473.072273
+
+> check:descriptions
+> node scripts/ci/check-descriptions.mjs
+
+check:descriptions: ok (8 modelos)
+
+> check:spec
+> node scripts/check-spec.mjs
+
+check:spec: ok
