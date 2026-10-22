@@ -129,7 +129,7 @@
         "DEC-003"
       ],
       "depends_on": [],
-      "status": "verified_auto",
+      "status": "reviewed",
       "blocked_by": null,
       "notes": "2026-10-22: verify cambiado (antes: test -s docs/spikes/T-02-recursos.md && grep -c '^## ' … && npm run check:spec), porque no imprimía conteos de pruebas y record_evidence.py lo rechazaba; ahora una prueba node:test revisa las 10 secciones, las fuentes, los supuestos y que no haya secretos.",
       "touches": [
@@ -157,6 +157,13 @@
           "by": "record_evidence.py",
           "at": "2026-10-22T03:37:04+00:00",
           "reason": "verify con código 0: 4/4 pasan, 0 fallan"
+        },
+        {
+          "from": "verified_auto",
+          "to": "reviewed",
+          "by": "set-review",
+          "at": "2026-10-22T03:40:01.461Z",
+          "reason": "veredicto approved confirmado por el decisor"
         }
       ],
       "plan_review": {
@@ -190,6 +197,20 @@
         "commit": "cdf21c5b5d25333bd7b2232a6580932b8ae62842",
         "timestamp": "2026-10-22T03:37:04+00:00",
         "result": "4/4 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-02/verify.log)"
+      },
+      "review": {
+        "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Evidencia verificada: el sha256 de artifacts/T-02/verify.log coincide (fbc1b858…) y el log muestra 4/4 pruebas que pasan y check:spec ok; npm run check:spec vuelve a dar ok. Ningún nombre de prueba cita T-02, así que --test-name-pattern=T-02 no filtra nada y el runner informa una sola prueba a nivel de archivo, que pasa; no pude ver las 4 pruebas por separado porque correr el archivo con --test-reporter=spec no tenía permiso. Los commits de implementación (57695cc, cdf21c5) solo agregan docs/spikes/T-02-recursos.md y su prueba; los cambios en spec/LOG.md y spec/TASKS.json vienen de los commits de crítica del plan. Observaciones no bloqueantes: (1) S-08 queda «no confirmado» (el catálogo de la BDE exige token) y se deriva al verify_integration de T-07; el criterio de éxito pedía «confirmado» o una corrección, así que conviene que el usuario lo registre como pendiente. (2) El manejo de 429, Retry-After y los códigos de error de Mercado Público quedan «no confirmados» en la documentación oficial; T-06 debe tratarlos de forma defensiva. (3) La unidad del preferred_value de QueryUsagePerDay queda sin confirmar (el ejemplo usa 51200 suponiendo MiB); T-05 debe fijarla. (4) El YAML de ejemplo de Workflows escribe us-central1 en duro; es documentación, pero en infra debe salir de var.region (DEC-001). (5) Las correcciones propuestas a DEC-002 (token con Contents read/write), DEC-003 (roles/billing.admin; Dataform sin maximumBytesBilled) y DEC-004/REQ-005 (token de la BDE en vez de usuario y clave) las tiene que revisar y registrar el usuario en spec/.",
+        "date": "2026-10-22",
+        "decision": {
+          "question_id": "review_verdict",
+          "decider": "jev",
+          "confidence": 1,
+          "threshold": 0.8,
+          "timestamp": "2026-10-22T03:40:00.807Z"
+        }
       }
     },
     {
