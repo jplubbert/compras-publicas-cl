@@ -1,4 +1,410 @@
 {
   "corte": 1,
-  "tasks": []
+  "tasks": [
+    {
+      "id": "T-01",
+      "title": "Entorno fijado y esqueleto andante del repo",
+      "description": "Espacio de trabajo uv en la raíz (pyproject.toml, uv.lock, .python-version 3.12) con los miembros ingest/, finops/killswitch/ y benchmarks/; scripts/setup.sh (la única con red: instala Terraform fijado en .tools/ verificando su sha256, corre uv sync y npm ci de dataform/, fija y precarga con terraform providers mirror en .tools/providers todos los proveedores que usará el corte (google, google-beta, archive, random) e inicializa infra/bootstrap e infra/main con -backend=false y -plugin-dir, para que el verify no use red); scripts/acceptance.sh <archivo> (runner por extensión, DEC-005: .py → uv run pytest, .tftest.hcl → terraform test, .test.mjs → node --test; comprueba S-10 y deja anotado en notes si hace falta copiar el archivo al módulo); esqueleto andante: infra/bootstrap e infra/main con un módulo vacío que valida, ingest/ con un paquete compras_ingest y una prueba trivial, dataform/ con workflow_settings.yaml (us-central1) y una declaración de fuente que compila; scripts/ci/check-repo.mjs (sin dependencias: falla ante google_composer_environment, IDs de proyecto o números de cuenta literales en infra/, credentials_json, llaves de cuenta de servicio y google_secret_manager_secret_version con secret_data) con sus pruebas node:test; package.json con lint (ruff + terraform fmt -check), test (todas las pruebas unitarias más test:sdd), test:infra, test:ingest, test:dataform, check:repo; .gitignore (.tools/, .terraform/, *.tfstate*, .venv/, node_modules/, .env*). Sin cambios en GCP.",
+      "reqs": [],
+      "decisions": [
+        "DEC-001",
+        "DEC-004",
+        "DEC-005"
+      ],
+      "depends_on": [],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "kind": "tooling",
+      "touches": [
+        "package.json",
+        "pyproject.toml",
+        "uv.lock",
+        ".python-version",
+        ".gitignore",
+        "scripts/setup.sh",
+        "scripts/acceptance.sh",
+        "scripts/ci/",
+        "ingest/",
+        "dataform/",
+        "infra/",
+        "finops/",
+        "benchmarks/"
+      ],
+      "verify": "npm run lint && npm test && npm run check:repo && npm run check:spec"
+    },
+    {
+      "id": "T-02",
+      "title": "Spike: recursos de Terraform y APIs de las fuentes",
+      "description": "Pregunta: ¿qué nombres y argumentos exactos, vigentes en la versión actual del proveedor google de Terraform, tienen los recursos para (a) repositorio, release config e invocación de Dataform con remoto GitHub y token en Secret Manager; (b) taxonomía y policy tags de BigQuery tras el apagado de Data Catalog el 2026-06-01; (c) cuota diaria de bytes de query de BigQuery por proyecto (consumer quota override); (d) presupuesto con notificaciones Pub/Sub; (e) Cloud Run function de 2.ª generación con disparador Pub/Sub; (f) Workload Identity Federation para GitHub Actions. Y para las fuentes: endpoints, parámetros, formato de respuesta, códigos de estado, campo de fecha de última modificación (S-14), manejo de 429 y límite diario real de la API de Mercado Público (listado diario y detalle de licitaciones y órdenes de compra); códigos de serie (S-08), parámetros, formato de ND y updatedAt de la BDE; endpoints de mindicador.cl. Criterio de éxito: docs/spikes/T-02-recursos.md con una sección por punto, cada una con el nombre exacto, un ejemplo mínimo, la versión del proveedor o de la API y el enlace a la documentación oficial; una sección final «Supuestos» que marca S-08, S-13 y S-14 como confirmados o propone su corrección (el cambio en spec/SPEC.md lo registra el usuario; T-02 no edita spec/). Plazo: una sesión. Necesita acceso web: si el implementador no lo tiene, se bloquea y lo resuelve el investigador (AUTOPILOT_RESEARCH=web).",
+      "reqs": [],
+      "decisions": [
+        "DEC-001",
+        "DEC-002",
+        "DEC-003"
+      ],
+      "depends_on": [],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "touches": [
+        "docs/spikes/"
+      ],
+      "verify": "test -s docs/spikes/T-02-recursos.md && grep -c '^## ' docs/spikes/T-02-recursos.md && npm run check:spec"
+    },
+    {
+      "id": "T-03",
+      "title": "Infraestructura base en Terraform",
+      "description": "infra/bootstrap (bucket de estado versionado, pool y proveedor WIF restringidos por attribute.repository, cuenta de servicio de CI con los roles para aplicar infra/main y sin roles de billing) e infra/main con backend GCS y los módulos storage (bucket bronze con lifecycle), bigquery (raw, silver, gold, quarantine, pii, bench con expiración de tabla de 30 días, y raw_ci, silver_ci, gold_ci, quarantine_ci), iam (una cuenta de servicio por componente, roles a nivel de recurso según REQ-001 E5 y E6), secrets (los de DEC-004, sin versiones) y APIs. Variables obligatorias: project_id, region (validada: us-central1, us-east1, us-west1), github_repository. Usa los nombres de recursos que confirmó T-02. scripts/it/tf-plan.sh <bootstrap|main> para la integración.",
+      "reqs": [
+        "REQ-001"
+      ],
+      "decisions": [
+        "DEC-001",
+        "DEC-004",
+        "DEC-005"
+      ],
+      "depends_on": [
+        "T-01",
+        "T-02"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "touches": [
+        "infra/",
+        "scripts/ci/",
+        "scripts/it/",
+        "package.json",
+        "scripts/setup.sh"
+      ],
+      "verify": "npm run test:infra && npm run check:repo && npm run check:spec",
+      "verify_integration": "scripts/it/tf-plan.sh bootstrap && scripts/it/tf-plan.sh main"
+    },
+    {
+      "id": "T-04",
+      "title": "CI/CD en GitHub Actions con WIF",
+      "description": ".github/workflows/ci.yml (pull_request: job checks con lint, test, check:repo, check:spec y dataform compile; job plan que depende de checks, se autentica con google-github-actions/auth y WIF, corre terraform plan de infra/main y comenta el resumen en el PR; solo si el PR no viene de un fork) y deploy.yml (push a main: apply con environment production; las imágenes y la corrida de Dataform en ci las agrega T-08). id-token: write solo en los jobs que se autentican. Pruebas en scripts/ci/tests/ (pytest + pyyaml) y npm run test:workflows. scripts/it/last-ci-run.sh comprueba con gh que la última corrida de ci.yml en un PR pasó.",
+      "reqs": [
+        "REQ-002"
+      ],
+      "decisions": [
+        "DEC-004",
+        "DEC-005"
+      ],
+      "depends_on": [
+        "T-03"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "touches": [
+        ".github/",
+        "scripts/ci/",
+        "scripts/it/",
+        "package.json"
+      ],
+      "verify": "npm run test:workflows && npm run check:repo && npm run check:spec",
+      "verify_integration": "scripts/it/last-ci-run.sh"
+    },
+    {
+      "id": "T-05",
+      "title": "Tope de gasto duro y cuotas",
+      "description": "finops/killswitch/ (Cloud Run function en Python: lee el mensaje del presupuesto, desvincula el billing llamando a la API REST de Cloud Billing con httpx y google-auth (sin cliente de Cloud Billing; R-01) si costAmount ≥ budgetAmount, idempotente; pruebas con cliente simulado y npm run test:finops). En infra/bootstrap: presupuesto (variable budget_usd = 10, umbrales 0.5/0.9/1.0 sobre gasto real, correo de Q-03 como variable), tema Pub/Sub, función con su cuenta de servicio (roles/billing.projectManager solo sobre el proyecto). En infra/main: cuota diaria de bytes de query de BigQuery (S-07). En dataform/workflow_settings.yaml: maximumBytesBilled (S-07). scripts/it/killswitch-drill.sh: simulacro en un proyecto desechable con presupuesto de USD 0,01.",
+      "reqs": [
+        "REQ-003"
+      ],
+      "decisions": [
+        "DEC-003",
+        "DEC-005"
+      ],
+      "depends_on": [
+        "T-03"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "touches": [
+        "finops/",
+        "infra/",
+        "dataform/workflow_settings.yaml",
+        "scripts/it/",
+        "package.json",
+        "pyproject.toml",
+        "uv.lock",
+        "scripts/setup.sh"
+      ],
+      "verify": "npm run test:finops && npm run test:infra && npm run check:spec",
+      "verify_integration": "scripts/it/killswitch-drill.sh"
+    },
+    {
+      "id": "T-06",
+      "title": "Ingesta de Mercado Público a bronze",
+      "description": "ingest/src/compras_ingest: cliente mercadopublico (listado diario y detalle de licitaciones y OC con httpx, reintentos con backoff ante 5xx, 429 (Retry-After) y timeout, contados en el presupuesto, 404 como línea de error), bronze (escritura JSONL en GCS por fecha y corrida, DEC-006, y cursor del presupuesto de requests, con los días pendientes antes de D), redacción del ticket en URLs y registros, cli (--date, --from/--to, MP_DAILY_REQUEST_BUDGET). El ticket se lee de Secret Manager en tiempo de ejecución. Pruebas con respx y un cliente GCS en memoria. Usa los endpoints que confirmó T-02. scripts/it/ingest-mp.sh <fecha> corre el job localmente contra la API real y un bucket de pruebas.",
+      "reqs": [
+        "REQ-004"
+      ],
+      "decisions": [
+        "DEC-004",
+        "DEC-006"
+      ],
+      "depends_on": [
+        "T-01",
+        "T-02"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "touches": [
+        "ingest/",
+        "scripts/it/"
+      ],
+      "verify": "npm run test:ingest && npm run check:spec",
+      "verify_integration": "scripts/it/ingest-mp.sh"
+    },
+    {
+      "id": "T-07",
+      "title": "Ingesta del Banco Central y mindicador a bronze",
+      "description": "Clientes bcentral (SieteRestWS, series de S-08 confirmadas en T-02, rango D−10..D, ND sin tocar) y mindicador (UF y dólar de D; ausencia tolerada) que reutilizan el reintento, la redacción y la escritura a bronze de T-06; subcomando indicadores en el cli. Credenciales de la BDE desde Secret Manager. scripts/it/ingest-indicadores.sh <fecha>.",
+      "reqs": [
+        "REQ-005"
+      ],
+      "decisions": [
+        "DEC-004",
+        "DEC-006"
+      ],
+      "depends_on": [
+        "T-06"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "touches": [
+        "ingest/",
+        "scripts/it/"
+      ],
+      "verify": "npm run test:ingest && npm run check:spec",
+      "verify_integration": "scripts/it/ingest-indicadores.sh"
+    },
+    {
+      "id": "T-08",
+      "title": "Carga a BigQuery raw y Cloud Run Jobs",
+      "description": "ingest/src/compras_ingest/load.py (un load job por entidad desde los archivos de la corrida, WRITE_APPEND, esquemas en ingest/schemas/*.json, sin autodetect); los jobs llaman a la carga al terminar. ingest/Dockerfile. infra/modules/ingest_job (Artifact Registry, 2 Cloud Run Jobs: mercadopublico e indicadores, con timeout de tarea de 7 h, con su cuenta de servicio, que lee los secretos de Secret Manager en tiempo de ejecución (DEC-004)). deploy.yml (REQ-006 E5): construir y publicar la imagen con la etiqueta del commit, actualizar los jobs y correr Dataform con schemaSuffix ci y raw_dataset=raw_ci, con las assertions. scripts/it/run-jobs.sh ejecuta ambos jobs en GCP para una fecha.",
+      "reqs": [
+        "REQ-006"
+      ],
+      "decisions": [
+        "DEC-001",
+        "DEC-004",
+        "DEC-006"
+      ],
+      "depends_on": [
+        "T-03",
+        "T-04",
+        "T-07"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "touches": [
+        "ingest/",
+        "infra/",
+        ".github/workflows/deploy.yml",
+        "scripts/ci/",
+        "scripts/it/"
+      ],
+      "verify": "npm run test:ingest && npm run test:infra && npm run test:workflows && npm run check:spec",
+      "verify_integration": "scripts/it/run-jobs.sh"
+    },
+    {
+      "id": "T-09",
+      "title": "Silver incremental en Dataform y descripciones obligatorias",
+      "description": "dataform/definitions/sources (declaraciones de las tablas raw, con el dataset tomado de la variable raw_dataset), definitions/intermediate con los 6 modelos de REQ-008 (incrementales, uniqueKey, unión con ${self()} antes del QUALIFY ROW_NUMBER, tipos, catálogo de estados, ND → NULL), descripciones de modelo y columna en español; scripts/ci/check-descriptions.mjs (lee dataform compile --json) con pruebas node:test y npm run check:descriptions; pruebas del grafo compilado en npm run test:dataform. scripts/it/dataform-ci.sh carga fixtures en raw_ci, corre Dataform con schemaSuffix ci y comprueba los ejemplos marcados «en ci». Agrega npm run check:descriptions al job checks de ci.yml.",
+      "reqs": [
+        "REQ-008",
+        "REQ-011"
+      ],
+      "decisions": [
+        "DEC-001",
+        "DEC-005",
+        "DEC-006"
+      ],
+      "depends_on": [
+        "T-08"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "touches": [
+        "dataform/",
+        "scripts/ci/",
+        "scripts/it/",
+        "package.json",
+        ".github/workflows/ci.yml"
+      ],
+      "verify": "npm run test:dataform && npm run check:descriptions && npm run check:spec",
+      "verify_integration": "scripts/it/dataform-ci.sh"
+    },
+    {
+      "id": "T-10",
+      "title": "Assertions, promoción y cuarentena",
+      "description": "dataform/includes/reglas.js (reglas de fila y validación del DV del RUT, con pruebas node:test), modelos quarantine.licitaciones y quarantine.ordenes_compra con motivos ARRAY, el mismo predicado filtrando silver; assertions uniqueKey, nonNull y rowConditions en cada modelo de silver; definitions/assertions con continuidad de UF (día calendario) y dólar (sin huecos de observaciones), con la ventana de min(30 días, desde la primera observación), y reconciliación BDE vs mindicador (S-09). Agrega a scripts/it/dataform-ci.sh los ejemplos «en ci» de REQ-009.",
+      "reqs": [
+        "REQ-009",
+        "REQ-010"
+      ],
+      "decisions": [
+        "DEC-001",
+        "DEC-005"
+      ],
+      "depends_on": [
+        "T-09"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "touches": [
+        "dataform/",
+        "scripts/it/"
+      ],
+      "verify": "npm run test:dataform && npm run check:descriptions && npm run check:spec",
+      "verify_integration": "scripts/it/dataform-ci.sh"
+    },
+    {
+      "id": "T-11",
+      "title": "Orquestación diaria con Scheduler, Workflows y Dataform",
+      "description": "orchestration/daily.yaml (ingesta MP → indicadores con el conector de Cloud Run Jobs que espera, connector_params.timeout 25200; compilación de Dataform desde main con codeCompilationConfig.vars (raw_dataset; policy_tag_rut lo agrega T-14) y workflow invocation con etiquetas silver y gold, consultada hasta terminar; FAILED/CANCELLED levanta excepción); infra/modules/orchestration (repositorio Dataform con remoto GitHub y token en Secret Manager, Workflow, Cloud Scheduler 23:30 America/Santiago con su cuenta de servicio, política de alertas por correo ante ejecuciones fallidas). Pruebas estructurales del YAML (pytest + pyyaml) en npm run test:orchestration. scripts/it/run-workflow.sh lanza una ejecución y espera su estado.",
+      "reqs": [
+        "REQ-007"
+      ],
+      "decisions": [
+        "DEC-002",
+        "DEC-004",
+        "DEC-005"
+      ],
+      "depends_on": [
+        "T-05",
+        "T-10"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "touches": [
+        "orchestration/",
+        "infra/",
+        "scripts/it/",
+        "package.json",
+        "scripts/setup.sh"
+      ],
+      "verify": "npm run test:infra && npm run test:orchestration && npm run check:spec",
+      "verify_integration": "scripts/it/run-workflow.sh"
+    },
+    {
+      "id": "T-12",
+      "title": "Capa final gold",
+      "description": "dataform/definitions/outputs: fct_licitaciones y fct_ordenes_compra (CLP, UF del día, USD con último dólar publicado y fx_imputado; particionados por fecha del documento, clusterizados por organismo y proveedor, requirePartitionFilter, dependOnDependencyAssertions: true como criterio de promoción), dim_comprador, dim_proveedor (proveedor_key, rut_empresa, rut_persona_natural sin tag todavía; la sal y proveedor_key los define T-14), mart_organismo_mes; assertions y descripciones de cada uno. Agrega a scripts/it/dataform-ci.sh los ejemplos «en ci» de REQ-012.",
+      "reqs": [
+        "REQ-012"
+      ],
+      "decisions": [
+        "DEC-001",
+        "DEC-008"
+      ],
+      "depends_on": [
+        "T-10"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "touches": [
+        "dataform/",
+        "scripts/it/"
+      ],
+      "verify": "npm run test:dataform && npm run check:descriptions && npm run check:spec",
+      "verify_integration": "scripts/it/dataform-ci.sh"
+    },
+    {
+      "id": "T-13",
+      "title": "Benchmark antes y después",
+      "description": "benchmarks/: generate.py produce generate.sql determinista (semilla fija, S-12) con el esquema de silver.licitaciones; variants.sql (sin partición, particionada, particionada + clusterizada con require_partition_filter); queries/ (3 queries de la capa final y las 2 reescrituras); run.py (use_query_cache=false, etiqueta bench_run, maximum_bytes_billed por query, --dry-run rotulado como cota superior); report.py (lee INFORMATION_SCHEMA.JOBS por etiqueta, excluye cache_hit, escribe benchmarks/results/<fecha>.md con bytes facturados, bytes procesados, slot ms y % de ahorro). Pruebas locales del generador y del informe con fixtures en npm run test:benchmarks. scripts/it/benchmark.sh corre todo en GCP y deja el resultado.",
+      "reqs": [
+        "REQ-013"
+      ],
+      "decisions": [
+        "DEC-003",
+        "DEC-007"
+      ],
+      "depends_on": [
+        "T-05",
+        "T-12"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "touches": [
+        "benchmarks/",
+        "scripts/it/",
+        "package.json"
+      ],
+      "verify": "npm run test:benchmarks && npm run check:spec",
+      "verify_integration": "scripts/it/benchmark.sh"
+    },
+    {
+      "id": "T-14",
+      "title": "Policy tags sobre el RUT de personas naturales",
+      "description": "infra/modules/governance: taxonomía compras_publicas con FINE_GRAINED_ACCESS_CONTROL, policy tag dato_personal.rut, bindings de categoryFineGrainedReader solo para var.pii_readers y las cuentas de servicio de Dataform y de CI (con los nombres de recursos que confirmó T-02); output policy_tag_rut pasado a Dataform como variable de compilación en el release config y en la corrida de ci de deploy.yml (la compilación falla sin ella); dataset pii con la tabla sal (generada una vez) legible solo por Dataform; proveedor_key = TO_HEX(SHA256(CONCAT(sal, rut))) y los MERGE y joins de proveedores pasan a usarla; vars.policy_tag_rut en la compilación de orchestration/daily.yaml; Dataform asigna la tag a silver.proveedores.rut_persona_natural y gold.dim_proveedor.rut_persona_natural, separados por la regla de S-04 en includes/reglas.js. scripts/it/policy-tags.sh comprueba el acceso denegado y permitido con una cuenta de servicio de lectura.",
+      "reqs": [
+        "REQ-014"
+      ],
+      "decisions": [
+        "DEC-004",
+        "DEC-008"
+      ],
+      "depends_on": [
+        "T-03",
+        "T-11",
+        "T-12"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "touches": [
+        "infra/",
+        "dataform/",
+        "scripts/it/",
+        ".github/workflows/deploy.yml",
+        "scripts/setup.sh",
+        "orchestration/"
+      ],
+      "verify": "npm run test:infra && npm run test:dataform && npm run check:spec",
+      "verify_integration": "scripts/it/policy-tags.sh"
+    },
+    {
+      "id": "T-15",
+      "title": "README de portafolio",
+      "description": "README.md con las secciones de REQ-015 en orden, docs/arquitectura.svg (o un diagrama Mermaid en el README), la tabla del benchmark más reciente de benchmarks/results/, el procedimiento de revinculación del billing, la carga de secretos, la nota sobre GitLab CI (OIDC id_tokens), «Cómo se construyó» y «Qué se rompió» (desde spec/LOG.md), y la cita a ChileCompra y al Banco Central; scripts/ci/check-readme.mjs (secciones, rutas y comandos citados existentes, nomenclatura de R-07) con pruebas node:test y npm run check:readme. La tabla de números reales y el incidente de calidad real los aporta el usuario tras la integración de T-13 y T-11; si faltan, la sección lo dice y queda en claims.manual_pending.",
+      "reqs": [
+        "REQ-015"
+      ],
+      "decisions": [
+        "DEC-001"
+      ],
+      "depends_on": [
+        "T-04",
+        "T-11",
+        "T-13",
+        "T-14"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "notes": "",
+      "touches": [
+        "README.md",
+        "docs/",
+        "scripts/ci/",
+        "package.json"
+      ],
+      "verify": "npm run check:readme && npm run check:spec"
+    }
+  ]
 }

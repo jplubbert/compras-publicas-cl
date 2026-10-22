@@ -1,7 +1,9 @@
 # Instrucciones para agentes
 
-Proyecto: <proyecto>.
-Stack fijo (R-01): <proyecto: lenguajes, frameworks y servicios permitidos>.
+Proyecto: compras-publicas-cl, un lakehouse medallion en GCP con Mercado Público y Banco Central (repo de portafolio).
+Stack fijo (R-01 de spec/SPEC.md): GCP en us-central1 (GCS, BigQuery, Dataform, Cloud Run Jobs y functions, Scheduler,
+Workflows, Secret Manager, Artifact Registry, Pub/Sub solo para el presupuesto, Monitoring, IAM, policy tags); Terraform ≥ 1.7
+con el proveedor `google`; Python 3.12 con uv; Node.js ≥ 22 para Dataform y las guardas; GitHub Actions. Sin Composer.
 Protocolo: Cierre por Riesgo (PCR, sdd-base), variante "desarrollador único": `PLAN` vive como sección de `spec/SPEC.md`.
 
 ## Lectura obligatoria al iniciar (en este orden)
@@ -16,7 +18,15 @@ Protocolo: Cierre por Riesgo (PCR, sdd-base), variante "desarrollador único": `
 No cargues la spec completa si la tarea no la cita. Nunca reconstruyas estado desde el chat.
 
 ## Estructura
-- <proyecto: carpetas de código y qué contiene cada una>
+- `infra/` — Terraform: `bootstrap/` (estado, WIF, presupuesto; lo aplica el usuario), `main/` y `modules/`
+- `ingest/` — paquete Python `compras_ingest` (Mercado Público, Banco Central, mindicador → GCS → BigQuery raw) y su `Dockerfile`
+- `finops/killswitch/` — función que desvincula el billing al llegar al tope (DEC-003)
+- `dataform/` — silver, gold, cuarentena y assertions (`definitions/`, `includes/reglas.js`)
+- `orchestration/` — el Workflow diario (DEC-002)
+- `benchmarks/` — benchmark antes y después (DEC-007)
+- `scripts/setup.sh` (la única con red), `scripts/acceptance.sh`, `scripts/ci/` (check:repo, check:descriptions,
+  check:readme), `scripts/it/` (verificaciones de integración contra GCP: solo con aprobación del usuario)
+- `.github/workflows/` — CI (plan en el PR) y despliegue (apply en `main`)
 - `spec/contracts/` — contratos de la API (fuente única)
 - `scripts/` — guardas del protocolo (`check-spec.mjs`, `autopilot.sh`, `lib/`) y sus pruebas (`scripts/test/`)
 - `tests/acceptance/` — **protegida**: solo la editan tareas `"kind": "spec"` y, con el test-author activo (DEC-006 de
@@ -26,15 +36,15 @@ No cargues la spec completa si la tarea no la cita. Nunca reconstruyas estado de
   orquestador; no los edites
 
 ## Comandos
-- Preparar entorno: `<comando: instalar dependencias>`
-- Pruebas: `<comando: pruebas>` | Aceptación: `<comando: aceptación>` | Lint/tipos: `<comando: lint y tipos>`
-- Desplegar: `<comando: despliegue>` (solo el usuario; ver Autoridad)
+- Preparar entorno: `scripts/setup.sh`
+- Pruebas: `npm test` | Aceptación: `scripts/acceptance.sh <archivo>` | Lint/tipos: `npm run lint`
+- Desplegar: merge a `main` (GitHub Actions aplica `infra/main`); `infra/bootstrap` lo aplica el usuario a mano (solo el usuario; ver Autoridad)
 - Validar protocolo: `npm run check:spec` (también lo corre el hook `commit-msg` de `.githooks/`)
 - Cobertura desde aceptación: `npm run check:coverage` (DEC-011 de sdd-base; con `spec/COVERAGE.json`): toda línea de
   código la ejecuta una prueba de `tests/acceptance/` que cita un REQ; lo no alcanzado se borra o se escala como
   requisito faltante, nunca se excluye
 - Pruebas del protocolo: `npm run test:sdd`
-- Orquestador nocturno (autopilot): `scripts/autopilot.sh [--dry-run]` (nunca `accepted`; push solo si el
+- Orquestador (autopilot): `scripts/autopilot.sh [--dry-run]` (nunca `accepted`; push solo si el
   proyecto lo configura con `AUTOPILOT_PUSH_REMOTE` (DEC-004 de sdd-base): lo hace el orquestador tras cada veredicto
   `approved`, sin `--force`, y nunca sobre una rama que despliega a producción; el agente nunca hace push; despliegue
   solo si el proyecto configura `AUTOPILOT_DEMO_DEPLOY_CMD` (DEC-004): lo hace el orquestador en una cuenta demo cuya
@@ -103,7 +113,8 @@ editar `spec/`:
 
 ## Autoridad
 - PUEDES decidir: detalles internos dentro del diseño aprobado (anótalos en el commit).
-- PUEDES decidir y registrar sin preguntar: <proyecto: qué decisiones técnicas delegó el usuario, o "nada">.
+- PUEDES decidir y registrar sin preguntar: nombres internos, estructura de módulos dentro de `infra/modules/`, `ingest/` y `dataform/`, y versiones
+  fijadas de herramientas y dependencias ya permitidas por R-01.
   Las globales caras de revertir van como ADR `proposed` (`node scripts/adr.mjs new`), que acepta Jev; las reversibles,
   como DEC en spec/DECISIONS.md.
 - PUEDES cerrar una tarea cuyo único pendiente es una verificación manual: decláralo en `claims.manual_pending` (qué y

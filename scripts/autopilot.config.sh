@@ -1,4 +1,4 @@
-# scripts/autopilot.sh configuration for <proyecto>. The orchestrator loads it with `source` if it exists
+# scripts/autopilot.sh configuration for compras-publicas-cl. The orchestrator loads it with `source` if it exists
 # (or the path in AUTOPILOT_CONFIG). Everything is optional: without changes, the orchestrator uses autopilot.sh's
 # defaults. Plain bash; don't put secrets here (this file is in git).
 
@@ -145,7 +145,7 @@
 # reverification never runs it. sdd-base knows no provider: each project declares its own (its cloud deploys, its
 # acceptance against a deployed environment, a paid agent). sdd-base's own: the smoke tests against the real claude
 # and the real decider. Keep it on one line, single-quoted: check:spec reads it without running this file.
-AUTOPILOT_INTEGRATION_PATTERN='claude-smoke\.sh|jev-smoke\.sh'
+AUTOPILOT_INTEGRATION_PATTERN='claude-smoke\.sh|jev-smoke\.sh|scripts/it/|terraform( -chdir=[^ ]+)? (plan|apply)|gcloud |bq |gsutil '
 
 # Paths the access guard denies every agent besides its own private data (DEC-016), e.g. another agent's data that
 # lives inside an allowed directory. Everything outside the task's worktree is denied anyway.
@@ -201,3 +201,17 @@ AUTOPILOT_INTEGRATION_PATTERN='claude-smoke\.sh|jev-smoke\.sh'
 
 # ntfy notice on stop: do NOT put NTFY_TOPIC here (it's a secret and this file is in git). It goes in the local
 # configuration ~/.config/autopilot/autopilot.config.sh (or AUTOPILOT_LOCAL_CONFIG): `NTFY_TOPIC=<topic>`.
+
+# --- compras-publicas-cl ---
+AUTOPILOT_IMPL_PROMPT_EXTRA='Run scripts/setup.sh first if .tools/ is missing (it is the only step that uses the network). Never run scripts/it/, terraform plan/apply, gcloud, bq or gsutil: they touch GCP and only the user runs them.'
+AUTOPILOT_IMPL_DENIED_EXTRA=("Bash(gcloud *)" "Bash(bq *)" "Bash(gsutil *)" "Bash(scripts/it/*)" "Bash(*terraform*apply*)" "Bash(*terraform*plan*)" "Bash(gh pr *)" "Bash(gh workflow run*)")
+AUTOPILOT_REVIEW_ALLOWED_EXTRA=("Bash(npm run *)" "Bash(uv run pytest*)" "Bash(scripts/acceptance.sh *)")
+AUTOPILOT_REVIEW_COMMANDS='`npm test`, `npm run lint`, `npm run check:repo`, `scripts/acceptance.sh <file>`, `node scripts/check-spec.mjs`'
+AUTOPILOT_DEPLOY_CMD='merge to main (GitHub Actions applies infra/main); infra/bootstrap is applied by the user'
+AUTOPILOT_PLAN_GATE=on
+AUTOPILOT_RESEARCH=web
+AUTOPILOT_TEST_AUTHOR=on
+AUTOPILOT_ACCEPTANCE_CMD='scripts/acceptance.sh'
+AUTOPILOT_TEST_AUTHOR_PROMPT_EXTRA='Local and offline only (DEC-005). Python: pytest (tests/acceptance/<ID>_*.py) with respx and in-memory fakes. Terraform: tests/acceptance/<ID>_*.tftest.hcl with mock_provider "google". Dataform and repo checks: node:test (tests/acceptance/<ID>_*.test.mjs) over `dataform compile --json` or the script output. One test per REQ example; examples marked "en ci" or "integración" are not written here.'
+AUTOPILOT_ACCEPTANCE_RUNNER_FILES+=('scripts/acceptance.sh' 'pyproject.toml' 'uv.lock' 'dataform/package.json')
+AUTOPILOT_SENSITIVE_GLOBS+=('infra/bootstrap/*' 'finops/*' '.github/workflows/*')
