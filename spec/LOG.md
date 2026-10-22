@@ -408,3 +408,8 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Pendiente manual: el usuario crea el proyecto de respaldo (S-15), aplica `infra/bootstrap` con `backup_project_id`, corre `scripts/backup-state.sh bootstrap`, carga `STATE_BACKUP_BUCKET` en el environment `production`, hace un deploy a `main` y corre `STATE_BACKUP_BUCKET=… scripts/it/state-backup.sh` (E6).
 - Verificado y cómo: `scripts/env.sh bash -c 'npm run test:infra && npm run test:workflows && npm run test:ci && npm run check:spec'` → 74/74 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-17/verify.log), commit 05de516.
 - Próxima acción autorizada: el usuario hace la verificación de integración de T-17 (pendiente manual); el autopilot sigue con la siguiente tarea `ready`.
+
+## 2026-10-22 12:04 · revisor independiente (claude -p 2.1.295 (Claude Code)) vía autopilot
+- Hecho: revisión independiente de T-17 con contexto limpio (solo diff + REQ/DEC de la tarea). Veredicto: **approved** → estado `reviewed`. Hallazgos: sin hallazgos bloqueantes.
+- Verificado y cómo: veredicto completo en TASKS.json (`review` de T-17); salida íntegra en .autopilot/2026-10-22_113849/T-17-review-output.txt.
+- Próxima acción autorizada: continúa el autopilot; el usuario decide accepted después de la corrida.

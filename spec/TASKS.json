@@ -1053,7 +1053,7 @@
         "T-04",
         "T-05"
       ],
-      "status": "verified_auto",
+      "status": "reviewed",
       "blocked_by": null,
       "touches": [
         "infra/bootstrap/",
@@ -1087,6 +1087,13 @@
           "by": "record_evidence.py",
           "at": "2026-10-22T15:04:00+00:00",
           "reason": "verify con código 0: 74/74 pasan, 0 fallan"
+        },
+        {
+          "from": "verified_auto",
+          "to": "reviewed",
+          "by": "set-review",
+          "at": "2026-10-22T15:04:41.563Z",
+          "reason": "veredicto approved confirmado por el decisor"
         }
       ],
       "plan_review": {
@@ -1115,6 +1122,20 @@
         "commit": "05de516a61669d6e97d82b18cbde859218e6985c",
         "timestamp": "2026-10-22T15:04:00+00:00",
         "result": "74/74 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-17/verify.log)"
+      },
+      "review": {
+        "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Evidencia verificada: el sha256 de artifacts/T-17/verify.log coincide (d2313e20…) y el log muestra 74/74. `node --test --test-name-pattern=T-17 scripts/ci/tests/backup-state.test.mjs` sale con 0, pero ningún nombre de prueba cita T-17, así que el filtro no eligió casos E4/E5 concretos y el runner informó un solo test (el archivo); los seis casos de E4, E5 y bordes solo constan como aprobados en el log de evidencia. check:repo y lint (incluido terraform fmt -check) pasan. No se pudo correr `node --test` sin filtro sobre el archivo ni `bash -n` sobre scripts/it/state-backup.sh y killswitch-drill.sh (permiso denegado); conviene correrlos antes de E6. El paso de respaldo de deploy.yml no necesita un init nuevo: tf-apply.sh inicializa infra/main sin TF_DATA_DIR, y env.sh solo reescribe PATH, así que las credenciales de WIF llegan al state pull. E6 y la restauración documentada en el README (T-15) quedan pendientes para la integración manual.",
+        "date": "2026-10-22",
+        "decision": {
+          "question_id": "review_verdict",
+          "decider": "jev",
+          "confidence": 0.82,
+          "threshold": 0.8,
+          "timestamp": "2026-10-22T15:04:41.007Z"
+        }
       }
     }
   ]
