@@ -559,3 +559,12 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   tabla (hoy cae en el manejador genérico); volver a aplicar `infra/bootstrap` antes del merge. El revisor no pudo correr
   pytest de T-08 (permiso denegado) y se apoyó en el hash del log de evidencia.
 - Próxima acción autorizada: upgrade de sdd-base (con T-101 revisada) y relanzar el encadenado (T-09).
+
+## 2026-10-22 · Claude (claude-opus-5-5) · sesión: upgrade a sdd-base 1943a39
+- Upgrade en la rama `sdd-base-upgrade-3`, integrado al lote con merge, desde un worktree de sdd-base en 1943a39; las
+  tareas cuyo código se copia (T-101, T-104, T-106 a T-110, T-118) estaban todas `reviewed`. 12 archivos; check:spec y lint
+  ok. Lo principal aquí: T-101 (un veredicto de revisión en JSON válido ya no se le pregunta a Jev), T-106 (el corte por
+  inactividad cuenta la CPU de los procesos hijos) y T-107 (el implementador corre solo sus pruebas).
+- `scripts/lib/fingerprint.mjs` (T-108) no vino: sdd-base no lo incluye todavía en su lista de archivos administrados.
+  `autopilot.sh` lo tolera (anota un aviso y sigue); queda una tarea en sdd-base para incluirlo.
+- Próxima acción autorizada: relanzar el encadenado (T-09).
