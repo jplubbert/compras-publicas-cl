@@ -116,6 +116,11 @@
           "threshold": 0.8,
           "timestamp": "2026-10-22T03:39:27.683Z"
         }
+      },
+      "merged": {
+        "into": "master",
+        "commit": "696364f6b290b9c37db69a696c25adedbb536234",
+        "at": "2026-10-22T12:28:55.707Z"
       }
     },
     {
@@ -211,6 +216,11 @@
           "threshold": 0.8,
           "timestamp": "2026-10-22T03:40:00.807Z"
         }
+      },
+      "merged": {
+        "into": "master",
+        "commit": "696364f6b290b9c37db69a696c25adedbb536234",
+        "at": "2026-10-22T12:28:55.814Z"
       }
     },
     {
@@ -337,6 +347,11 @@
           "threshold": 0.8,
           "timestamp": "2026-10-22T11:52:37.120Z"
         }
+      },
+      "merged": {
+        "into": "master",
+        "commit": "696364f6b290b9c37db69a696c25adedbb536234",
+        "at": "2026-10-22T12:28:55.904Z"
       }
     },
     {
