@@ -1003,6 +1003,18 @@ describe('autopilot.sh', () => {
       expect(prompt).not.toContain('no test counts: the orchestrator records them');
     });
 
+    it('T-107: the implementer prompt and charter carry the tests rule, and its guard gets the task\'s verify', () => {
+      fixtureRepo();
+      const r = dryRun();
+      expect(r.status).toBe(0);
+      const prompt = r.stdout.match(/prompt \(stdin\): (.*)/)[1].replace(/\\(.)/g, '$1');
+      const verify = JSON.parse(readFileSync(join(root, 'spec/TASKS.json'), 'utf8')).tasks.find((t) => t.id === 'T-03').verify ?? '';
+      expect(prompt).toContain(`Tests (DEC-045, T-107): run the task's verify (${verify || 'none declared'})`);
+      expect(prompt).toContain('never a whole test file, `npm test` or `npm run test*`, and never a command in the background');
+      expect(r.stdout).toContain('access guard (T-107): AUTOPILOT_GUARD_VERIFY=');
+      expect(readFileSync(join(REPO, 'scripts/agents/roles/implementer.md'), 'utf8')).toContain('Tests (DEC-045, T-107)');
+    });
+
     it('launches nothing and does not modify the repo (no configuration: defaults)', () => {
       const git = fixtureRepo();
       const head = git('rev-parse', 'HEAD');
@@ -1596,8 +1608,11 @@ describe('autopilot.sh', () => {
       const decisions = () => readdirSync(root, { recursive: true }).filter((f) => /^artifacts\/decisions\/.+\.json$/.test(f))
         .map((f) => JSON.parse(readFileSync(join(root, f), 'utf8')));
 
+      // DEC-051: a JSON verdict that agrees with its findings is settled by a rule; one that does not needs the decider
+      const ambiguous = { STUB_VERDICT: '{"verdict":"approved","findings":["REQ-001: un detalle"],"notes":"ok"}' };
+
       it('the review verdict is the decider\'s: each decision is recorded in artifacts/decisions/ with the summary', () => {
-        const r = autopilot(approved, '--max-tasks', '1');
+        const r = autopilot(ambiguous, '--max-tasks', '1');
         expect(r.status).toBe(0);
         expect(r.stdout).toContain('decide review_verdict (stub): proceed approved (confidence 0.95)');
         expect(t03().status).toBe('reviewed');
@@ -1607,8 +1622,32 @@ describe('autopilot.sh', () => {
         expect(t03().review.decision).toMatchObject({ question_id: 'review_verdict', decider: 'stub', confidence: 0.95 }); // T-36
       });
 
+      it('T-101 DEC-051: a review JSON approved without findings is settled by a rule: the decider gets 0 calls, the record says so', () => {
+        const r = autopilot(approved, '--max-tasks', '1');
+        expect(r.status).toBe(0);
+        expect(r.stdout).toContain('decide review_verdict (rule review_approved_without_findings): proceed approved (confidence 1)');
+        expect(existsSync(join(root, '.autopilot/stub-decide-review_verdict.json'))).toBe(false);
+        expect(t03().status).toBe('reviewed');
+        const d = decisions();
+        expect(d.length).toBe(1);
+        expect(d[0]).toMatchObject({ question_id: 'review_verdict', answer: 'approved', action: 'proceed', decider: 'rule', rule: 'review_approved_without_findings' });
+        expect(t03().review.decision).toMatchObject({ question_id: 'review_verdict', decider: 'rule', rule: 'review_approved_without_findings' });
+      });
+
+      it('T-101 DEC-051: a review JSON rejected with findings is settled by a rule (0 decider calls)', () => {
+        const r = autopilot({ STUB_VERDICT: '{"verdict":"rejected","findings":["REQ-002: no codifica E1"],"notes":"n"}' }, '--max-tasks', '1');
+        expect(r.stdout).toContain('decide review_verdict (rule review_rejected_with_findings): proceed rejected');
+        expect(existsSync(join(root, '.autopilot/stub-decide-review_verdict.json'))).toBe(false);
+        expect(t03().review).toMatchObject({ verdict: 'rejected', decision: { decider: 'rule' } });
+      });
+
+      it('T-101 DEC-051: an ambiguous review JSON (approved with a blocking finding) still goes to the decider', () => {
+        autopilot(ambiguous, '--max-tasks', '1');
+        expect(existsSync(join(root, '.autopilot/stub-decide-review_verdict.json'))).toBe(true);
+      });
+
       it('low confidence on the verdict escalates to the user: the task is not reviewed, it is blocked by a new question (T-62)', () => {
-        const r = autopilot({ ...approved, STUB_DECIDE_review_verdict: 'approved:0.5' });
+        const r = autopilot({ ...ambiguous, STUB_DECIDE_review_verdict: 'approved:0.5' });
         expect(r.stdout).toContain('the decider (stub) did not settle the review verdict on T-03 (confidence 0.5 < 0.8 (threshold)');
         expect(t03().status).toBe('blocked');
         expect(t03().blocked_by).toMatch(/^Q-\d+$/);
@@ -1618,13 +1657,13 @@ describe('autopilot.sh', () => {
       });
 
       it('a decider error escalates; it never falls back to the reviewer\'s own verdict', () => {
-        const r = autopilot({ ...approved, STUB_DECIDE_review_verdict: 'error' });
+        const r = autopilot({ ...ambiguous, STUB_DECIDE_review_verdict: 'error' });
         expect(r.stdout).toContain('decider error: stub decider: forced error');
         expect(t03().status).toBe('blocked'); // T-62
       });
 
       it('a decider that disagrees with the review escalates too', () => {
-        autopilot({ ...approved, STUB_DECIDE_review_verdict: 'rejected:0.97' });
+        autopilot({ ...ambiguous, STUB_DECIDE_review_verdict: 'rejected:0.97' });
         expect(t03().status).toBe('blocked'); // T-62
       });
 
@@ -1887,12 +1926,12 @@ printf '%s' "$input" | exec "$real" "$@"
         expect(r.stdout).toContain('ntfy notice sent (priority default)');
       });
 
-      it('a budget limit (tasks) asks for intervention: high priority', () => {
+      it('T-118: a budget limit (tasks) alone does not ask for intervention: default priority, relaunch', () => {
         const r = autopilot({ ...approved, ...ntfy }, '--max-tasks', '1');
         expect(r.status).toBe(0);
         const [c] = curlCalls();
-        expect(header(c, 'Priority')).toBe('high');
-        expect(header(c, 'Tags')).toBe('warning,rotating_light');
+        expect(header(c, 'Priority')).toBe('default');
+        expect(header(c, 'Tags')).toBe('white_check_mark');
         expect(body(c)).toContain('Stop reason: task budget reached (1)');
         expect(body(c)).toContain('Next action: relaunch the autopilot to continue (limit reached)');
       });
@@ -2020,7 +2059,8 @@ printf '%s' "$input" | exec "$real" "$@"
       it('loads AUTOPILOT_SECRETS: its key reaches the decider, never the implementer or the reviewer', () => {
         const secrets = join(root, '..', `${root.split('/').pop()}-secrets.sh`); // outside the repo
         writeFileSync(secrets, 'export TYPESAFE_API_KEY=k-from-secrets\nexport OTHER_SECRET=s-from-secrets\n');
-        const r = autopilot({ ...approved, AUTOPILOT_SECRETS: secrets }, '--max-tasks', '1');
+        // a verdict no rule settles (DEC-051), so the decider is asked
+        const r = autopilot({ STUB_VERDICT: '{"verdict":"approved","findings":["REQ-001: un detalle"],"notes":"ok"}', AUTOPILOT_SECRETS: secrets }, '--max-tasks', '1');
         rmSync(secrets, { force: true });
         expect(r.status).toBe(0);
         expect(readFileSync(join(root, '.autopilot/stub-decide-env.txt'), 'utf8')).toBe('TYPESAFE_API_KEY=k-from-secrets\n');
@@ -2033,7 +2073,7 @@ printf '%s' "$input" | exec "$real" "$@"
       });
 
       it('without a secrets file the run goes on (the decider has no key and its decisions escalate)', () => {
-        const r = autopilot({ ...approved, AUTOPILOT_SECRETS: join(root, 'no-such-secrets.sh') }, '--max-tasks', '1');
+        const r = autopilot({ STUB_VERDICT: '{"verdict":"approved","findings":["REQ-001: un detalle"],"notes":"ok"}', AUTOPILOT_SECRETS: join(root, 'no-such-secrets.sh') }, '--max-tasks', '1');
         expect(r.status).toBe(0);
         expect(readFileSync(join(root, '.autopilot/stub-decide-env.txt'), 'utf8')).toBe('TYPESAFE_API_KEY=\n');
       });
@@ -2797,6 +2837,13 @@ printf '%s' "$input" | exec "$real" "$@"
         expect(git('log', '--format=%s')).not.toContain('T-04: apply implementer result');
       });
 
+      it('T-101 DEC-051: red acceptance tests after implementing are the implementation\'s: a rule, not the decider, settles the cause', () => {
+        const r = autopilot({ ...on, STUB_TESTS: 'strict' });
+        expect(r.stdout).toContain('decide failure_cause (rule acceptance_tests_red): proceed implementation');
+        expect(existsSync(join(root, '.autopilot/stub-decide-failure_cause.json'))).toBe(false);
+        expect(r.stdout).toContain('attempt 2');
+      });
+
       it('a disputed test without the researcher: the test is not changed and the task is escalated', () => {
         const r = autopilot({ ...on, STUB_MODE: 'dispute' });
         expect(r.status).toBe(1);
@@ -2915,6 +2962,22 @@ printf '%s' "$input" | exec "$real" "$@"
         autopilot({ ...on, STUB_CRITIC: critic('REVISAR', [blocking]), STUB_DECIDE_finding_severity: 'blocking:0.4' });
         expect(implLaunched()).toBe(false);
         expect(log()).toContain('confidence 0.4 < 0.8');
+      });
+
+      it('T-101 DEC-051: a critique whose verdict agrees with its blocking findings is settled by a rule (0 decider calls); each finding still goes to the decider', () => {
+        const r = autopilot({ ...on, STUB_CRITIC: critic('REVISAR', [blocking]), STUB_CRITIC_NEXT: critic('APROBAR') });
+        expect(r.status).toBe(0);
+        expect(r.stdout).toContain('decide plan_verdict (rule critic_revises_with_blocking): proceed REVISAR');
+        expect(r.stdout).toContain('decide plan_verdict (rule critic_approves_without_p0_p1): proceed APROBAR');
+        expect(existsSync(join(root, '.autopilot/stub-decide-plan_verdict.json'))).toBe(false);
+        expect(r.stdout).toContain('decide finding_severity (stub): proceed blocking');
+        expect(t04().plan_review).toMatchObject({ round: 2, effective: 'APROBAR' });
+      });
+
+      it('T-101 DEC-051: an ambiguous critique (APROBAR with a blocking finding) still goes to the decider', () => {
+        const r = autopilot({ ...on, STUB_CRITIC: critic('APROBAR', [blocking]) });
+        expect(r.stdout).toContain('decide plan_verdict (stub): proceed APROBAR');
+        expect(existsSync(join(root, '.autopilot/stub-decide-plan_verdict.json'))).toBe(true);
       });
 
       it('a blocking id repeated in round 2 → ESCALAR: blocked by a new Q-NN; the implementer never starts', () => {
@@ -3219,6 +3282,26 @@ printf '%s' "$input" | exec "$real" "$@"
         expect(result()).toMatchObject({ status: 'api_error' });
       });
 
+      it('T-108: a failed run gets fingerprint and failure_class; the same failure again counts in the case memory', () => {
+        autopilot({ ...approved, STUB_MODE: 'apierror' });
+        const first = result();
+        expect(first).toMatchObject({ failure_class: 'api_error' });
+        expect(first.fingerprint).toMatch(/^[0-9a-f]{64}$/);
+        autopilot({ ...approved, STUB_MODE: 'apierror' });
+        expect(result().fingerprint).toBe(first.fingerprint);
+        const memory = readFileSync(join(root, '.autopilot/fingerprints.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+        expect(memory).toHaveLength(1);
+        expect(memory[0]).toMatchObject({ fingerprint: first.fingerprint, class: 'api_error', count: 2, task: 'T-03' });
+        expect(memory[0].runs).toHaveLength(2);
+      });
+
+      it('T-108: a healthy run gets no fingerprint', () => {
+        autopilot(approved);
+        expect(result().status).toBe('ok');
+        expect(result().fingerprint).toBe(undefined);
+        expect(existsSync(join(root, '.autopilot/fingerprints.jsonl'))).toBe(false);
+      });
+
       it('an unexpected exit: error; a dirty tree at the start also leaves result.json, with the diff in partial.patch', () => {
         autopilot({}, '--task', 'T-99');
         expect(result()).toMatchObject({ status: 'error' });
@@ -3279,6 +3362,50 @@ printf '%s' "$input" | exec "$real" "$@"
         expect(t03().merged).toBe(undefined);
       });
 
+      it('T-110: at the start the merged records are checked against git: a false one is listed, never deleted, and asks for intervention', () => {
+        const target = git('symbolic-ref', '--short', 'HEAD').trim();
+        const base = git('rev-parse', 'HEAD').trim();
+        // as in compras-publicas-cl on 2026-10-22: merged into a task branch; and a commit that is not in its target
+        git('branch', 'autopilot/2026-10-22_010033/T-04-1');
+        git('checkout', '-q', '-b', 'side');
+        git('commit', '-q', '--allow-empty', '-m', 'side work\n\nTask: none\nReq: none');
+        const side = git('rev-parse', 'HEAD').trim();
+        git('checkout', '-q', target);
+        const at = '2026-10-22T10:00:00.000Z';
+        editTasks((ts) => {
+          task(ts, 'T-04').merged = { into: 'autopilot/2026-10-22_010033/T-04-1', commit: base, at };
+          task(ts, 'T-05').merged = { into: target, commit: side, at };
+          task(ts, 'T-06').merged = { into: target, commit: base, at };   // correct: it passes
+        });
+        git('commit', '-q', '-am', 'merged records\n\nTask: none\nReq: none');
+        const check = JSON.parse(run('merged-check').out);
+        expect(check).toEqual([
+          { id: 'T-04', into: 'autopilot/2026-10-22_010033/T-04-1', commit: base, reason: 'into autopilot/2026-10-22_010033/T-04-1: an autopilot/* branch is not a merge target' },
+          { id: 'T-05', into: target, commit: side, reason: `the commit ${side} is not in ${target}` },
+        ]);
+        autopilot(approved, '--max-tasks', '1');
+        const res = result();
+        expect(res.merged_mismatch).toEqual(check);
+        expect(res.intervention).toBe(true);
+        expect(res.next_action).toContain('merged_mismatch in result.json, T-110');
+        const live = readFileSync(join(current(), 'live.log'), 'utf8');
+        expect(live).toContain('merged record does not match git (T-110): T-04: into autopilot/2026-10-22_010033/T-04-1');
+        expect(live).toContain(`merged record does not match git (T-110): T-05: into ${target} at ${side}: the commit ${side} is not in ${target}`);
+        expect(live).not.toContain('T-06: into');
+        const ts = readTasks();
+        expect(task(ts, 'T-04').merged).toEqual({ into: 'autopilot/2026-10-22_010033/T-04-1', commit: base, at });   // not deleted
+        expect(task(ts, 'T-05').merged).toEqual({ into: target, commit: side, at });
+      });
+
+      it('T-110: with every merged record matching git, merged_mismatch is empty', () => {
+        const target = git('symbolic-ref', '--short', 'HEAD').trim();
+        editTasks((ts) => { task(ts, 'T-06').merged = { into: target, commit: git('rev-parse', 'HEAD').trim(), at: '2026-10-22T10:00:00.000Z' }; });
+        git('commit', '-q', '-am', 'merged record\n\nTask: none\nReq: none');
+        expect(JSON.parse(run('merged-check').out)).toEqual([]);
+        autopilot(approved, '--max-tasks', '1');
+        expect(result()).toMatchObject({ status: 'ok', merged_mismatch: [], intervention: false });
+      });
+
       it('T-98: a wall-clock gap without heartbeats (the machine asleep) does not cut the agent as inactive', async () => {
         const child = asyncRun({ ...approved, STUB_MODE: 'hang', STUB_HANG_SECONDS: '7', AUTOPILOT_STALL_SECONDS: '3', AUTOPILOT_HEARTBEAT_SECONDS: '1' });
         const done = exited(child);
@@ -3300,6 +3427,33 @@ printf '%s' "$input" | exec "$real" "$@"
         expect(result()).toMatchObject({ status: 'stalled' });
         expect(out).toContain('no activity from the agent for 2s');
         expect(existsSync(join(current(), 'partial.patch'))).toBe(true);
+      });
+
+      const stall = { AUTOPILOT_STALL_SECONDS: '3', AUTOPILOT_HEARTBEAT_SECONDS: '1' };
+      it('T-106: a child spending CPU without writing to the stream is not cut before the hard limit; noted once in live.log', async () => {
+        const { out } = await exited(asyncRun({ ...approved, ...stall, AUTOPILOT_STALL_MAX_SECONDS: '60', STUB_MODE: 'busy', STUB_HANG_SECONDS: '8' }));
+        expect(out).not.toContain('no activity from the agent');
+        expect(result().status).not.toBe('stalled');
+        const notes = readFileSync(join(current(), 'live.log'), 'utf8').match(/quiet stream, agent processes active: \d+ \(.+\).*\(T-106\)/g);
+        expect(notes?.length).toBe(1);
+      });
+
+      it('T-106: a sleeping child spends no CPU: cut at AUTOPILOT_STALL_SECONDS', async () => {
+        const started = Date.now();
+        const { out } = await exited(asyncRun({ ...approved, ...stall, AUTOPILOT_STALL_MAX_SECONDS: '60', STUB_MODE: 'hang', STUB_HANG_SECONDS: '60' }));
+        expect(Date.now() - started).toBeLessThan(30000);
+        expect(result()).toMatchObject({ status: 'stalled' });
+        expect(out).toContain('no activity from the agent for 3s');
+        expect(readFileSync(join(current(), 'live.log'), 'utf8')).not.toContain('quiet stream');
+      });
+
+      it('T-106: AUTOPILOT_STALL_MAX_SECONDS without the stream moving cuts the agent even with CPU', async () => {
+        const started = Date.now();
+        const { out } = await exited(asyncRun({ ...approved, ...stall, AUTOPILOT_STALL_MAX_SECONDS: '6', STUB_MODE: 'busy', STUB_HANG_SECONDS: '60' }));
+        expect(Date.now() - started).toBeLessThan(30000);
+        expect(result()).toMatchObject({ status: 'stalled', stop_reason: expect.stringContaining('6s') });
+        expect(out).toContain("the agent's stream did not move for 6s, even with its processes active");
+        expect(readFileSync(join(current(), 'live.log'), 'utf8')).toContain('quiet stream, agent processes active');
       });
 
       it('at the start, a run directory without result.json nor a stop line is marked crashed_orphan', () => {
@@ -3731,6 +3885,14 @@ printf '%s' "$input" | exec "$real" "$@"
         expect(result()).toMatchObject({ coverage_failed: ['T-04'], failures: 1 });
       });
 
+      it('T-101 DEC-051: a coverage gap the implementer did not report as a missing requirement is the implementation\'s: a rule settles the cause', () => {
+        inRule();
+        const r = autopilot({ ...approved, COVERAGE_MISS_ONCE: '1' });
+        expect(r.stdout).toContain('decide failure_cause (rule coverage_gap): proceed implementation');
+        expect(existsSync(join(root, '.autopilot/stub-decide-failure_cause.json'))).toBe(false);
+        expect(t04()).toMatchObject({ status: 'reviewed' });
+      });
+
       it('the implementer reports a missing requirement → escalated with a Q-NN', () => {
         inRule();
         const r = autopilot({ ...approved, STUB_MODE: 'missing' });
@@ -3900,13 +4062,31 @@ printf '%s' "$input" | exec "$real" "$@"
         expect(res).toMatchObject({
           run_id: runDirs()[0], repo: root.split('/').pop(), exit_code: 0,
           stop_reason: 'task budget reached (1)', done: ['T-03'], failed: [], failures: 0, abandoned: [],
-          rejected: [], deploy_pending: [], user_wait: [], intervention: true,
+          rejected: [], deploy_pending: [], user_wait: [], intervention: false,
           next_action: 'relaunch the autopilot to continue (limit reached)',
           tokens: { input: 44, output: 11440, cache_read: 1266786, cache_write: 64481, invocations: 1 },
         });
         expect(Number.isInteger(res.duration_seconds) && res.duration_seconds >= 0).toBe(true);
         expect(r.stdout.trim().split('\n').at(-1)).toBe(`result: ${join(root, '.autopilot', runDirs()[0], 'result.json')}`);
         expect(git('status', '--porcelain')).toBe(''); // .autopilot/ stays outside git
+      });
+
+      it('T-118: a stop at the task budget with nothing left for the user: no intervention, the next action is to relaunch', () => {
+        expect(autopilot(approved, '--max-tasks', '1').status).toBe(0);
+        expect(result()).toMatchObject({
+          status: 'ok', exit_code: 0, stop_reason: 'task budget reached (1)', done: ['T-03'], failed: [], abandoned: [],
+          intervention: false, next_action: 'relaunch the autopilot to continue (limit reached)',
+        });
+      });
+
+      it('T-118: a stop at the task budget with a blocked task still asks for intervention', () => {
+        editTasks((ts) => { Object.assign(task(ts, 'T-07'), { status: 'blocked', blocked_by: 'Q-01' }); });
+        git('commit', '-q', '-am', 'T-07 blocked\n\nTask: none\nReq: none');
+        expect(autopilot(approved, '--max-tasks', '1').status).toBe(0);
+        expect(result()).toMatchObject({
+          exit_code: 0, stop_reason: 'task budget reached (1)', done: ['T-03'], intervention: true,
+          next_action: expect.stringContaining('resolve the block'),
+        });
       });
 
       it('finished fine: no intervention', () => {

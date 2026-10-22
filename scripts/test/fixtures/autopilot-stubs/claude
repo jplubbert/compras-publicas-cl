@@ -240,11 +240,19 @@ if [ "$mode" = noop ]; then
   echo '{"type":"result","subtype":"success","result":"already done","num_turns":2,"is_error":false}'; exit 0
 fi
 # DEC-024 modes: usage (its account's usage limit) | apierror (an API error) | hang (writes a half-done file, leaves
-# .autopilot/stub-hang-<ID> and sleeps STUB_HANG_SECONDS without output)
+# .autopilot/stub-hang-<ID> and sleeps STUB_HANG_SECONDS without output) | busy (T-106: the same, but a child of it
+# spends CPU for STUB_HANG_SECONDS without output; INT ends both)
 [ "$mode" = usage ] && { echo '{"type":"result","subtype":"success","is_error":true,"result":"Claude AI usage limit reached|1792600000","api_error_status":429,"num_turns":1,"total_cost_usd":0}'; exit 1; }
 [ "$mode" = apierror ] && { echo '{"type":"result","subtype":"error_during_execution","is_error":true,"result":"API Error: 529 {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}","api_error_status":529,"num_turns":1,"total_cost_usd":0}'; exit 1; }
 if [ "$mode" = hang ]; then
   echo "half-done $id" >"half-$id.txt"; : >".autopilot/stub-hang-$id"; sleep "${STUB_HANG_SECONDS:-60}"; exit 0
+fi
+if [ "$mode" = busy ]; then
+  echo "half-done $id" >"half-$id.txt"
+  bash -c 'end=$((SECONDS + $1)); while [ "$SECONDS" -lt "$end" ]; do :; done' busy "${STUB_HANG_SECONDS:-60}" &
+  busy_pid=$!
+  trap 'kill "$busy_pid" 2>/dev/null; exit 130' INT
+  : >".autopilot/stub-hang-$id"; wait "$busy_pid"; exit 0
 fi
 [ "$mode" = fail ] && { echo '{"type":"result","subtype":"error_during_execution","result":"could not do it","num_turns":1,"total_cost_usd":0.01,"usage":{"input_tokens":3,"output_tokens":100,"cache_read_input_tokens":2000,"cache_creation_input_tokens":500},"is_error":true}'; exit 1; }
 # The change goes to the first directory of touches (or its first file).

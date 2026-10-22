@@ -2,8 +2,9 @@
 # `scripts/autopilot.sh` double for the tests of scripts/autopilot-dispatch.sh. Its behaviour comes from files in
 # $STUB_STATE/<repo>/ (all optional): check_rc (0), check_msg, run_rc (0), sleep (0), no_result (exists = no
 # result.json), intervention (exists = "intervention": true), status (result.json's status, ok by default), done (the
-# task in "done", T-01), stop_reason ("no eligible tasks left"), month and cap (month_tokens.counted and
-# monthly_budget_tokens; none by default). A file with several lines gives line N to the Nth --check (check_rc,
+# task in "done", T-01), stop_reason ("no eligible tasks left"), next_action ("decide accepted"), month and cap (month_tokens.counted and
+# monthly_budget_tokens; none by default), fingerprint, failure_class and failed (result.json's fingerprint,
+# failure_class and the task in "failed", T-109; none by default, and a "-" line means none for that run). A file with several lines gives line N to the Nth --check (check_rc,
 # check_msg) or the Nth run (the rest), and its last line after that (T-95). Each run reports 100 counted tokens and
 # 1000 of cache read. It records its arguments in $STUB_STATE/<repo>/args and
 # "start|end <repo> <epoch ns>" lines in $STUB_STATE/timeline, and what it sees of AUTOPILOT_SECRETS and TYPESAFE_API_KEY
@@ -43,8 +44,12 @@ if [ ! -f "$st/no_result" ]; then
   month=null cap=null
   [ -f "$st/month" ] && month="{\"counted\": $(cfg month 0)}"
   [ -f "$st/cap" ] && cap=$(cfg cap 0)
-  printf '{"exit_code": %s, "status": "%s", "stop_reason": "%s", "done": ["%s"], "intervention": %s, "next_action": "decide accepted", "tokens": {"counted": 100, "cache_read": 1000}, "month_tokens": %s, "monthly_budget_tokens": %s}\n' \
-    "$rc" "$(cfg status ok)" "$(cfg stop_reason 'no eligible tasks left')" "$(cfg done T-01)" "$intervention" "$month" "$cap" >"$out"
+  extra="" failed=$(cfg failed -) fp=$(cfg fingerprint -)
+  [ "$failed" = - ] || extra+=", \"failed\": [\"$failed\"]"
+  [ "$fp" = - ] || extra+=", \"fingerprint\": \"$fp\", \"failure_class\": \"$(cfg failure_class unknown)\""
+  printf '{"exit_code": %s, "status": "%s", "stop_reason": "%s", "done": ["%s"], "intervention": %s, "next_action": "%s", "tokens": {"counted": 100, "cache_read": 1000}, "month_tokens": %s, "monthly_budget_tokens": %s%s}\n' \
+    "$rc" "$(cfg status ok)" "$(cfg stop_reason 'no eligible tasks left')" "$(cfg done T-01)" "$intervention" \
+    "$(cfg next_action 'decide accepted')" "$month" "$cap" "$extra" >"$out"
   echo "result: $out"
 fi
 exit "$rc"

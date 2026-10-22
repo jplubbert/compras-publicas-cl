@@ -16,6 +16,9 @@
 //       T-91: the user accepted it by name in session: the decider is not asked; same conditions (proposed, at least
 //       two options with pros and cons); Aprobador "<name>, <date> (aprobación nominal en sesión[: «<quote>»])".
 //       An agent uses --by only with the name of the user who approved it in session (DEC-032), never its own.
+//   node scripts/adr.mjs [--root DIR] supersede NNNN --by MMMM
+//       T-104: an accepted NNNN becomes "superseded by MMMM" (only its Estado line) and the index is regenerated;
+//       rejected if NNNN is not accepted, MMMM is missing or not accepted, MMMM = NNNN or it would leave a cycle.
 //   node scripts/adr.mjs [--root DIR] select --task T-NN [--recent N] [--files]
 //       DEC-036: the decisions in force an agent of the task gets: the ones it cites, the N (AUTOPILOT_ADR_RECENT, 5)
 //       most recent accepted ADRs and the accepted ADRs whose Módulos cross its touches; JSON [{id, kind, file, why}],
@@ -246,6 +249,31 @@ function accept(root, nnnn, { decider, threshold, by, reason }) {
   return 0;
 }
 
+/** T-104: an accepted NNNN becomes "superseded by MMMM" (only its Estado line), MMMM accepted; the index is regenerated. */
+function supersede(root, nnnn, mmmm) {
+  const all = loadDecisions(root).filter((x) => x.kind === 'adr');
+  const find = (n) => all.find((x) => x.file.split('/').pop().startsWith(`${n}-`));
+  const d = find(nnnn);
+  const by = find(mmmm);
+  if (!d) throw new Error(`no ADR ${nnnn} in ${ADR_DIR}`);
+  if (!by) throw new Error(`no ADR ${mmmm} in ${ADR_DIR}`);
+  if (nnnn === mmmm) throw new Error(`${nnnn} cannot supersede itself`);
+  if (d.status !== 'accepted') throw new Error(`${nnnn} is ${d.statusLine ?? d.status}: only an accepted ADR is superseded (DEC-035)`);
+  if (by.status !== 'accepted') throw new Error(`${mmmm} is ${by.statusLine ?? by.status}: an ADR is superseded only by an accepted one (DEC-036)`);
+  // a cycle: the chain of replacements from MMMM leads back to NNNN
+  const byNum = new Map(all.map((x) => [x.num, x]));
+  const seen = new Set();
+  for (let x = by; x && !seen.has(x.num);) {
+    if (x.num === d.num) throw new Error(`${nnnn} superseded by ${mmmm} would leave a cycle of replacements`);
+    seen.add(x.num);
+    const m = /^superseded by (?:DEC-)?(\d+)$/.exec(x.statusLine ?? '');
+    x = m && byNum.get(Number(m[1]));
+  }
+  writeFileSync(join(root, d.file), readFileSync(join(root, d.file), 'utf8').replace(/^- Estado:.*$/m, `- Estado: superseded by ${mmmm}`));
+  const path = join(root, DECISIONS_FILE);
+  if (existsSync(path)) writeFileSync(path, withIndex(root, readFileSync(path, 'utf8')));
+}
+
 function main(argv) {
   const opt = (k) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : undefined);
   const root = resolve(opt('--root') ?? join(dirname(fileURLToPath(import.meta.url)), '..'));
@@ -264,6 +292,12 @@ function main(argv) {
     const decider = opt('--decider') ?? join(root, `scripts/agents/decider/${process.env.AUTOPILOT_DECIDER ?? 'jev'}.sh`);
     return accept(root, args[0], { decider, by, reason: opt('--reason'),
       threshold: Number(opt('--threshold') ?? process.env.AUTOPILOT_DECIDE_THRESHOLD_ADR_ACCEPT ?? 0.8) });
+  }
+  if (cmd === 'supersede') {
+    const by = opt('--by') ?? '';
+    if (!/^\d{4}$/.test(args[0] ?? '') || !/^\d{4}$/.test(by)) { console.error('adr: supersede needs NNNN --by MMMM (ADR numbers)'); return 2; }
+    supersede(root, args[0], by);
+    return 0;
   }
   if (cmd === 'select') {
     const sel = select(root, opt('--task'), Number(opt('--recent') ?? process.env.AUTOPILOT_ADR_RECENT ?? 5));
@@ -288,7 +322,7 @@ function main(argv) {
     writeFileSync(path, fresh);
     return 0;
   }
-  console.error('usage: adr.mjs [--root DIR] migrate --ids DEC-NNN,… | index [--check] | new "<title>" | accept NNNN [--by <user> [--reason "<quote>"]] | select --task T-NN');
+  console.error('usage: adr.mjs [--root DIR] migrate --ids DEC-NNN,… | index [--check] | new "<title>" | accept NNNN [--by <user> [--reason "<quote>"]] | supersede NNNN --by MMMM | select --task T-NN');
   return 2;
 }
 

@@ -187,6 +187,54 @@ describe('new ADRs are born proposed and Jev accepts them; agents get only the d
   });
 });
 
+describe('supersede NNNN --by MMMM changes only the Estado line of an accepted ADR (DEC-035, T-104)', () => {
+  const file = (n) => join(root, 'spec/adr', readdirSync(join(root, 'spec/adr')).find((f) => f.startsWith(n)));
+  const checkAdr = () => spawnSync('node', [join(REPO, 'scripts/check-adr.mjs'), '--root', root], { encoding: 'utf8' });
+  const commit = (m) => { git('add', '-A'); git('commit', '-q', '-m', `${m}\n\nTask: none\nReq: none`); };
+  beforeEach(() => {
+    adr('migrate', '--ids', 'DEC-005');
+    commit('migrate');
+    for (const t of ['Reemplazo', 'Pendiente']) adr('new', t);   // 0008, 0009 (proposed)
+    for (const n of ['0008', '0009']) {
+      writeFileSync(file(n), readFileSync(file(n), 'utf8')
+        .replace(/- Módulos: .*\n/, '').replace(/- Enforced-by: .*/, '- Enforced-by: manual: a person reads it')
+        .replace(/## Opciones consideradas\n[\s\S]*?(?=\n## Decisión)/, '## Opciones consideradas\n\n### 1. A\n- A favor: rápida.\n- En contra: cara.\n\n### 2. B\n- A favor: barata.\n- En contra: lenta.\n'));
+    }
+    commit('new');
+    adr('accept', '0008', '--by', 'Pepe');
+    commit('accept');
+  });
+
+  it('an accepted ADR becomes "superseded by MMMM", nothing else changes, the index follows and check-adr passes (T-104)', () => {
+    const before = readFileSync(file('0005'), 'utf8');
+    const r = adr('supersede', '0005', '--by', '0008');
+    expect(r.stderr).toBe('');
+    expect(r.status).toBe(0);
+    expect(readFileSync(file('0005'), 'utf8')).toBe(before.replace('- Estado: accepted', '- Estado: superseded by 0008'));
+    expect(readFileSync(join(root, 'spec/DECISIONS.md'), 'utf8')).toContain('| DEC-005 | Investigador ante una tarea atascada | superseded by 0008 |');
+    expect(adr('index', '--check').status).toBe(0);
+    commit('supersede');
+    expect(checkAdr()).toMatchObject({ status: 0, stdout: expect.stringContaining('check-adr: ok') });
+  });
+
+  it('rejects a proposed or already superseded ADR, a proposed or missing replacement, itself and bad arguments (T-104)', () => {
+    const untouched = () => ['0005', '0008', '0009'].map((n) => readFileSync(file(n), 'utf8')).join('\n');
+    const start = untouched();
+    const fails = (args, msg) => expect(adr('supersede', ...args)).toMatchObject({ status: 1, stderr: expect.stringContaining(msg) });
+    fails(['0009', '--by', '0008'], '0009 is proposed: only an accepted ADR is superseded');
+    fails(['0005', '--by', '0009'], '0009 is proposed: an ADR is superseded only by an accepted one');
+    fails(['0005', '--by', '0005'], '0005 cannot supersede itself');
+    fails(['0005', '--by', '0042'], 'no ADR 0042');
+    fails(['0042', '--by', '0008'], 'no ADR 0042');
+    expect(adr('supersede', '0005').status).toBe(2);
+    expect(adr('supersede', '5', '--by', '0008').status).toBe(2);
+    expect(untouched()).toBe(start);
+    expect(adr('supersede', '0005', '--by', '0008').status).toBe(0);
+    fails(['0005', '--by', '0008'], '0005 is superseded by 0008: only an accepted ADR is superseded');
+    fails(['0008', '--by', '0005'], '0005 is superseded by 0008: an ADR is superseded only by an accepted one');   // it would leave a cycle
+  });
+});
+
 describe('select follows the chain of replacements (DEC-036, T-72)', () => {
   // sdd-base's own spec (T-27, ADRs 0011 and 0039); a project made with bootstrap has neither, so there it is skipped
   const ownSpec = existsSync(join(REPO, 'spec/adr')) && readdirSync(join(REPO, 'spec/adr')).some((f) => f.startsWith('0039-'));

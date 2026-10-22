@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { expect } from './expect.mjs';
-import { mapAnswer, userCriteriaPath, withUserCriteria } from '../lib/decide.mjs';
+import { mapAnswer, RULES, ruleAnswer, userCriteriaPath, withUserCriteria } from '../lib/decide.mjs';
 
 // The port decide (DEC-015, DEC-013): a pure core that maps a decider's answer to an action, tested without any decider;
 // the Jev adapter (scripts/agents/decider/jev.sh) tested apart against a curl double; and that the adapter is reached
@@ -105,6 +105,88 @@ describe('T-92: the user criteria reach the decider, and the record keeps their 
 
   it('DEC-050: an empty file counts as no file', () => {
     expect(withUserCriteria(question, '  \n')).toEqual({ question, sha256: null });
+  });
+});
+
+describe('T-101: deterministic rules run before the decider (DEC-051)', () => {
+  const verdictOpts = { approved: 'a', rejected: 'r' };
+  const planOpts = { APROBAR: 'a', REVISAR: 'r', ESCALAR: 'e' };
+  const causeOpts = { implementation: 'i', environment: 'e', design: 'd' };
+  const critic = (verdict, blocking = [], opinion = []) => ({ verdict, blocking, opinion_blockers: opinion });
+  const gates = (...g) => ({ gates: g.map(([name, result]) => ({ name, result })) });
+
+  for (const [qid, opts, facts, answer, rule] of [
+    ['review_verdict', verdictOpts, { verdict: 'approved', findings: [] }, 'approved', 'review_approved_without_findings'],
+    ['review_verdict', verdictOpts, { verdict: 'rejected', findings: ['REQ-002: no E1'] }, 'rejected', 'review_rejected_with_findings'],
+    ['acceptance_verdict', verdictOpts, { verdict: 'approved', findings: [] }, 'approved', 'review_approved_without_findings'],
+    ['plan_verdict', planOpts, critic('ESCALAR', ['a:b']), 'ESCALAR', 'critic_escalates'],
+    ['plan_verdict', planOpts, critic('APROBAR'), 'APROBAR', 'critic_approves_without_p0_p1'],
+    ['plan_verdict', planOpts, critic('REVISAR', ['req-002:sin-caso-vacio']), 'REVISAR', 'critic_revises_with_blocking'],
+    ['failure_cause', causeOpts, gates(['audit', 'ok'], ['result', 'ok'], ['green', 'fail']), 'implementation', 'acceptance_tests_red'],
+    ['failure_cause', causeOpts, gates(['audit', 'ok'], ['green', 'ok'], ['coverage', 'fail']), 'implementation', 'coverage_gap'],
+  ]) {
+    it(`T-101 DEC-051: ${qid} ← rule ${rule}`, () => {
+      expect(ruleAnswer(qid, opts, facts)).toEqual({ answer, rule });
+    });
+  }
+
+  for (const [qid, opts, facts, why] of [
+    ['review_verdict', verdictOpts, { verdict: 'approved', findings: ['REQ-001: no prueba'] }, 'approved with findings'],
+    ['review_verdict', verdictOpts, { verdict: 'rejected', findings: [] }, 'rejected without findings'],
+    ['plan_verdict', planOpts, critic('APROBAR', ['a:b']), 'APROBAR with a blocking finding'],
+    ['plan_verdict', planOpts, critic('APROBAR', [], ['a:b']), 'APROBAR with an opinion-only P0/P1'],
+    ['plan_verdict', planOpts, critic('REVISAR'), 'REVISAR without blocking findings'],
+    ['failure_cause', causeOpts, gates(['evidence', 'fail']), 'a verify that fails at the close'],
+    ['failure_cause', causeOpts, gates(['result', 'retry'], ['result', 'invalid']), 'a result invalid after its rewrite (DEC-051 point 3)'],
+    ['failure_cause', causeOpts, gates(), 'no gates'],
+    ['block_kind', { spec: 's', implementer: 'i' }, { kind: 'open_question' }, 'block_kind has no rule'],
+    ['research_action', { reintentar: 'r', escalar: 'e' }, { action: 'escalar' }, 'research_action has no rule (T-37)'],
+    ['finding_severity', { blocking: 'b' }, { severity: 'P0' }, 'finding_severity has no rule'],
+    ['review_verdict', verdictOpts, null, 'no facts'],
+  ]) {
+    it(`T-101 DEC-051: ambiguous, no rule settles it: ${qid}, ${why}`, () => {
+      expect(ruleAnswer(qid, opts, facts)).toBe(null);
+    });
+  }
+
+  it('T-101 DEC-051: a rule answer outside the question\'s options is ignored', () => {
+    expect(ruleAnswer('review_verdict', { yes: 'y', no: 'n' }, { verdict: 'approved', findings: [] })).toBe(null);
+    expect(Object.keys(RULES).sort()).toEqual(['acceptance_verdict', 'failure_cause', 'plan_verdict', 'review_verdict']);
+  });
+
+  // the decider double counts its calls: each one appends a line to calls.txt
+  const decider = () => { const f = join(dir, 'decider.sh'); writeFileSync(f, `#!/usr/bin/env bash\ncat >/dev/null\necho call >> ${join(dir, 'calls.txt')}\necho '{"answer":"rejected","confidence":0.9}'\n`); chmodSync(f, 0o755); return f; };
+  const calls = () => { try { return readFileSync(join(dir, 'calls.txt'), 'utf8').split('\n').filter(Boolean).length; } catch { return 0; } };
+  const ask = (facts) => {
+    writeFileSync(join(dir, 'q.json'), JSON.stringify({ id: 'review_verdict', instructions: 'Approve?', state: 'review text', options: verdictOpts }));
+    const extra = facts === undefined ? [] : ['--facts', join(dir, 'facts.json')];
+    if (facts !== undefined) writeFileSync(join(dir, 'facts.json'), JSON.stringify(facts));
+    const r = spawnSync('node', [DECIDE, 'ask', '--decider', decider(), '--question', join(dir, 'q.json'), '--threshold', '0.8', '--record-dir', join(dir, 'decisions'), ...extra], { encoding: 'utf8' });
+    const out = JSON.parse(r.stdout);
+    return { out, record: JSON.parse(readFileSync(out.record, 'utf8')) };
+  };
+
+  it('T-101 DEC-051: with --facts a rule settles it: the decider gets 0 calls, the record says decider "rule" and the rule', () => {
+    const { out, record } = ask({ verdict: 'approved', findings: [] });
+    expect(calls()).toBe(0);
+    expect(out).toMatchObject({ action: 'proceed', answer: 'approved', confidence: 1, rule: 'review_approved_without_findings' });
+    expect(record).toMatchObject({ question_id: 'review_verdict', answer: 'approved', action: 'proceed', decider: 'rule', rule: 'review_approved_without_findings', facts: { verdict: 'approved' } });
+  });
+
+  it('T-101 DEC-051: an ambiguous case still goes to the decider (1 call), as before', () => {
+    const { out, record } = ask({ verdict: 'approved', findings: ['REQ-001: sin prueba'] });
+    expect(calls()).toBe(1);
+    expect(out).toMatchObject({ action: 'proceed', answer: 'rejected', confidence: 0.9 });
+    expect(out.rule).toBe(undefined);
+    expect(record.decider).toContain('decider.sh');
+  });
+
+  it('T-101 DEC-051: without --facts, or with unreadable facts, the decider is asked', () => {
+    ask();
+    writeFileSync(join(dir, 'facts.json'), 'not json');
+    writeFileSync(join(dir, 'q.json'), JSON.stringify({ id: 'review_verdict', instructions: 'Approve?', state: 's', options: verdictOpts }));
+    spawnSync('node', [DECIDE, 'ask', '--decider', decider(), '--question', join(dir, 'q.json'), '--threshold', '0.8', '--record-dir', join(dir, 'decisions'), '--facts', join(dir, 'facts.json')], { encoding: 'utf8' });
+    expect(calls()).toBe(2);
   });
 });
 
