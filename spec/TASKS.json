@@ -491,9 +491,9 @@
       "depends_on": [
         "T-03"
       ],
-      "status": "ready",
+      "status": "verified_auto",
       "blocked_by": null,
-      "notes": "",
+      "notes": "La unidad MiBy de QueryUsagePerDay y QueryUsagePerUserPerDay (S-07) y que roles/billing.projectManager baste para desvincular (DEC-009) siguen sin confirmar hasta el simulacro; terraform test solo comprueba los valores 51200 y 20480. E4 se prueba solo en local (sin billing la función no correría en el simulacro). El aviso por correo usa un canal de notificación de Monitoring (monitoring_notification_channels del presupuesto). CI recibe roles/cloudquotas.admin para crear las quota_preference de infra/main; con él podría subir la cuota diaria, pero no toca billing ni el presupuesto. Cambiar el Enforced-by de DEC-003 a cmd: npm run test:finops queda para el usuario (spec/).",
       "touches": [
         "finops/",
         "infra/",
@@ -512,6 +512,20 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:23:36.971Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "apply-result",
+          "at": "2026-10-22T14:23:56.511Z",
+          "reason": "resultado del implementador de T-05 vía autopilot (claude)"
+        },
+        {
+          "from": "in_progress",
+          "to": "verified_auto",
+          "by": "record_evidence.py",
+          "at": "2026-10-22T14:24:03+00:00",
+          "reason": "verify con código 0: 24/24 pasan, 0 fallan"
         }
       ],
       "plan_review": {
@@ -540,6 +554,21 @@
         ],
         "opinion_blockers": [],
         "date": "2026-10-22"
+      },
+      "claims": {
+        "manual_pending": "verify_integration: DRILL_PROJECT_ID=… DRILL_BILLING_ACCOUNT=… TF_VAR_alert_email=… scripts/it/killswitch-drill.sh en un proyecto desechable nuevo con labels.purpose=killswitch-drill; esperar «killswitch-drill: ok role=<rol> unit=<metricUnit>». Confirma E1 y E2 reales, el rol que basta (DEC-009) y la unidad de la cuota (S-07, se espera MiBy)."
+      },
+      "evidence": {
+        "command": "scripts/env.sh bash -c 'npm run test:finops && npm run test:infra && npm run check:spec'",
+        "exit_code": 0,
+        "passed": 24,
+        "failed": 0,
+        "total": 24,
+        "log_path": "artifacts/T-05/verify.log",
+        "log_sha256": "46cbc5e532bd7daaa25c6070b2bf6f9c361c7641dec86de1c23d78a19c6ed4ce",
+        "commit": "6cbb836104b07337878e1d7faaefc06f90b1b68a",
+        "timestamp": "2026-10-22T14:24:03+00:00",
+        "result": "24/24 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-05/verify.log)"
       }
     },
     {
