@@ -5,8 +5,9 @@
 //   ctx = { root (the task's worktree), home, allow (extra directories, e.g. the role's result directory),
 //           deny (paths no agent may touch: the agents' private data, given by the adapters and the project's
 //           configuration; the core names no agent), denyWrite (directories of the worktree, relative to it, the
-//           agent may read and run but never write: tests/acceptance/ for an implementer, DEC-027), env (to resolve
-//           $VARIABLES), realpath (optional) }
+//           agent may read and run but never write: tests/acceptance/ for an implementer, DEC-027), verify (an
+//           implementer's task verify: with it, the tests rule of T-107 applies; else env.AUTOPILOT_GUARD_VERIFY, which
+//           the orchestrator exports only around an implementer), env (to resolve $VARIABLES), realpath (optional) }
 //
 // Denied: anything under a deny path, anything under the worktree's .autopilot/ (the run's records, T-97), and anything
 // outside the worktree and the
@@ -97,6 +98,53 @@ export function skipsHooks(command) {
     }
   }
   return false;
+}
+
+const SIMPLE = /;|&&|\|\||\||\n/;
+const WRAPPERS = ['env', 'time', 'nice', 'nohup', 'command', 'exec', 'timeout'];
+/** The words of a simple command without its leading assignments and wrappers (env, time, timeout -k 30 60…). */
+function commandWords(part) {
+  let w = shellWords(part);
+  while (w.length > 0) {
+    if (/^[A-Za-z_]\w*=/.test(w[0])) { w = w.slice(1); continue; }
+    if (!WRAPPERS.includes(w[0])) break;
+    const timeout = w[0] === 'timeout';
+    w = w.slice(1);
+    while (/^-/.test(w[0] ?? '')) w = w.slice(['-s', '-k', '-n', '--signal', '--kill-after'].includes(w[0]) ? 2 : 1);
+    if (timeout) w = w.slice(1);   // the duration
+  }
+  return w;
+}
+/** Does a simple command run a whole test file or the suite (T-107)? npm test (t, tst), npm run test*, and node --test
+ * (or node on a *.test.* file) without --test-name-pattern. */
+function runsWholeTests(w) {
+  if (w[0] === 'npm') {
+    const [sub, script] = w.slice(1).filter((x) => !x.startsWith('-'));
+    return ['test', 't', 'tst'].includes(sub) || (['run', 'run-script'].includes(sub) && /^test/.test(script ?? ''));
+  }
+  if (w[0] !== 'node' || w.includes('--check') || w.includes('-c')) return false;
+  const testing = w.includes('--test') || w.slice(1).some((x) => /\.test\.[cm]?[jt]s$/.test(x));
+  return testing && !w.some((x) => x === '--test-name-pattern' || x.startsWith('--test-name-pattern='));
+}
+/** Does a command end a simple command with a lone "&" (in the background)? Quoted text, &&, >&, &> and |& aside. */
+const backgrounds = (command) => /(^|[^&>|])&(?![&>])/.test(command.replace(/'[^']*'|"(?:\\.|[^"\\])*"/g, ''));
+/** The implementer's tests rule (T-107, DEC-045): it runs its task's verify (whole, or one of its simple commands) or
+ * node --test --test-name-pattern=… on what it touches; never a whole test file, npm test or npm run test*, and nothing
+ * in the background. → the reason to deny, or null. */
+export function testsRule(tool, args = {}, verify = '') {
+  if (tool !== 'Bash') return null;
+  const command = String(args.command ?? '');
+  if (args.run_in_background || backgrounds(command)) {
+    return 'no command runs in the background for this agent (T-107, DEC-045): run it in the foreground';
+  }
+  const norm = (x) => x.trim().replace(/\s+/g, ' ');
+  if (verify && norm(command) === norm(verify)) return null;
+  const verifyParts = verify ? verify.split(SIMPLE).map(norm) : [];
+  for (const part of command.split(SIMPLE)) {
+    if (verifyParts.includes(norm(part)) || !runsWholeTests(commandWords(part))) continue;
+    return `only the task's tests (T-107, DEC-045): run its verify${verify ? ` (${verify})` : ''} or node --test --test-name-pattern=<pattern> on the test files it touches; never a whole test file, npm test or npm run test*`;
+  }
+  return null;
 }
 /** Shell words of a command: quotes respected; operators, redirections and $( ) ` split words (no execution). */
 export function shellWords(command) {
@@ -205,6 +253,11 @@ export function accessGuard(tool, args = {}, ctx = {}) {
   }
   if (tool === 'Bash' && typeof args.command === 'string' && skipsHooks(args.command)) {
     return { decision: 'deny', reason: 'the command skips the commit hook (DEC-027): no --no-verify, -n or core.hooksPath override; check:spec validates every commit', paths };
+  }
+  const verify = ctx.verify ?? env.AUTOPILOT_GUARD_VERIFY;
+  if (typeof verify === 'string') {
+    const why = testsRule(tool, args, verify);
+    if (why) return { decision: 'deny', reason: why, paths };
   }
   const readOnly = (ctx.denyWrite ?? []).filter(Boolean).map((d) => d.replace(/^\.?\//, ''));
   const roMessage = (d) => `${d.endsWith('/') ? d : `${d}/`} is read-only for this agent (DEC-027): it may read and run it, never write it`;

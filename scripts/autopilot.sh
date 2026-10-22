@@ -159,16 +159,20 @@
 #      verdict).
 #   6. When stopping (also if it crashes), if there is an NTFY_TOPIC it sends a notice to $NTFY_URL/$NTFY_TOPIC: stop
 #      reason, done/failed tasks and next action. High priority and alert tag if it needs intervention (block,
-#      failure, reviewer rejection, budget limit, pending deploy or approval); normal if it finished fine. If ntfy
+#      failure, reviewer rejection, pending deploy or approval); normal if it finished fine, also when it only stopped
+#      at the run's task or time budget and asks to be relaunched (T-118). If ntfy
 #      fails it is only logged: the run keeps its result. In --dry-run it shows the notice without sending it.
 #   7. Every run (not --dry-run) writes .autopilot/<run>/result.json, also if it crashes after creating that
 #      directory: run_id, repo, exit_code, stop_reason and next_action (English), done, failed, abandoned, rejected,
 #      deploy_pending, user_wait, pushed, push_rejected, demo_deployed, demo_refused, acceptance_approved and
 #      acceptance_refused, researched, research_retried, research_escalated, tests_authored, test_disputes,
 #      tests_not_red, plans_approved, plans_escalated, coverage_failed, missing_requirement and coverage_tasks_created
-#      (task ids), failures,
+#      (task ids), failures, merged_mismatch (T-110: the merged records of TASKS.json that do not match git at the
+#      start, [{id, into, commit, reason}]; they ask for intervention and are never deleted),
 #      intervention (bool, same criterion as the notice), tokens
 #      (implementer total) and duration_seconds. Its path is the last line of the output ("result: <path>").
+#      A run whose status is not ok, or with a failed task, also gets fingerprint and failure_class
+#      (scripts/lib/fingerprint.mjs, T-108), counted in the case memory .autopilot/fingerprints.jsonl.
 #   spec/LOG.md entries and the values written to spec/TASKS.json stay in Spanish; terminal output, logs, ntfy
 #   notices and commits are in English (AGENTS.md §Idioma).
 #
@@ -308,10 +312,12 @@ AUTOPILOT_PLAN_GATE=${AUTOPILOT_PLAN_GATE:-}
 AUTOPILOT_PLANNER_SECONDS=${AUTOPILOT_PLANNER_SECONDS:-1200}
 AUTOPILOT_CRITIC_SECONDS=${AUTOPILOT_CRITIC_SECONDS:-1200}
 AUTOPILOT_CRITIC_MAX_USD=${AUTOPILOT_CRITIC_MAX_USD:-3}
-# Trace of every run (DEC-024): a heartbeat every N seconds; an agent whose stream (live.log) does not move for
-# AUTOPILOT_STALL_SECONDS gets INT and the run ends "stalled".
+# Trace of every run (DEC-024): a heartbeat every N seconds; an agent with no sign of life for AUTOPILOT_STALL_SECONDS
+# gets INT and the run ends "stalled". A sign of life is its stream (live.log) moving or, T-106, one of its processes
+# spending CPU; AUTOPILOT_STALL_MAX_SECONDS (3 × the stall limit) without the stream moving cuts it even with CPU.
 AUTOPILOT_HEARTBEAT_SECONDS=${AUTOPILOT_HEARTBEAT_SECONDS:-30}
 AUTOPILOT_STALL_SECONDS=${AUTOPILOT_STALL_SECONDS:-1200}
+AUTOPILOT_STALL_MAX_SECONDS=${AUTOPILOT_STALL_MAX_SECONDS:-$(( 3 * AUTOPILOT_STALL_SECONDS ))}
 # Batch branch (DEC-033): "on" (default) integrates every task into AUTOPILOT_BATCH_BRANCH, never into the branch the run
 # starts on; the user merges the batch when its suite passes. "off" = integrate into the start branch, as before.
 AUTOPILOT_BATCH=${AUTOPILOT_BATCH:-on}
@@ -540,6 +546,7 @@ BATCH_READY=0
 BATCH_FAILED=0   # T-86: the batch suite ran and failed: the user must act
 RUN_STATUS=""        # DEC-024: how the run ended (empty = ok on a normal stop, error on an unexpected exit)
 ORPHANS=()           # earlier runs this one marked crashed_orphan (DEC-024 point 4)
+MERGED_MISMATCH="[]" # T-110: merged records of TASKS.json that do not match git (JSON [{id, into, commit, reason}])
 HEARTBEAT_PID=""     # the heartbeat's background process
 AGENT_STOP=""        # usage_limited or api_error of the last run_agent (its caller stops)
 MODE=legacy          # DEC-023: review_only | implement_and_review | legacy (policy off)
@@ -624,15 +631,17 @@ ntfy_body() { # $1 = reason, $2 = next action. Fixed fields complete and first; 
   printf '%s\nDetail: %s' "$fixed" "$detail"
 }
 stop_outcome() { # sets INTERVENTION and NEXT_EN for the normal stop (after write_summary)
-  local intervention=0 next
+  local intervention=0 budget=0 next
   [ "$ABNORMAL" = 1 ] && intervention=1
-  case "$STOP_REASON_EN" in "time budget"*|"task budget"*) intervention=1 ;; esac
+  # T-118: the run's task or time budget alone leaves nothing for the user; the next action is to relaunch
+  case "$STOP_REASON_EN" in "time budget"*|"task budget"*) budget=1 ;; esac
   [ "${#DEPLOY_PENDING[@]}" -gt 0 ] && intervention=1
   [ "${#USER_WAIT[@]}" -gt 0 ] && intervention=1
   [ "${#REJECTED[@]}" -gt 0 ] && intervention=1
   [ "${#PUSH_REJECTED[@]}" -gt 0 ] && intervention=1
   [ "$BATCH_READY" = 1 ] && intervention=1   # DEC-033: the user merges the batch
   [ "$BATCH_FAILED" = 1 ] && intervention=1  # T-86: its tasks went back to implemented; nothing moves them on its own
+  [ "$MERGED_MISMATCH" = "[]" ] || intervention=1   # T-110: a merged record that does not match git is fixed by hand
   if [ "$BATCH_READY" = 1 ] && [ "$ABNORMAL" = 0 ]; then
     next="the batch $AUTOPILOT_BATCH_BRANCH is ready: merge it yourself: git checkout $BATCH_TARGET && git merge --ff-only $AUTOPILOT_BATCH_BRANCH"
   elif [ "$BATCH_FAILED" = 1 ] && [ "$ABNORMAL" = 0 ]; then
@@ -651,8 +660,9 @@ stop_outcome() { # sets INTERVENTION and NEXT_EN for the normal stop (after writ
     [ "${#DEMO_REFUSED[@]}" -gt 0 ] && next+=" (demo deploy not done for $(short_list "${DEMO_REFUSED[@]}"): see the summary in spec/LOG.md)"
   elif [ "${#USER_WAIT[@]}" -gt 0 ]; then next="approve the tests/acceptance/ diff of $(short_list "${USER_WAIT[@]}")"
     [ "${#ACCEPTANCE_REFUSED[@]}" -gt 0 ] && next+=" (not approved by the reviewer for $(short_list "${ACCEPTANCE_REFUSED[@]}"): see the summary in spec/LOG.md)"
-  elif [ "$intervention" = 1 ]; then next="relaunch the autopilot to continue (limit reached)"
+  elif [ "$intervention" = 1 ] || [ "$budget" = 1 ]; then next="relaunch the autopilot to continue (limit reached)"
   else next="review the summary in spec/LOG.md and the verdicts in TASKS.json; decide accepted"; fi
+  [ "$MERGED_MISMATCH" = "[]" ] || next+="; and fix by hand the merged records of spec/TASKS.json that do not match git (merged_mismatch in result.json, T-110)"
   INTERVENTION=$intervention NEXT_EN=$next
 }
 notify_stop() { # notice of the normal stop (after stop_outcome)
@@ -687,7 +697,7 @@ write_result() { # $1 = exit code, $2 = stop reason, $3 = intervention (0|1), $4
       rejected, deploy, wait, pushed, pushRejected, demoDeployed, demoRefused, accApproved, accRefused,
       researched, researchRetried, researchEscalated, testsAuthored, testDisputes, testsNotRed, cost, monthCost, monthCap,
       plansApproved, plansEscalated, coverageFailed, missingReq, coverageCreated, implGranted, sensitiveWait,
-      mode, queue, reviewExpected, status, branch, orphans, reviewBlocked, agentBlocked, batch, checkout, stash] = process.argv.slice(1);
+      mode, queue, reviewExpected, status, branch, orphans, reviewBlocked, agentBlocked, batch, checkout, stash, mergedMismatch] = process.argv.slice(1);
     const { sumUsage } = await import(lib);
     let records = [];
     try { records = fs.readFileSync(tokens, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)); } catch {}
@@ -707,6 +717,7 @@ write_result() { # $1 = exit code, $2 = stop reason, $3 = intervention (0|1), $4
       mode, queue: Number(queue), review_expected_seconds: Number(reviewExpected), orphans_reaped: ids(orphans), review_blocked: ids(reviewBlocked), agent_blocked: ids(agentBlocked), batch: JSON.parse(batch || "null"),
       intervention: intervention === "1", next_action: next,
       recovered: checkout ? { checkout, stash: stash || null } : null,
+      merged_mismatch: JSON.parse(mergedMismatch || "[]"),
       tokens: (() => { const u = sumUsage(records); return { ...u, counted: u.input + u.output + u.cache_write, invocations: records.length }; })(),
       month_tokens: JSON.parse(monthCost || "null"), monthly_budget_tokens: monthCap ? Number(monthCap) : null,
       duration_seconds: Math.round(Date.now() / 1000) - Number(start),
@@ -721,8 +732,17 @@ write_result() { # $1 = exit code, $2 = stop reason, $3 = intervention (0|1), $4
     "" "$(month_tokens)" "$AUTOPILOT_MONTHLY_BUDGET_TOKENS" "${PLANS_APPROVED[*]:-}" "${PLANS_ESCALATED[*]:-}" \
     "${COVERAGE_FAILED[*]:-}" "${MISSING_REQ[*]:-}" "${COVERAGE_CREATED[*]:-}" "${IMPL_GRANTED[*]:-}" "${SENSITIVE_WAIT[*]:-}" \
     "$MODE" "$QUEUE" "$REVIEW_EXPECTED" "$status" "$branch" "${ORPHANS[*]:-}" "${REVIEW_BLOCKED[*]:-}" "${AGENT_BLOCKED[*]:-}" "$BATCH_JSON" \
-    "$(h=$(git symbolic-ref --short -q HEAD 2>/dev/null); [ -n "$INTERRUPTED_BRANCH" ] && [ "$h" != "$INTERRUPTED_BRANCH" ] && echo "$h")" "$STASHED" </dev/null || { log "warning: could not write $RUN_DIR/result.json"; return 0; }
+    "$(h=$(git symbolic-ref --short -q HEAD 2>/dev/null); [ -n "$INTERRUPTED_BRANCH" ] && [ "$h" != "$INTERRUPTED_BRANCH" ] && echo "$h")" "$STASHED" "$MERGED_MISMATCH" </dev/null || { log "warning: could not write $RUN_DIR/result.json"; return 0; }
+  record_fingerprint "$RUN_DIR"
   echo "result: $RUN_DIR/result.json"
+}
+record_fingerprint() { # $1 = run directory: a failed run gets fingerprint and failure_class in its result.json, counted in
+                       # the case memory .autopilot/fingerprints.jsonl (T-108); a healthy one is left as is. Never fails.
+  local out
+  out=$(node "$ROOT/scripts/lib/fingerprint.mjs" record "$1" --memory "$ROOT/.autopilot/fingerprints.jsonl" --root "$ROOT" </dev/null 2>/dev/null) \
+    || { log "warning: could not fingerprint $1 (T-108)"; return 0; }
+  [ "$out" = "{}" ] || log "failure fingerprint (T-108): $out"
+  return 0
 }
 on_exit() { # $1 = exit code; if the run crashes before the normal notice, notify anyway (and leave result.json)
   rm -f "${SELF_COPY:-}"
@@ -737,7 +757,12 @@ on_exit() { # $1 = exit code; if the run crashes before the normal notice, notif
   return 0
 }
 on_signal() { # $1 = signal: the run ends sigterm, or stalled if the heartbeat cut a silent agent (DEC-024)
-  if [ -n "${RUN_DIR:-}" ] && [ -e "$RUN_DIR/stalled" ]; then
+  if [ -n "${RUN_DIR:-}" ] && [ -e "$RUN_DIR/stalled" ] && [ "$(cat "$RUN_DIR/stalled" 2>/dev/null)" = max ]; then
+    RUN_STATUS=stalled
+    log "stop: the agent's stream did not move for ${AUTOPILOT_STALL_MAX_SECONDS}s, even with its processes active: it was interrupted (T-106)"
+    stop_reason "el stream de un agente estuvo ${AUTOPILOT_STALL_MAX_SECONDS}s quieto, aun con sus procesos activos: se interrumpió (T-106)" \
+      "an agent's stream was quiet for ${AUTOPILOT_STALL_MAX_SECONDS}s, even with its processes active: interrupted (T-106)"
+  elif [ -n "${RUN_DIR:-}" ] && [ -e "$RUN_DIR/stalled" ]; then
     RUN_STATUS=stalled
     log "stop: no activity from the agent for ${AUTOPILOT_STALL_SECONDS}s: it was interrupted (DEC-024)"
     stop_reason "un agente estuvo ${AUTOPILOT_STALL_SECONDS}s sin actividad: se interrumpió (DEC-024)" \
@@ -1045,6 +1070,8 @@ impl_prompt() { # $1 = ID, $2 = result file; the implementer's prompt (it goes o
   local prompt
   # shellcheck disable=SC2059
   prompt=$(printf "$IMPL_PROMPT" "$1" "$(tasks touches "$1")" "$2")
+  local verify; verify=$(task_verify "$1")
+  prompt="$prompt Tests (DEC-045, T-107): run the task's verify (${verify:-none declared}) and, if you need more, only \`node --test --test-name-pattern=<pattern>\` on the test files you touch; never a whole test file, \`npm test\` or \`npm run test*\`, and never a command in the background (run_in_background or a trailing &): the access guard denies them."
   [ -n "$AUTOPILOT_IMPL_PROMPT_EXTRA" ] && prompt="$prompt $AUTOPILOT_IMPL_PROMPT_EXTRA"
   [ -n "${DEPLOY_NOTE[$1]:-}" ] && prompt="$prompt ${DEPLOY_NOTE[$1]}"
   [ -n "${ACCEPTANCE_NOTE[$1]:-}" ] && prompt="$prompt ${ACCEPTANCE_NOTE[$1]}"
@@ -1359,11 +1386,12 @@ run_reviewer() { # $1 = stem: prompt in $RUN_DIR/<stem>-review-prompt.md → ver
   if [ "$REVIEW_RC" -ne 0 ] && [ ! -s "$out" ]; then return 1; fi
   tasks parse-verdict "$out" >"$RUN_DIR/$stem-verdict.json" || return 2
   # DEC-015: approved or rejected is a closed decision: the decider takes it from the review, never the reviewer's LLM.
+  # DEC-051: a JSON verdict consistent with its findings (approved without any, rejected with some) is settled by a rule.
   local qid=review_verdict threshold=$AUTOPILOT_DECIDE_THRESHOLD_REVIEW_VERDICT
   case "$stem" in *acceptance*) qid=acceptance_verdict threshold=$AUTOPILOT_DECIDE_THRESHOLD_ACCEPTANCE_VERDICT ;; esac
   decide "$qid" "Does this independent review approve the change? Approve only if it reports no blocking finding." \
     '{"approved":"the review finds no blocking problem: the change can be accepted","rejected":"the review reports at least one blocking problem"}' \
-    "$out" "$threshold"
+    "$out" "$threshold" "$RUN_DIR/$stem-verdict.json"
   [ "$DECIDE_ACTION" = proceed ] || return 5
   REVIEW_DECISION=$DECIDE_RECORD   # the verdict is applied only with this record (T-36)
   # the review's own JSON verdict and the decider must agree; a disagreement goes to the user, never to either side
@@ -2444,9 +2472,10 @@ critique() { # $1 = ID, $2 = round, $3 = blocking ids of round 1 (comma-separate
       continue
     fi
     # DEC-015: the verdict is a closed decision; the decider reads the critique and must agree with its JSON verdict
+    # (DEC-051: a validated verdict consistent with its blocking findings is settled by a rule)
     decide plan_verdict "Given this critique of an implementation plan, what is the verdict?" \
       '{"APROBAR":"no P0/P1 finding: the implementer may start with this plan","REVISAR":"the planner must fix P0/P1 findings before implementing","ESCALAR":"it needs a decision of the user"}' \
-      "$RUN_DIR/$stem-output.txt" "$AUTOPILOT_DECIDE_THRESHOLD_PLAN_VERDICT"
+      "$RUN_DIR/$stem-output.txt" "$AUTOPILOT_DECIDE_THRESHOLD_PLAN_VERDICT" "$CRIT_CHECK"
     if [ "$DECIDE_ACTION" != proceed ] || [ "$DECIDE_ANSWER" != "$(json_field "$CRIT_CHECK" verdict)" ]; then
       [ "$DECIDE_ACTION" = proceed ] && DECIDE_REASON="the decider read $DECIDE_ANSWER, the critic's JSON says $(json_field "$CRIT_CHECK" verdict)"
       plan_escalate "$id" "el decisor ($AUTOPILOT_DECIDER) no resolvió el veredicto de la crítica, ronda $round ($DECIDE_REASON)" \
@@ -2615,14 +2644,17 @@ evidence_close() { # $1 = ID, $2 = attempt; 0 = recorded and it matches the hook
 }
 
 # ---------- Closed decisions through the port decide (DEC-015) ----------
-DECIDE_ACTION="" DECIDE_ANSWER="" DECIDE_REASON="" DECIDE_CONFIDENCE="" DECIDE_RECORD=""
+DECIDE_ACTION="" DECIDE_ANSWER="" DECIDE_REASON="" DECIDE_CONFIDENCE="" DECIDE_RECORD="" DECIDE_RULE=""
 # $1 = question id, $2 = instructions, $3 = options as JSON {name: description}, $4 = file with the state (JSON or text),
-# $5 = threshold. Sets DECIDE_ACTION (proceed | escalate), DECIDE_ANSWER, DECIDE_CONFIDENCE, DECIDE_REASON and
+# $5 = threshold, $6 = optional JSON file with the mechanical facts (DEC-051: a rule of decide.mjs settles the question
+# from them without asking the decider; DECIDE_RULE names it). Sets DECIDE_ACTION (proceed | escalate), DECIDE_ANSWER,
+# DECIDE_CONFIDENCE, DECIDE_REASON and
 # DECIDE_RECORD (the record's path, which set-review and set-acceptance-review require, T-36); the
 # decision record goes to $RUN_DIR/decisions/ (copied to artifacts/decisions/<run>/ with the summary). The decider
 # never writes evidence or status: the caller maps the answer to its escalation table.
 decide() {
-  local q
+  local q facts=()
+  [ -n "${6:-}" ] && facts=(--facts "$6")
   q=$(mktemp "$RUN_DIR/decide-$1.XXXXXX")
   node -e '
     const fs = require("fs");
@@ -2632,14 +2664,15 @@ decide() {
     fs.writeFileSync(f, JSON.stringify({ id, instructions, options: JSON.parse(options), state }));' "$q" "$1" "$2" "$3" "$4"
   local out
   out=$(TYPESAFE_API_KEY="$DECIDER_KEY" node "$ROOT/scripts/lib/decide.mjs" ask --decider "$ROOT/scripts/agents/decider/$AUTOPILOT_DECIDER.sh" \
-    --question "$q" --threshold "$5" --record-dir "$RUN_DIR/decisions" --timeout 120 </dev/null) || out='{"action":"escalate","reason":"decide.mjs failed"}'
+    --question "$q" --threshold "$5" --record-dir "$RUN_DIR/decisions" --timeout 120 "${facts[@]}" </dev/null) || out='{"action":"escalate","reason":"decide.mjs failed"}'
   rm -f "$q"
   DECIDE_ACTION=$(printf '%s' "$out" | node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(r.action)')
   DECIDE_ANSWER=$(printf '%s' "$out" | node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(r.answer??"")')
   DECIDE_CONFIDENCE=$(printf '%s' "$out" | node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(r.confidence??"")')
   DECIDE_REASON=$(printf '%s' "$out" | node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(r.reason??"")')
   DECIDE_RECORD=$(printf '%s' "$out" | node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(r.record??"")')
-  log "decide $1 ($AUTOPILOT_DECIDER): $DECIDE_ACTION${DECIDE_ANSWER:+ $DECIDE_ANSWER}${DECIDE_CONFIDENCE:+ (confidence $DECIDE_CONFIDENCE)}${DECIDE_REASON:+; $DECIDE_REASON}"
+  DECIDE_RULE=$(printf '%s' "$out" | node -e 'const r=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(r.rule??"")')
+  log "decide $1 (${DECIDE_RULE:+rule }${DECIDE_RULE:-$AUTOPILOT_DECIDER}): $DECIDE_ACTION${DECIDE_ANSWER:+ $DECIDE_ANSWER}${DECIDE_CONFIDENCE:+ (confidence $DECIDE_CONFIDENCE)}${DECIDE_REASON:+; $DECIDE_REASON}"
 }
 
 # The cause of a failure (DEC-015). Only "implementation" lets the loop retry or research; any other cause, or no settled
@@ -2647,12 +2680,17 @@ decide() {
 # (CLASSIFY_RC = 1 escalated, 2 stop).
 CLASSIFY_RC=0
 classify_failure() { # $1 = ID that just failed
-  local id=$1 ctx=$RUN_DIR/$1-cause-context.md
+  local id=$1 ctx=$RUN_DIR/$1-cause-context.md facts=$RUN_DIR/$1-cause-facts.json
   CLASSIFY_RC=0
   research_failure_context "$id" >"$ctx"
+  # DEC-051: the gates of the failed attempt (DEC-026) are the facts; a red acceptance test or a coverage gap the
+  # implementer did not dispute is its own, settled by a rule
+  node -e 'const fs=require("fs");const [g,out]=process.argv.slice(1);
+    const gates=fs.existsSync(g)?fs.readFileSync(g,"utf8").split("\n").filter(Boolean).map((l)=>JSON.parse(l)):[];
+    fs.writeFileSync(out,JSON.stringify({gates}))' "$RUN_DIR/$id-gates-${ATTEMPTS[$id]:-0}.jsonl" "$facts" </dev/null
   decide failure_cause "Why did this task attempt fail? Pick the root cause." \
     '{"implementation":"the code written for the task is wrong or incomplete; another attempt can fix it","environment":"a tool, dependency, service or machine problem outside the task","requirement_ambiguous":"the requirement can be read in more than one way","requirement_contradiction":"two requirements or decisions contradict each other","design":"the planned design cannot meet the requirement","reviewer_error":"the review rejected correct work"}' \
-    "$ctx" "$AUTOPILOT_DECIDE_THRESHOLD_FAILURE_CAUSE"
+    "$ctx" "$AUTOPILOT_DECIDE_THRESHOLD_FAILURE_CAUSE" "$facts"
   [ "$DECIDE_ACTION" = proceed ] && [ "$DECIDE_ANSWER" = implementation ] && return 0
   local why_es why_en
   if [ "$DECIDE_ACTION" = proceed ]; then
@@ -2713,6 +2751,7 @@ retry_result() {
   impl_prompt "$id" "$AUTOPILOT_RESULT" >"$RUN_DIR/$stem-prompt.md"
   unset "RESULT_NOTE[$id]"
   log "$id: result rejected for its format; relaunching the implementer once to rewrite only the result (T-84)"
+  AUTOPILOT_GUARD_VERIFY=$(task_verify "$id"); export AUTOPILOT_GUARD_VERIFY   # its tests rule in the access guard (T-107)
   set +e
   # shellcheck disable=SC2046
   eval timeout -s INT -k 30 "$(remaining)" "$(agent_command implementer "$adir" "$id")" <"$RUN_DIR/$stem-prompt.md" \
@@ -2723,6 +2762,7 @@ retry_result() {
     | tee -a "$LIVE"
   rc=${PIPESTATUS[0]}
   set -e
+  unset AUTOPILOT_GUARD_VERIFY
   charge implementer "$id" "$RUN_DIR/$stem.json"
   if agent_failure_stop "$RUN_DIR/$stem.json" implementer "$id"; then
     rm -rf "$adir"; unset AUTOPILOT_RESULT
@@ -2784,6 +2824,7 @@ run_task() { # $1 = ID, $2 = attempt; returns 0 if the task moved forward, 1 if 
   # stream-json → readable lines in the terminal and live.log; full copy in .jsonl, final event in .json.
   export AUTOPILOT_RESULT=$adir/$id-result-$attempt.json
   impl_prompt "$id" "$AUTOPILOT_RESULT" >"$RUN_DIR/$id-impl-prompt-$attempt.md"
+  AUTOPILOT_GUARD_VERIFY=$(task_verify "$id"); export AUTOPILOT_GUARD_VERIFY   # its tests rule in the access guard (T-107)
   set +e
   # shellcheck disable=SC2046
   eval timeout -s INT -k 30 "$(remaining)" "$(agent_command implementer "$adir" "$id")" <"$RUN_DIR/$id-impl-prompt-$attempt.md" \
@@ -2794,6 +2835,7 @@ run_task() { # $1 = ID, $2 = attempt; returns 0 if the task moved forward, 1 if 
     | tee -a "$LIVE"
   rc=${PIPESTATUS[0]}
   set -e
+  unset AUTOPILOT_GUARD_VERIFY
   LAST_AGENT_RC=$rc
   charge implementer "$id" "$RUN_DIR/$id-impl-$attempt.json"
   if agent_failure_stop "$RUN_DIR/$id-impl-$attempt.json" implementer "$id"; then
@@ -3255,7 +3297,7 @@ critique_only() { # $1 = plans/<name>.md, $2 = blocking ids of round 1 ("" = rou
   # DEC-015: the decider must read the same verdict; otherwise it goes to the user (ESCALAR)
   decide plan_verdict "Given this critique of an implementation plan, what is the verdict?" \
     '{"APROBAR":"no P0/P1 finding: the implementer may start with this plan","REVISAR":"the planner must fix P0/P1 findings before implementing","ESCALAR":"it needs a decision of the user"}' \
-    "$RUN_DIR/$stem-output.txt" "$AUTOPILOT_DECIDE_THRESHOLD_PLAN_VERDICT" >&2
+    "$RUN_DIR/$stem-output.txt" "$AUTOPILOT_DECIDE_THRESHOLD_PLAN_VERDICT" "$RUN_DIR/$stem.json" >&2
   if [ "$DECIDE_ACTION" != proceed ] || [ "$DECIDE_ANSWER" != "$(json_field "$RUN_DIR/$stem.json" verdict)" ]; then
     echo "critic-gate: the decider ($AUTOPILOT_DECIDER) did not settle the verdict (${DECIDE_REASON:-it read $DECIDE_ANSWER}): escalated to the user" >&2
     eff=ESCALAR
@@ -3285,12 +3327,31 @@ agent_pids() { # $1 = orchestrator pid: its descendants that are agent launches 
           while (changed) { changed=0; for (i in pid) if (live[ppid[i]] && !live[pid[i]]) { live[pid[i]]=1; changed=1 } }
           for (i in pid) if (live[pid[i]] && pid[i] != root && args[i] ~ /^timeout -s INT /) print pid[i] }'
 }
+agent_tree() { # $1 = orchestrator pid: its agent launches and all their descendants (T-106)
+  ps -eo pid=,ppid=,args= | awk -v root="$1" '
+    { pid[NR]=$1; ppid[NR]=$2; $1=""; $2=""; args[NR]=substr($0,3) }
+    END { live[root]=1; changed=1
+          while (changed) { changed=0; for (i in pid) if (live[ppid[i]] && !live[pid[i]]) { live[pid[i]]=1; changed=1 } }
+          for (i in pid) if (live[pid[i]] && pid[i] != root && args[i] ~ /^timeout -s INT /) agent[pid[i]]=1; changed=1
+          while (changed) { changed=0; for (i in pid) if (agent[ppid[i]] && !agent[pid[i]]) { agent[pid[i]]=1; changed=1 } }
+          for (p in agent) if (agent[p]) print p }'
+}
+cpu_ticks() { # $1 = pid: CPU it spent, its own and its waited-for children's (utime+stime+cutime+cstime of
+              # /proc/<pid>/stat, in clock ticks); nothing if it already ended
+  local s
+  s=$(cat "/proc/$1/stat" 2>/dev/null) || return 0
+  s=${s##*) }   # after the command name, which may hold spaces: field 3 onwards
+  # shellcheck disable=SC2086
+  set -- $s
+  echo $(( ${12} + ${13} + ${14} + ${15} ))
+}
 heartbeat_start() { # a background process: $RUN_DIR/heartbeat every AUTOPILOT_HEARTBEAT_SECONDS; cuts a silent agent
   local orch=$$
   (
     exec 9>&-   # never keeps the run's lock
     trap - EXIT TERM INT HUP
-    local tick now
+    local tick now mtime stream_at="" own_mtime="" alive_at="" noted="" busy last_busy="" quiet p t
+    local -A cpu=() seen=()
     tick=$(date +%s)
     while kill -0 "$orch" 2>/dev/null; do
       printf '{"pid":%s,"heartbeat_pid":%s,"at":"%s","run":"%s"}\n' "$orch" "$BASHPID" "$(date -Iseconds)" "$RUN_ID" >"$RUN_DIR/heartbeat.tmp" \
@@ -3301,17 +3362,48 @@ heartbeat_start() { # a background process: $RUN_DIR/heartbeat every AUTOPILOT_H
       if [ $(( now - tick - AUTOPILOT_HEARTBEAT_SECONDS )) -gt "$AUTOPILOT_STALL_SECONDS" ] && [ -e "$LIVE" ]; then
         printf '%s autopilot: clock gap: no heartbeat for %ss (the machine was suspended?): the inactivity deadline restarts (T-98)\n' \
           "$(date '+%H:%M:%S')" "$(( now - tick ))" >>"$LIVE"
+        own_mtime=""
       fi
       tick=$now
       agents=$(agent_pids "$orch")
-      if [ -n "$agents" ] && [ -e "$LIVE" ] && [ $(( $(date +%s) - $(stat -c %Y "$LIVE") )) -ge "$AUTOPILOT_STALL_SECONDS" ]; then
-        : >"$RUN_DIR/stalled"
-        printf '%s autopilot: stalled: no activity from the agent for %ss (live.log): INT to the agent, TERM to the run\n' \
-          "$(date '+%H:%M:%S')" "$AUTOPILOT_STALL_SECONDS" >>"$LIVE"
-        # shellcheck disable=SC2086
-        kill -INT $agents 2>/dev/null || true
-        kill -TERM "$orch" 2>/dev/null || true
-        exit 0
+      if [ -z "$agents" ] || [ ! -e "$LIVE" ]; then
+        alive_at=""; cpu=()
+      else
+        # T-106: the last sign of life is the later of the stream moving (not counting this loop's own note) and a
+        # process of the agent spending CPU since the previous heartbeat; a sleeping process does not count
+        mtime=$(stat -c %Y "$LIVE")
+        if [ "$mtime" != "$own_mtime" ] && [ "$mtime" != "$stream_at" ]; then stream_at=$mtime; noted=""; fi
+        busy=""; seen=()
+        for p in $(agent_tree "$orch"); do
+          t=$(cpu_ticks "$p"); [ -n "$t" ] || continue
+          seen[$p]=$t
+          if [ -n "${cpu[$p]:-}" ] && [ "$t" -gt "${cpu[$p]}" ]; then busy+="${busy:+, }$p ($(cat "/proc/$p/comm" 2>/dev/null))"; fi
+        done
+        cpu=(); for p in "${!seen[@]}"; do cpu[$p]=${seen[$p]}; done
+        [ -n "$busy" ] && { alive_at=$now; last_busy=$busy; }
+        quiet=$(( now - stream_at ))
+        [ -n "$alive_at" ] && [ "$alive_at" -gt "$stream_at" ] && quiet=$(( now - alive_at ))
+        if [ $(( now - stream_at )) -ge "$AUTOPILOT_STALL_MAX_SECONDS" ]; then
+          echo max >"$RUN_DIR/stalled"
+          printf '%s autopilot: stalled: the stream did not move for %ss (live.log), even with the agent processes active: INT to the agent, TERM to the run (T-106)\n' \
+            "$(date '+%H:%M:%S')" "$AUTOPILOT_STALL_MAX_SECONDS" >>"$LIVE"
+          # shellcheck disable=SC2086
+          kill -INT $agents 2>/dev/null || true
+          kill -TERM "$orch" 2>/dev/null || true
+          exit 0
+        elif [ "$quiet" -ge "$AUTOPILOT_STALL_SECONDS" ]; then
+          : >"$RUN_DIR/stalled"
+          printf '%s autopilot: stalled: no activity from the agent for %ss (live.log): INT to the agent, TERM to the run\n' \
+            "$(date '+%H:%M:%S')" "$AUTOPILOT_STALL_SECONDS" >>"$LIVE"
+          # shellcheck disable=SC2086
+          kill -INT $agents 2>/dev/null || true
+          kill -TERM "$orch" 2>/dev/null || true
+          exit 0
+        elif [ $(( now - stream_at )) -ge "$AUTOPILOT_STALL_SECONDS" ] && [ -z "$noted" ]; then
+          printf '%s autopilot: quiet stream, agent processes active: %s: the inactivity deadline extends, up to %ss without the stream moving (T-106)\n' \
+            "$(date '+%H:%M:%S')" "$last_busy" "$AUTOPILOT_STALL_MAX_SECONDS" >>"$LIVE"
+          own_mtime=$(stat -c %Y "$LIVE"); noted=1
+        fi
       fi
       sleep "$AUTOPILOT_HEARTBEAT_SECONDS"
     done
@@ -3344,12 +3436,27 @@ reap_orphans() { # with the lock held: an earlier run directory with neither res
         reaped_by: by, reaped_at: new Date().toISOString(),
       }, null, 2) + "\n");
       fs.renameSync(dir + "/result.json.tmp", dir + "/result.json");' "$d" "$name" "$(basename "$ROOT")" "$hb" "$last" "$branch" "$RUN_ID"
+    record_fingerprint "$d"
     ORPHANS+=("$name")
     log "run $name ended without result.json: marked crashed_orphan (last heartbeat ${hb:-none}; last line: ${last:0:120})"
     summary "la corrida $name terminó sin result.json: marcada crashed_orphan (último latido ${hb:-ninguno}; ver .autopilot/$name/)" \
       "run $name ended without result.json: marked crashed_orphan"
   done
   return 0
+}
+check_merged() { # with the lock held (T-110): every merged record of TASKS.json against git: into is not autopilot/* and
+                 # exists, and the commit is in it. One that does not match is never deleted: it is listed in live.log,
+                 # the summary and result.json (merged_mismatch), and the run asks for intervention
+  local out line
+  out=$(tasks merged-check </dev/null) || { log "warning: could not check the merged records against git (T-110)"; return 0; }
+  [ "$out" = "[]" ] && return 0
+  MERGED_MISMATCH=$(node -e 'console.log(JSON.stringify(JSON.parse(process.argv[1])))' "$out")
+  while IFS= read -r line; do
+    log "merged record does not match git (T-110): $line"
+  done < <(node -e 'for (const m of JSON.parse(process.argv[1])) console.log(`${m.id}: into ${m.into} at ${m.commit}: ${m.reason}`)' "$out")
+  line=$(node -e 'console.log(JSON.parse(process.argv[1]).map((m) => m.id).join(", "))' "$out")
+  summary "registros merged que no cuadran con git en $line: quedan como están; corrígelos a mano (merged_mismatch en .autopilot/$RUN_ID/result.json, T-110)" \
+    "merged records that do not match git: $line (merged_mismatch in result.json)"
 }
 
 # ---------- Batch branch (DEC-033): runs integrate into AUTOPILOT_BATCH_BRANCH; master moves only by the user ----------
@@ -3465,6 +3572,7 @@ fi
 mkdir -p "$RUN_DIR"   # from here on every exit leaves result.json (DEC-024)
 [ "$DRY_RUN" = 1 ] || heartbeat_start
 [ "$LOCK_HELD" = 0 ] || reap_orphans   # without the lock the other run's directory is not an orphan
+[ "$LOCK_HELD" = 0 ] || check_merged   # T-110: before batch_open records any new merged
 if git status --porcelain | grep -q .; then
   [ "$DRY_RUN" = 1 ] || die "dirty working tree; commit or stash the changes before the autopilot run"
   echo "autopilot: warning: dirty working tree (a real run would stop here)" >&2
@@ -3626,6 +3734,7 @@ while :; do
     echo "Implementer (from $ROOT, timeout $(remaining)s, AUTOPILOT_RESULT=$dry_result; moved to $RUN_DIR/ afterwards):"
     echo "  prompt (stdin): $(printf '%q' "$(impl_prompt "$ID" "$dry_result")")"
     echo "  $(agent_command implementer "$(dirname "$dry_result")" "$ID")"
+    echo "  access guard (T-107): AUTOPILOT_GUARD_VERIFY=$(printf '%q' "$(task_verify "$ID")") (only the task's tests; nothing in the background)"
     echo "After the implementer: requires a clean tree, check-authority (no reviewed/accepted/approved_for_impl/delivered granted), commits that touch neither spec/ nor paths outside touches, and a valid result in AUTOPILOT_RESULT (no reserved status); the orchestrator applies it to spec/ (status, evidence, LOG.md, assumptions), runs check:spec and commits spec/ on its own."
     echo "Isolation (DEC-008): every agent session is new and ephemeral, gets only its prompt on stdin, cannot read or write .autopilot/ or its agent's private paths, and its stream is audited when it ends (a tool call with such a path stops the run)"
     echo "Reviewer if it ends verified_auto/done (${ROLE_AGENT[reviewer]}), with prompt §7.5 + REQ/DEC + diff of the 'Task: $ID' commits on stdin:"

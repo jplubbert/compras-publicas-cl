@@ -19,6 +19,10 @@
 // exists and is not empty, its content is appended to the instructions of every question before the adapter runs, and
 // the record keeps its sha256 (user_criteria_sha256, null without the file). Without the file the question goes as is.
 // Only the decider uses this file; no agent launched by the orchestrator writes it.
+//
+// Rules first (DEC-051): with --facts FILE (JSON: the mechanical facts the orchestrator already has), ruleAnswer runs
+// before the adapter. If a rule settles the question, the adapter is not run: the record has decider "rule", the rule's
+// name and confidence 1, and the action is proceed. Otherwise the question goes to the adapter exactly as above.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -37,6 +41,42 @@ export function withUserCriteria(question, criteria) {
   const sha256 = createHash('sha256').update(criteria).digest('hex');
   const instructions = `${question.instructions ?? ''}\n\nThe user's decision criteria (decide as the user would):\n${criteria.trim()}`;
   return { question: { ...question, instructions }, sha256 };
+}
+
+// DEC-051: the deterministic rules, per question. Each one reads the facts and returns its answer, or null when it does
+// not apply; a question no rule settles needs judgment and goes to the decider. Only facts a validator already checked
+// count: the reviewer's normalized JSON verdict (parse-verdict), the critic's validated verdict (critic-check) and the
+// orchestrator's gates of the failed attempt. block_kind, finding_severity and research_action have no rule (T-101).
+const verdictFindings = (f) => (Array.isArray(f?.findings) ? f.findings.length : -1);
+const reviewRules = [
+  ['review_approved_without_findings', (f) => (f?.verdict === 'approved' && verdictFindings(f) === 0 ? 'approved' : null)],
+  ['review_rejected_with_findings', (f) => (f?.verdict === 'rejected' && verdictFindings(f) > 0 ? 'rejected' : null)],
+];
+const lastGate = (f) => (Array.isArray(f?.gates) ? f.gates.at(-1) : undefined);
+export const RULES = {
+  review_verdict: reviewRules,
+  acceptance_verdict: reviewRules,
+  plan_verdict: [
+    ['critic_escalates', (f) => (f?.verdict === 'ESCALAR' ? 'ESCALAR' : null)],
+    ['critic_approves_without_p0_p1', (f) => (f?.verdict === 'APROBAR' && f.blocking?.length === 0 && f.opinion_blockers?.length === 0 ? 'APROBAR' : null)],
+    ['critic_revises_with_blocking', (f) => (f?.verdict === 'REVISAR' && f.blocking?.length > 0 ? 'REVISAR' : null)],
+  ],
+  failure_cause: [
+    // the task's approved acceptance tests are red after implementing, and the implementer did not dispute them (DEC-006)
+    ['acceptance_tests_red', (f) => (lastGate(f)?.name === 'green' && lastGate(f)?.result === 'fail' ? 'implementation' : null)],
+    // lines no acceptance test with a REQ reaches, and the implementer reported no missing requirement (DEC-011)
+    ['coverage_gap', (f) => (lastGate(f)?.name === 'coverage' && lastGate(f)?.result === 'fail' ? 'implementation' : null)],
+  ],
+};
+
+// → { answer, rule } of the first rule that settles the question within its options, or null.
+export function ruleAnswer(questionId, options, facts) {
+  if (!facts || typeof facts !== 'object') return null;
+  for (const [rule, fn] of RULES[questionId] ?? []) {
+    const answer = fn(facts);
+    if (answer !== null && Object.hasOwn(options ?? {}, answer)) return { answer, rule };
+  }
+  return null;
 }
 
 export function mapAnswer({ options, threshold }, result) {
@@ -60,10 +100,21 @@ function ask(args) {
   const recordDir = opt('--record-dir');
   const timeout = Number(opt('--timeout') ?? 120);
   if (!decider || !questionFile || !recordDir || !Number.isFinite(threshold)) {
-    console.error('usage: decide.mjs ask --decider ADAPTER --question FILE --threshold N --record-dir DIR [--timeout S]');
+    console.error('usage: decide.mjs ask --decider ADAPTER --question FILE --threshold N --record-dir DIR [--timeout S] [--facts FILE]');
     return 2;
   }
   const question = JSON.parse(readFileSync(questionFile, 'utf8'));
+  const factsFile = opt('--facts');
+  let facts = null;
+  if (factsFile) { try { facts = JSON.parse(readFileSync(factsFile, 'utf8')); } catch { /* no usable facts: the decider */ } }
+  const ruled = ruleAnswer(question.id, question.options, facts);
+  if (ruled) {
+    const reason = `rule ${ruled.rule} (DEC-051)`;
+    return writeRecord(recordDir, question, {
+      answer: ruled.answer, confidence: 1, probabilities: null, model: null, user_criteria_sha256: null,
+      threshold, action: 'proceed', reason, decider: 'rule', rule: ruled.rule, facts,
+    }, { action: 'proceed', answer: ruled.answer, confidence: 1, reason, rule: ruled.rule });
+  }
   const criteriaFile = userCriteriaPath();
   const criteria = existsSync(criteriaFile) ? readFileSync(criteriaFile, 'utf8') : null;
   const { question: sent, sha256: criteriaSha } = withUserCriteria(question, criteria);
@@ -75,14 +126,17 @@ function ask(args) {
     try { result = JSON.parse(r.stdout); } catch { result = { error: `unreadable answer: ${r.stdout.trim().slice(0, 200)}` }; }
   }
   const mapped = mapAnswer({ options: question.options, threshold }, result);
-  const timestamp = new Date().toISOString();
-  const record = {
-    question_id: question.id, instructions: question.instructions, state: question.state, options: question.options,
+  return writeRecord(recordDir, question, {
     answer: result?.answer ?? null, confidence: result?.confidence ?? null, probabilities: result?.probabilities ?? null,
     model: result?.model ?? null, user_criteria_sha256: criteriaSha,
     threshold, action: mapped.action, reason: mapped.reason, ...(mapped.rejected ? { rejected: true } : {}),
-    decider: resolve(decider), timestamp,
-  };
+    decider: resolve(decider),
+  }, mapped);
+}
+
+function writeRecord(recordDir, question, fields, mapped) {
+  const timestamp = new Date().toISOString();
+  const record = { question_id: question.id, instructions: question.instructions, state: question.state, options: question.options, ...fields, timestamp };
   mkdirSync(recordDir, { recursive: true });
   const recordFile = join(recordDir, `${timestamp.replace(/[:.]/g, '-')}-${question.id}.json`);
   writeFileSync(recordFile, `${JSON.stringify(record, null, 2)}\n`);

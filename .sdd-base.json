@@ -1,11 +1,11 @@
 {
-  "sdd_base_commit": "5e44412beaca9f47613e079f960eb152e4a2272c",
+  "sdd_base_commit": "1943a39b305e75ccd5ec660ae057c9a4590c98c5",
   "files": {
     ".githooks/commit-msg": {
       "sha256": "5fd42695dee574d130aac83a04a5adcf89bc86096023d3b2a5febfedc39b633e"
     },
     "scripts/adr.mjs": {
-      "sha256": "086ad2e743f8b3e2486a0028b3f2f50be958b06f367d46440488ad1f5b17f5d3"
+      "sha256": "f1e438b0c04b0b7909bfe4d57def8227bc594929df7916ba47c2b45071a657ac"
     },
     "scripts/agents/claude-access-hook.mjs": {
       "sha256": "eba56ea1c1fd3562b020ce862bb292eb9a17e7161fe23e8963f6ba962cd14e52"
@@ -26,7 +26,7 @@
       "sha256": "f428b94999df99b7b8d7f2f8eccf2769663a900ae07a3c660fb0e346afc663ad"
     },
     "scripts/agents/roles/implementer.md": {
-      "sha256": "3152a1309dd339e8a2f6c38c2e85a3efccf62fbab708cd2323e01f9f22719155"
+      "sha256": "5a647100676ad99e194b55ec81620d64712da9f8deae97b6c3cfdd15857c796d"
     },
     "scripts/agents/roles/planner.md": {
       "sha256": "790bf0243d0a89e3ff51aa5a8be13b36ff9d6290113686455a4fd207c41dabf9"
@@ -41,7 +41,7 @@
       "sha256": "291c2613899199f744bbfc92c0220536a3bd9deb90b07d3e336ac6a28fc7190b"
     },
     "scripts/autopilot.sh": {
-      "sha256": "da993869650010447a870937c56161d6b5c55cbcb518fbd37aef8c2dba53d2e8"
+      "sha256": "8d767037fbf200283a84dbe779fd4aa688a63c98fbf42a871c10aef249dfab0c"
     },
     "scripts/check-adr.mjs": {
       "sha256": "3a0e5bdef0925636619e59cec98498762d6ae921b91ef1f3c7f88f82739f0e51"
@@ -56,7 +56,7 @@
       "sha256": "53c3642158635015ac0d34b6c936ded01f37e5918cb1242b2125b2803e6c44f6"
     },
     "scripts/lib/access-policy.mjs": {
-      "sha256": "f93ae4cbdf67b81594e65da0a0bc6ee5766703c6ac61bd2c72fca8009a44750a"
+      "sha256": "e19f753a860dabcba9f439b703370e040d71f7822bbe81dc2453183507ba61bb"
     },
     "scripts/lib/adr.mjs": {
       "sha256": "73ae8ea9cea28e62ce6c07ad0baec0ad1b332f0172ae926b00aee92f7555cdca"
@@ -65,10 +65,10 @@
       "sha256": "e962210f8f6e04d8b2cbd32176e90e35c16390d37c6475db132c1cab8f0347c2"
     },
     "scripts/lib/autopilot-tasks.mjs": {
-      "sha256": "1ec627746569ca087646ce30ba45ec75a7a68664face4b4a0c87d81914bc6919"
+      "sha256": "0185662edbfd27595fb86368f02e726ef8d94b8b8e52e05f74fe1f97921296e5"
     },
     "scripts/lib/decide.mjs": {
-      "sha256": "0fe26e1f28c302bdaa89f1e8fe8f1a16cf16f7e9fae120dffeb2938758f9b48d"
+      "sha256": "4b4d7f9c50e0a714315899903ddeee38f15117097fece4ccd861045967f5819c"
     },
     "scripts/lib/instrument.mjs": {
       "sha256": "dd6a71b7dc6704b2d7db033b968117ea9ff7f7ecf205c3dc278bffe8614c722c"
@@ -77,16 +77,16 @@
       "sha256": "9e2d2d3f1db3e3f00197a7c328066c4bd1909dce9a5d3ee3e7fcbd8676ac803a"
     },
     "scripts/test/access-policy.test.mjs": {
-      "sha256": "2b5e50e0b7a12696a828e89a96d73764a9683b39a2983cd31640bad3e1a34600"
+      "sha256": "f7377c0cd55a8b6ea667a9a35a98d0d3d0a77c3145d2be8f8311f7c668b3d829"
     },
     "scripts/test/adr.test.mjs": {
-      "sha256": "32f865f7fb1872efd3a6a1ff5a2a7b556b8b5557f34487d6d705b10de22a27a1"
+      "sha256": "59e4af237260e388e40c4b9629336605c6966ce02b698cce67e9da41da48d5df"
     },
     "scripts/test/autopilot-stream.test.mjs": {
       "sha256": "cf2f5447feb58ad1c51097bc28c9eda581288de85879c9624df82ea1e5e61c78"
     },
     "scripts/test/autopilot-tasks.test.mjs": {
-      "sha256": "25e8742cf35af71a3ebacd573267e40ab781256470db10767988e2c2f5c27fde"
+      "sha256": "1574374d6639a5866abf5e72bc6d814e64e376f5ebf08e8ac5aedd12e364010c"
     },
     "scripts/test/check-adr.test.mjs": {
       "sha256": "5a47e92629aba26ad17ada7eedf21432b9e3400636cab8599753a6a70bbd9ee2"
@@ -98,13 +98,13 @@
       "sha256": "720f12c672b680102ff4fe5e37d12691c56c1903bca7a6c09689e29e35122f13"
     },
     "scripts/test/decide.test.mjs": {
-      "sha256": "057d14eca56f96833931f73e998eee79c0ab912d6a26496be83dd06e831b199a"
+      "sha256": "f94e712d66f2922377d3b123f6f7b34c8381a1f16b96d4d49fc9fde2280d7d09"
     },
     "scripts/test/expect.mjs": {
       "sha256": "ded1cf80112c28f365ce6cd118f738f1f253422a8365b28f0bf53f2b99eeab07"
     },
     "scripts/test/fixtures/autopilot-stubs/claude": {
-      "sha256": "2a29db7451755e61fe892d2cfbe33ed8efc3a74cb26a3ec4d82ddf6b55c9af7e"
+      "sha256": "6c4697c6b22cd8c4a844fc1e1edd58caf276d441096cb190869fb79ac7116182"
     },
     "scripts/test/fixtures/autopilot-stubs/curl": {
       "sha256": "980a9091a22ef445a85f4cdadb1f428e287d8ad29a3d2e024984d6e25dd24331"
@@ -116,7 +116,7 @@
       "sha256": "9e6ca3ce598ff96b0065c393b0814650502602e9e51d86f8dc49e514707e1cc3"
     },
     "scripts/test/fixtures/dispatch-stub/autopilot.sh": {
-      "sha256": "4dc89f07b7edf067f847daa9e750e1cf81b6b7a43e03c7478e2f61babd0b953a"
+      "sha256": "c304fbcfd065c74d9b7dd84a2506bad58f2289692eb4634eeafec124368f1450"
     },
     "scripts/test/fixtures/spec/DECISIONS.md": {
       "sha256": "299e16357e362fd2634d02a240a481bfbec9a6a3a9c54b9434c67b51d03944a1"

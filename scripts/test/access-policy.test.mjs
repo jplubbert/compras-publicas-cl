@@ -171,6 +171,50 @@ describe('no skipping the commit hook: by the real options of the command, not b
   });
 });
 
+describe('the implementer runs only its task\'s tests (T-107, DEC-045)', () => {
+  const verify = 'node --test --test-name-pattern=T-107 scripts/test/access-policy.test.mjs scripts/test/autopilot-tasks.test.mjs && npm run check:spec';
+  const impl = { verify };
+  const tests = (command, extra = {}) => accessGuard('Bash', { command, ...extra }, ctx(impl));
+  it('T-107 denies a whole test file, npm test and npm run test*, naming the rule', () => {
+    for (const command of ['node --test scripts/test/autopilot-tasks.test.mjs', 'node --test', 'node scripts/test/access-policy.test.mjs',
+      'timeout 900 node --test scripts/test/a.test.mjs', 'CI=1 node --test --test-skip-pattern=x scripts/test/a.test.mjs',
+      'npm test', 'npm t', 'npm run test', 'npm run test:sdd', 'git status; npm test -- --x']) {
+      expect(tests(command)).toMatchObject({ decision: 'deny', reason: expect.stringContaining('only the task\'s tests (T-107, DEC-045)') });
+    }
+    expect(tests('npm test').reason).toContain(verify);
+  });
+  it('T-107 allows a run by --test-name-pattern, the exact verify and each of its commands', () => {
+    for (const command of ['node --test --test-name-pattern=T-107 scripts/test/autopilot-tasks.test.mjs',
+      'node --test --test-name-pattern "T-107" scripts/test/access-policy.test.mjs', verify, `  ${verify.replace(' && ', '  &&  ')} `,
+      'npm run check:spec', 'node --check scripts/test/a.test.mjs', 'node scripts/check-spec.mjs', 'git log -n 5']) {
+      expect(tests(command).decision).toBe('allow');
+    }
+  });
+  it('T-107 the verify itself is allowed even when it runs a whole file', () => {
+    const whole = { verify: 'node --test scripts/test/a.test.mjs' };
+    expect(guard('Bash', { command: 'node --test scripts/test/a.test.mjs' }, whole)).toBe('allow');
+    expect(guard('Bash', { command: 'node --test scripts/test/b.test.mjs' }, whole)).toBe('deny');
+  });
+  it('T-107 denies a command in the background (run_in_background or a trailing &)', () => {
+    for (const [command, extra] of [['node --test --test-name-pattern=T-107 scripts/test/a.test.mjs', { run_in_background: true }],
+      [verify, { run_in_background: true }], ['sleep 1 &', {}], ['npm run check:spec & wait', {}]]) {
+      expect(tests(command, extra)).toMatchObject({ decision: 'deny', reason: expect.stringContaining('no command runs in the background for this agent (T-107') });
+    }
+    for (const command of ['npm run check:spec 2>&1', 'npm run check:spec &>/dev/null', 'git log --grep="a & b"']) expect(tests(command).decision).toBe('allow');
+  });
+  it('T-107 without a verify (any other role) nothing changes; the hook takes it from AUTOPILOT_GUARD_VERIFY', () => {
+    expect(guard('Bash', { command: 'npm test' })).toBe('allow');
+    expect(guard('Bash', { command: 'sleep 1', run_in_background: true })).toBe('allow');
+    const run = (env) => spawnSync('node', [HOOK, '--root', root], {
+      input: JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'npm test' }, cwd: root }), encoding: 'utf8', env });
+    const { AUTOPILOT_GUARD_VERIFY: _, ...rest } = { ...process.env, HOME: home };
+    const denied = run({ ...rest, AUTOPILOT_GUARD_VERIFY: verify });
+    expect(denied.status).toBe(2);
+    expect(denied.stderr).toContain('(T-107, DEC-045)');
+    expect(run(rest).status).toBe(0);
+  });
+});
+
 describe('access_guard Claude Code adapter (PreToolUse hook)', () => {
   const hook = (input, args = []) => spawnSync('node', [HOOK, '--root', root, '--allow', result, '--deny', join(home, '.claude'), '--deny', join(home, '.codex'), ...args], {
     input: typeof input === 'string' ? input : JSON.stringify(input), encoding: 'utf8', env: { ...process.env, HOME: home },

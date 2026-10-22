@@ -22,6 +22,8 @@
 //                           DEC-029: stores the block the implementer declared with the decider's classification
 //   set-merged T-NN --into BRANCH --commit SHA
 //                           DEC-028: records the integration as merged {into, commit, at} (a fact, not a status)
+//   merged-check            T-110: the merged records that do not match git (into is autopilot/* or does not exist, the
+//                           commit does not exist or is not an ancestor of into) → JSON [{id, into, commit, reason}]
 //   grant-impl T-NN --by LABEL
 //                           DEC-022: specified → approved_for_impl with impl_approval, only after APROBAR on its plan
 //   pending-reviews         ids of the tasks in verified_auto (awaiting independent review) → JSON
@@ -83,7 +85,7 @@
 //                           DEC-011: without spec/COVERAGE.json, the task to enable it; with a baseline, a cleanup task
 //                           per file; each created once, specified → JSON {out_of_rule, created, existing}
 //   question-check FILE     validates a researcher's answer to a critic's question (Pregunta, Respuesta, Fuentes)
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -260,6 +262,24 @@ export function setMerged(root, id, into, commit, date = new Date()) {
   findTask(data, id).merged = { into, commit, at: date.toISOString() };
   writeTasks(root, data);
 }
+/** T-110: the merged records that do not match git (into is autopilot/* or missing, the commit is not in into); never
+ *  deleted, only listed → [{id, into, commit, reason}]. */
+export function mergedMismatches(root, data) {
+  const ok = (...args) => spawnSync('git', ['-C', root, ...args], { stdio: 'ignore' }).status === 0;
+  const out = [];
+  for (const t of data.tasks ?? []) {
+    if (!t.merged) continue;
+    const { into = null, commit = null } = t.merged;
+    let reason = null;
+    if (!into || !commit) reason = 'the record has no into or no commit';
+    else if (/^autopilot\//.test(into)) reason = `into ${into}: an autopilot/* branch is not a merge target`;
+    else if (!ok('rev-parse', '-q', '--verify', `refs/heads/${into}`)) reason = `the branch ${into} does not exist`;
+    else if (!ok('cat-file', '-e', `${commit}^{commit}`)) reason = `the commit ${commit} does not exist`;
+    else if (!ok('merge-base', '--is-ancestor', commit, `refs/heads/${into}`)) reason = `the commit ${commit} is not in ${into}`;
+    if (reason) out.push({ id: t.id, into, commit, reason });
+  }
+  return out;
+}
 
 /** DEC-022 point 3: specified → approved_for_impl by the orchestrator, only with APROBAR on the plan in plan_review. */
 export function grantImpl(root, id, by, date = new Date()) {
@@ -405,7 +425,8 @@ export function confirmingDecision(record, questionId, verdict) {
   if (record.answer !== verdict) return { error: `the decision says ${record.answer}, the verdict ${verdict}` };
   return {
     decision: { question_id: questionId, decider: String(record.decider ?? '').split('/').pop().replace(/\.sh$/, ''),
-      confidence: record.confidence, threshold: record.threshold, timestamp: record.timestamp },
+      confidence: record.confidence, threshold: record.threshold, timestamp: record.timestamp,
+      ...(record.rule ? { rule: record.rule } : {}) }, // DEC-051: a deterministic rule, not the decider, settled it
   };
 }
 
@@ -1287,6 +1308,9 @@ function main(argv) {
     }
     case 'set-merged':
       setMerged(root, args[0], opt('--into'), opt('--commit'));
+      return 0;
+    case 'merged-check':
+      out(mergedMismatches(root, readTasks(root)));
       return 0;
     case 'grant-impl':
       grantImpl(root, args[0], opt('--by') ?? 'autopilot');
