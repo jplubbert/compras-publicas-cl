@@ -1318,7 +1318,7 @@
         "T-05",
         "T-10"
       ],
-      "status": "verified_auto",
+      "status": "reviewed",
       "blocked_by": null,
       "notes": "Se siguió el plan aprobado. Única desviación interna: secret_names se construye como projects/<project>/secrets/<secret_id> en lugar de leer .id, porque el mock de terraform test genera un id aleatorio y la aserción de t11_repositorio_dataform no podía verlo; el formato es el mismo que el id real del proveedor. E2 queda cubierto en parte hasta que T-14 agregue vars.policy_tag_rut a la compilación.",
       "touches": [
@@ -1351,6 +1351,13 @@
           "by": "record_evidence.py",
           "at": "2026-10-22T21:00:45+00:00",
           "reason": "verify con código 0: 55/55 pasan, 0 fallan"
+        },
+        {
+          "from": "verified_auto",
+          "to": "reviewed",
+          "by": "set-review",
+          "at": "2026-10-22T21:01:33.211Z",
+          "reason": "veredicto approved confirmado por el decisor"
         }
       ],
       "plan_review": {
@@ -1394,6 +1401,21 @@
         "commit": "cfad187cffe1f9539c7b3c2c0c1feaa3098558e9",
         "timestamp": "2026-10-22T21:00:45+00:00",
         "result": "55/55 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-11/verify.log)"
+      },
+      "review": {
+        "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "E2 de REQ-007 queda cubierto en parte: la compilación pasa solo vars.raw_dataset; vars.policy_tag_rut lo agrega T-14, como dice la descripción de T-11, y test_daily.py deja un comentario para su aserción. No existen pruebas tests/acceptance/T-11*. E5, el correo de la alerta y el valor FAILED de la etiqueta status de finished_execution_count (Beta, sin documentar) quedan para el verify_integration del usuario. También queda pendiente reaplicar infra/bootstrap por los roles nuevos de CI y cargar la versión del token de GitHub antes del primer apply. Desviación interna aceptable: secret_names arma projects/<p>/secrets/<id> desde las entradas del recurso porque el id simulado es aleatorio. Verificado: sha256 del log coincide; test:orchestration 16/16; check:repo y lint en verde; todos los archivos cambiados están dentro de los touches de la tarea o son del orquestador.",
+        "date": "2026-10-22",
+        "decision": {
+          "question_id": "review_verdict",
+          "decider": "rule",
+          "confidence": 1,
+          "threshold": 0.8,
+          "timestamp": "2026-10-22T21:01:32.197Z",
+          "rule": "review_approved_without_findings"
+        }
       }
     },
     {

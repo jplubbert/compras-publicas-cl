@@ -666,3 +666,8 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Pendiente manual: reaplicar `infra/bootstrap` antes del merge (roles nuevos de CI), cargar la versión del token de GitHub en `dataform-github-token`, y tras un `deploy.yml` en verde correr `scripts/it/run-workflow.sh` (primera corrida real) y E5 con `--expect-failure` (ticket deshabilitado), confirmando el correo de la alerta y el valor `FAILED` de la etiqueta `status` en el Explorador de métricas.
 - Verificado y cómo: `scripts/env.sh bash -c 'npm run test:infra && npm run test:orchestration && npm run check:spec'` → 55/55 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-11/verify.log), commit cfad187.
 - Próxima acción autorizada: el usuario reaplica el bootstrap, carga el token de GitHub y corre la verificación de integración de T-11; el autopilot sigue con la siguiente tarea `ready`.
+
+## 2026-10-22 18:01 · revisor independiente (claude -p 2.1.295 (Claude Code)) vía autopilot
+- Hecho: revisión independiente de T-11 con contexto limpio (solo diff + REQ/DEC de la tarea). Veredicto: **approved** → estado `reviewed`. Hallazgos: sin hallazgos bloqueantes.
+- Verificado y cómo: veredicto completo en TASKS.json (`review` de T-11); salida íntegra en .autopilot/2026-10-22_174543/T-11-review-output.txt.
+- Próxima acción autorizada: continúa el autopilot; el usuario decide accepted después de la corrida.
