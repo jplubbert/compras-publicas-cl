@@ -166,3 +166,19 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Hecho: revisión independiente de T-01 con contexto limpio (solo diff + REQ/DEC de la tarea). Veredicto: **approved** → estado `reviewed`. Hallazgos: sin hallazgos bloqueantes.
 - Verificado y cómo: veredicto completo en TASKS.json (`review` de T-01); salida íntegra en .autopilot/2026-10-22_003840/T-01-review-output.txt.
 - Próxima acción autorizada: continúa el autopilot; el usuario decide accepted después de la corrida.
+
+## 2026-10-22 00:39 · autopilot (scripts/autopilot.sh)
+- Hecho: T-01 revisada por claude: approved → reviewed (commit 4a1d905); lote autopilot/lote sin cerrar: the batch stays open (not reviewed: T-02). Corrida 2026-10-22_003840 (0 min, 0 tarea(s) completada(s), 0 fallo(s)); registros en .autopilot/2026-10-22_003840/.
+- Tokens (todos los agentes, campo usage del evento result): T-01 review: entrada 20 · salida 3.756 · caché leída 1.695.945 · caché escrita 190.462; total de la corrida: entrada 20 · salida 3.756 · caché leída 1.695.945 · caché escrita 190.462.
+- Tokens para el tope (DEC-048; cuentan entrada, salida y caché escrita): en esta corrida 194.238 cuentan para el tope (entrada 20 · salida 3.756 · caché escrita 190.462) y 1.695.945 de caché leída aparte; en 2026-10, 1.788.575 de un tope de 50.000.000 y 14.226.483 de caché leída.
+- Pendiente manual (el usuario la hace al aceptar en lote): ninguna.
+- Pendiente deploy (el usuario corre `merge to main (GitHub Actions applies infra/main); infra/bootstrap is applied by the user`; el orquestador no despliega): ninguna.
+- Investigador (DEC-005; modo web, topes 900 s y US$ 2 por invocación): investigadas: ninguna; reintentadas con la recomendación: ninguna; escaladas al usuario (blocked con su Q-NN): ninguna.
+- Test-author (DEC-006; `scripts/acceptance.sh`): pruebas escritas en rojo: ninguna; pruebas en verde antes de implementar (escaladas): ninguna; pruebas disputadas por el implementador: ninguna.
+- Crítica de planes (DEC-010; crítico claude, topes 1200 s y US$ 3): planes aprobados: ninguna; escaladas al usuario (blocked con su Q-NN): ninguna; objeciones P0/P1 de pura opinión, para el usuario: ninguna.
+- Cobertura desde aceptación (DEC-011 de sdd-base): fuera de la regla (sin spec/COVERAGE.json; la aceptación no corre en local con cobertura); tarea para habilitarla: T-16.
+- Verificado y cómo: sin comandos ejecutados.
+- En curso / roto: árbol limpio en 4a1d905.
+- Bloqueos nuevos: ninguno.
+- Motivo de parada: no hay tareas in_progress/ready/approved_for_impl con dependencias cerradas.
+- Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.

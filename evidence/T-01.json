@@ -58,19 +58,61 @@
         "close": null
       },
       "tree_sha": "c148e0a4bee519066242ade5c345255c4e52588a"
+    },
+    {
+      "task": "T-01",
+      "run": "2026-10-22_003840",
+      "role": "reviewer",
+      "attempt": 1,
+      "started": "2026-10-22T03:38:41.000Z",
+      "minutes": 0.8,
+      "tokens": {
+        "input": 20,
+        "output": 3756,
+        "cache_read": 1695945,
+        "cache_write": 190462
+      },
+      "exit_code": 0,
+      "test_runs": {
+        "task": 5,
+        "suite": 0,
+        "agent": {
+          "task": 5,
+          "suite": 0
+        },
+        "hook": {
+          "task": 0,
+          "suite": 0
+        },
+        "orchestrator": {
+          "task": 0,
+          "suite": 0
+        }
+      },
+      "gates": [
+        {
+          "name": "review",
+          "result": "approved"
+        }
+      ],
+      "verify_exit_codes": {
+        "hook": null,
+        "close": null
+      },
+      "tree_sha": "46f56eec21a09ffeb68e1f8e1a1a9a1955f43450"
     }
   ],
   "totals": {
-    "records": 1,
-    "minutes": 2.6,
+    "records": 2,
+    "minutes": 3.4,
     "tokens": {
-      "input": 66,
-      "output": 9558,
-      "cache_read": 1127471,
-      "cache_write": 56161
+      "input": 86,
+      "output": 13314,
+      "cache_read": 2823416,
+      "cache_write": 246623
     },
     "test_runs": {
-      "task": 0,
+      "task": 5,
       "suite": 0
     }
   }
