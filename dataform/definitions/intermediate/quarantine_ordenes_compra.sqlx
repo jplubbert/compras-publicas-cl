@@ -1,0 +1,44 @@
+config {
+  type: "incremental",
+  schema: "quarantine",
+  name: "ordenes_compra",
+  tags: ["silver", "quarantine"],
+  description: "Documentos de órdenes de compra de Mercado Público que incumplen alguna regla de fila y no pasan a silver, con todos los motivos (REQ-010).",
+  columns: {
+    codigo_oc: "Código de la orden de compra; puede ser nulo, porque la clave nula es una de las reglas",
+    motivos: "Códigos de todas las reglas que incumple el documento, en orden fijo (clave_nula, rut_dv_invalido, monto_negativo, moneda_desconocida, fecha_fuera_de_rango)",
+    fecha: "Fecha D de la línea de raw, contra la que se mide el límite D+1 de las fechas",
+    run_id: "Identificador de la corrida de ingesta que trajo el documento",
+    _ingest_date: "Fecha UTC de inicio de la corrida que trajo el documento (partición de raw)",
+    ingested_at: "Momento UTC en que se recibió la respuesta con el documento",
+    quarantined_at: "Momento UTC en que el documento entró a la cuarentena",
+    fila_id: "Huella del documento en su corrida (SHA-256 de run_id, ingested_at y el documento) que evita duplicados",
+    documento: "Documento JSON tal como llegó de la API"
+  }
+}
+
+js {
+  const columnas = [
+    "codigo_oc", "motivos", "fecha", "run_id", "_ingest_date", "ingested_at", "quarantined_at", "fila_id", "documento"
+  ];
+}
+
+WITH filas AS (
+  SELECT
+    JSON_VALUE(doc, '$.Codigo') AS codigo_oc,
+    ${reglas.motivosSql("ordenes_compra")} AS motivos,
+    fecha,
+    run_id,
+    _ingest_date,
+    ingested_at,
+    CURRENT_TIMESTAMP() AS quarantined_at,
+    TO_HEX(SHA256(CONCAT(run_id, '|', CAST(ingested_at AS STRING), '|', TO_JSON_STRING(doc)))) AS fila_id,
+    doc AS documento
+  FROM ${ref("mercadopublico_ordenes_compra")}, UNNEST(JSON_QUERY_ARRAY(payload, '$.Listado')) AS doc
+  WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'detalle'
+    AND NOT (${reglas.pasaSql("ordenes_compra")})
+    ${when(incremental(), `AND ${silver.ventanaReciente()}`)}
+)
+SELECT ${columnas.join(", ")} FROM filas
+${when(incremental(), `WHERE fila_id NOT IN (SELECT fila_id FROM ${self()})`)}
+QUALIFY ROW_NUMBER() OVER (PARTITION BY fila_id ORDER BY ingested_at) = 1

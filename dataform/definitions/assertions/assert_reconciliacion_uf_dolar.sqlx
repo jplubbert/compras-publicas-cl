@@ -1,0 +1,16 @@
+config {
+  type: "assertion",
+  tags: ["silver"],
+  description: "La UF y el dólar de la BDE coinciden con mindicador.cl en cada fecha común, con tolerancia de 0,01 CLP (REQ-009, S-09); cada fila es una fecha que difiere."
+}
+
+SELECT
+  b.indicador,
+  b.fecha,
+  b.valor AS valor_bcentral,
+  m.valor AS valor_mindicador,
+  ABS(b.valor - m.valor) AS diferencia
+FROM ${ref("indicadores_diarios")} b
+JOIN ${ref("indicadores_diarios")} m ON m.serie = CONCAT('mindicador_', b.indicador) AND m.fecha = b.fecha
+WHERE b.serie IN ('bcentral_uf', 'bcentral_dolar') AND b.valor IS NOT NULL AND m.valor IS NOT NULL
+  AND ABS(b.valor - m.valor) > NUMERIC '${reglas.TOLERANCIA_RECONCILIACION}'
