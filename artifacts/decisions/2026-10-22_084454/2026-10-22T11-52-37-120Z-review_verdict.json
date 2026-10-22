@@ -1,0 +1,21 @@
+{
+  "question_id": "review_verdict",
+  "instructions": "Does this independent review approve the change? Approve only if it reports no blocking finding.",
+  "state": "**Veredicto: aprobada.** No encontré ningún hallazgo bloqueante con cita de REQ o DEC.\n\n**1. ¿Cada requisito está implementado y probado, bordes incluidos?** Sí, para REQ-001.\n- **Evidencia:** el sha256 de `artifacts/T-03/verify.log` coincide con el registrado (`ce9a667b…`). El log muestra 14/14 corridas de `terraform test` en verde y `check:repo: ok`.\n- **Lo que corrí yo:** `npm run lint` pasa, incluido `terraform fmt -check`, y `npm run check:repo` imprime `ok`.\n- **Pruebas por caso:**\n  - **E1:** ubicación `US-CENTRAL1`, 2 reglas de lifecycle y 10 datasets con `layer`, descripción y región. También se prueba la expiración de 30 días de `bench`.\n  - **E2 y E3:** hay corridas con `expect_failures` en las dos raíces.\n  - **E4:** lo cubren las pruebas existentes de `check-repo.test.mjs` (reglas `composer` y `literal-project`, que nombran el archivo).\n  - **E5 y E6:** se prueban sobre las salidas de `infra/main`.\n- **Leyendo el código** confirmé el resto: proveedor WIF restringido por `attribute.repository`, cuenta de CI sin roles de billing, owner ni editor, tres secretos sin versiones y ningún literal de región ni de proyecto.\n- **Lo que no pude correr:** `npm test` y `scripts/env.sh npm run lint` fueron denegados por permisos. Además, `--test-name-pattern=T-03` no selecciona ninguna prueba con nombre: la corrida informa `pass 1`, pero esa cuenta es el archivo, no una prueba de T-03.\n\n**2. ¿Cambió algo fuera del alcance?** Dos cambios están fuera del plan, pero dentro de las rutas que la tarea declara (`touches` incluye `scripts/ci/`). El implementador declaró los dos.\n- `scripts/ci/tf-test.sh` ahora suma los conteos de las dos raíces y sigue saliendo con 1 si una falla.\n- `scripts/ci/check-repo.mjs` excluye `artifacts/` de las reglas de secretos.\n\n**3. ¿Se violó una decisión aceptada?** No encontré violaciones. Hay un punto que conviene que el usuario revise (está en las notas): la exclusión de `artifacts/` debilita el guardián de DEC-004 en un directorio que guarda logs de verificación.\n\n```json\n{\"verdict\": \"approved\", \"findings\": [], \"notes\": \"1) Fuera del plan, check-repo.mjs omite ahora todo artifacts/ en checkSecrets: no solo la regla credentials-json, que motivó el cambio, sino también sa-key (PRIVATE KEY y JSON de cuenta de servicio). artifacts/ guarda los verify.log, justo donde se vería un secreto filtrado en la salida de una prueba, así que la Confirmación de DEC-004 queda más débil allí. No lo bloqueo porque spec/, plans/, research/ y *.md ya estaban exentos y la tarea toca scripts/ci/; lo leí en el código y no pude ejecutar un caso porque el modo es de solo lectura. El usuario decide si excluir solo credentials-json en artifacts/. 2) Riesgo residual ya señalado por el crítico (P2): roles/iam.serviceAccountAdmin a nivel de proyecto permitiría a CI suplantar la cuenta de la desvinculadora de T-05 (DEC-003); T-05 debe resolverlo. 3) Las afirmaciones de E6 (sin lectores por defecto de projectReaders en BigQuery; GCS acepta projectOwner:<id>) solo se comprueban contra el mock; las confirma el verify_integration con un segundo tf-plan.sh main sin cambios. 4) --test-name-pattern=T-03 no selecciona ninguna prueba con nombre en check-repo.test.mjs ni en tf-plan.test.mjs: el 'pass 1' es el archivo, no una prueba de T-03. E4 sigue cubierto por las reglas composer y literal-project de check-repo.test.mjs. 5) No pude correr npm test ni scripts/env.sh npm run lint (permiso denegado); npm run lint y npm run check:repo pasan.\"}\n```",
+  "options": {
+    "approved": "the review finds no blocking problem: the change can be accepted",
+    "rejected": "the review reports at least one blocking problem"
+  },
+  "answer": "approved",
+  "confidence": 1,
+  "probabilities": {
+    "approved": 1,
+    "rejected": 0
+  },
+  "model": "jev-1.13.0",
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "",
+  "decider": "/home/pepe/Projects/compras-publicas-cl/scripts/agents/decider/jev.sh",
+  "timestamp": "2026-10-22T11:52:37.120Z"
+}

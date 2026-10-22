@@ -261,3 +261,18 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Hecho: revisión independiente de T-03 con contexto limpio (solo diff + REQ/DEC de la tarea). Veredicto: **approved** → estado `reviewed`. Hallazgos: sin hallazgos bloqueantes.
 - Verificado y cómo: veredicto completo en TASKS.json (`review` de T-03); salida íntegra en .autopilot/2026-10-22_084454/T-03-review-output.txt.
 - Próxima acción autorizada: continúa el autopilot; el usuario decide accepted después de la corrida.
+
+## 2026-10-22 08:52 · autopilot (scripts/autopilot.sh)
+- Hecho: el usuario integró el lote anterior en autopilot/2026-10-22_010033/T-03-1: merged en T-01, T-02, T-03 (DEC-033); T-03 implementada (28d4b4a..1944fbc, estado verified_auto); T-03 revisada por claude: approved → reviewed (commit aa0fe18); lote autopilot/lote listo (DEC-033): T-03 revisadas y la suite del lote pasa; el merge es tuyo: `git checkout autopilot/2026-10-22_010033/T-03-1 && git merge --ff-only autopilot/lote`. Corrida 2026-10-22_084454 (7 min, 1 tarea(s) completada(s), 0 fallo(s)); registros en .autopilot/2026-10-22_084454/.
+- Tokens (todos los agentes, campo usage del evento result): T-03: entrada 90 · salida 35.785 · caché leída 2.843.676 · caché escrita 94.657; T-03 review: entrada 14 · salida 4.460 · caché leída 402.354 · caché escrita 65.858; total de la corrida: entrada 104 · salida 40.245 · caché leída 3.246.030 · caché escrita 160.515.
+- Tokens para el tope (DEC-048; cuentan entrada, salida y caché escrita): en esta corrida 200.864 cuentan para el tope (entrada 104 · salida 40.245 · caché escrita 160.515) y 3.246.030 de caché leída aparte; en 2026-10, 2.763.782 de un tope de 50.000.000 y 23.183.250 de caché leída.
+- Pendiente manual (el usuario la hace al aceptar en lote): T-03: verify_integration de T-03 contra GCP: exportar TF_VAR_project_id, TF_VAR_region y TF_VAR_github_repository; correr scripts/it/tf-plan.sh bootstrap, aplicar infra/bootstrap a mano y correr scripts/it/tf-plan.sh main; después del primer apply de main, un segundo tf-plan.sh main debe salir sin cambios.
+- Pendiente deploy (el usuario corre `merge to main (GitHub Actions applies infra/main); infra/bootstrap is applied by the user`; el orquestador no despliega): ninguna.
+- Investigador (DEC-005; modo web, topes 900 s y US$ 2 por invocación): investigadas: ninguna; reintentadas con la recomendación: ninguna; escaladas al usuario (blocked con su Q-NN): ninguna.
+- Crítica de planes (DEC-010; crítico claude, topes 1200 s y US$ 3): planes aprobados: ninguna; escaladas al usuario (blocked con su Q-NN): ninguna; objeciones P0/P1 de pura opinión, para el usuario: ninguna.
+- Cobertura desde aceptación (DEC-011 de sdd-base): fuera de la regla (sin spec/COVERAGE.json; la aceptación no corre en local con cobertura); tarea para habilitarla: T-16.
+- Verificado y cómo: check:spec tras el resultado de T-03 → ok.
+- En curso / roto: árbol limpio en 9b829c8.
+- Bloqueos nuevos: ninguno.
+- Motivo de parada: presupuesto de tareas alcanzado (1).
+- Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.
