@@ -225,3 +225,18 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Pendiente deploy: ninguno
 - Bloqueos nuevos: ninguno
 - Próxima acción autorizada: el orquestador sigue con T-03 (in_progress)
+
+## 2026-10-22 00:59 · autopilot (scripts/autopilot.sh)
+- Hecho: lote autopilot/lote sin cerrar: the batch stays open (not reviewed: T-03). Corrida 2026-10-22_005435 (5 min, 0 tarea(s) completada(s), 0 fallo(s)); registros en .autopilot/2026-10-22_005435/.
+- Tokens (todos los agentes, campo usage del evento result): T-03 plan: entrada 22 · salida 31.796 · caché leída 622.968 · caché escrita 123.772; total de la corrida: entrada 22 · salida 31.796 · caché leída 622.968 · caché escrita 123.772.
+- Tokens para el tope (DEC-048; cuentan entrada, salida y caché escrita): en esta corrida 155.590 cuentan para el tope (entrada 22 · salida 31.796 · caché escrita 123.772) y 622.968 de caché leída aparte; en 2026-10, 2.362.071 de un tope de 50.000.000 y 18.900.341 de caché leída.
+- Pendiente manual (el usuario la hace al aceptar en lote): ninguna.
+- Pendiente deploy (el usuario corre `merge to main (GitHub Actions applies infra/main); infra/bootstrap is applied by the user`; el orquestador no despliega): ninguna.
+- Investigador (DEC-005; modo web, topes 900 s y US$ 2 por invocación): investigadas: ninguna; reintentadas con la recomendación: ninguna; escaladas al usuario (blocked con su Q-NN): ninguna.
+- Crítica de planes (DEC-010; crítico claude, topes 1200 s y US$ 3): planes aprobados: ninguna; escaladas al usuario (blocked con su Q-NN): ninguna; objeciones P0/P1 de pura opinión, para el usuario: ninguna.
+- Cobertura desde aceptación (DEC-011 de sdd-base): fuera de la regla (sin spec/COVERAGE.json; la aceptación no corre en local con cobertura); tarea para habilitarla: T-16.
+- Verificado y cómo: sin comandos ejecutados.
+- En curso / roto: árbol de trabajo sucio (ver git status).
+- Bloqueos nuevos: ninguno.
+- Motivo de parada: la sesión del planificador en T-03 accedió al contexto de otro agente (ver .autopilot/2026-10-22_005435/T-03-plan-1-audit.txt; nada se aplica).
+- Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.
