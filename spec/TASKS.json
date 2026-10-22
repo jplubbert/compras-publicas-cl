@@ -45,26 +45,19 @@
       ],
       "plan_review": {
         "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
-        "verdict": "REVISAR",
-        "effective": "REVISAR",
-        "round": 1,
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 2,
         "plan": "plans/T-01.md",
-        "plan_sha": "6c1c1095dca96af028f4cdbd27774795bc12b66f",
-        "plan_commit": "525f4b6",
+        "plan_sha": "62d141f5349950221637daf1efae415556a06bb3",
+        "plan_commit": "cde8b9d",
         "findings": [
           {
-            "id": "setup:relock-antes-de-instalar",
-            "severity": "P1",
-            "evidence_type": "archivo",
-            "evidence": "plans/T-01.md:62 — el paso 3.4 (--relock) corre uv lock, npm install --package-lock-only y terraform providers lock antes del paso 3.5 (plans/T-01.md:68), que instala las herramientas y escribe .tools/.setup-ok.",
-            "summary": "En un clon nuevo (paso 14 ejecuta primero scripts/setup.sh --relock) todavía no hay uv, node, npm ni terraform en .tools/. Además scripts/env.sh sale en 1 si falta .tools/.setup-ok y exporta MISE_EXEC_AUTO_INSTALL=false, así que mise exec no instala lo que falta. uv lock, npm install y terraform providers lock fallan y el entorno no se puede generar como está escrito."
-          },
-          {
-            "id": "env:mise-locked-y-config-sistema",
-            "severity": "P3",
+            "id": "env:mise-system-dir-no-documentada",
+            "severity": "P2",
             "evidence_type": "fuente",
-            "evidence": "https://mise.jdx.dev/configuration/settings.html — existen locked (MISE_LOCKED: «Require tool versions and download URLs to come from the lockfile») y una configuración de sistema en /etc/mise/config.toml.",
-            "summary": "env.sh no exporta MISE_LOCKED ni anula la configuración de sistema de mise, así que una configuración en /etc/mise o un mise.lock desactualizado podrían cambiar silenciosamente de dónde salen las herramientas. Sin red no rompe el verify; endurecerlo es opcional."
+            "evidence": "https://mise.jdx.dev/configuration.html — documenta MISE_SYSTEM_CONFIG_DIR y MISE_SYSTEM_CONFIG_FILE para la configuración de sistema en /etc/mise; no documenta MISE_SYSTEM_DIR.",
+            "summary": "Los pasos 2 y 3.3 exportan MISE_SYSTEM_DIR para que mise no lea /etc/mise/config.toml. Si mise no reconoce esa variable, una configuración de sistema podría seguir aplicándose. El daño queda acotado: MISE_LOCKED=1 exige las versiones y URLs de mise.lock, y la prueba 9a exige rutas bajo .tools/."
           }
         ],
         "opinion_blockers": [],
