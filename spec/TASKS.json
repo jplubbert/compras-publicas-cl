@@ -1053,7 +1053,7 @@
         "T-04",
         "T-05"
       ],
-      "status": "ready",
+      "status": "verified_auto",
       "blocked_by": null,
       "touches": [
         "infra/bootstrap/",
@@ -1065,7 +1065,7 @@
       ],
       "verify": "scripts/env.sh bash -c 'npm run test:infra && npm run test:workflows && npm run test:ci && npm run check:spec'",
       "verify_integration": "scripts/it/state-backup.sh",
-      "notes": "",
+      "notes": "En el proveedor google 8.8.0, condition y action del lifecycle_rule son sets: el tftest los lee con one(...) en vez de [0] (mismas aserciones del plan). backup-state.sh nombra en el mensaje de STATE_BACKUP_BUCKET de dónde sacarla (terraform output -raw state_backup_bucket), como pide el plan.",
       "status_log": [
         {
           "from": "specified",
@@ -1073,6 +1073,20 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T03:52:59.367Z",
           "reason": "Pedido explícito del usuario en sesión (2026-10-22): respaldo del estado de Terraform fuera del proyecto"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "apply-result",
+          "at": "2026-10-22T15:03:51.207Z",
+          "reason": "resultado del implementador de T-17 vía autopilot (claude)"
+        },
+        {
+          "from": "in_progress",
+          "to": "verified_auto",
+          "by": "record_evidence.py",
+          "at": "2026-10-22T15:04:00+00:00",
+          "reason": "verify con código 0: 74/74 pasan, 0 fallan"
         }
       ],
       "plan_review": {
@@ -1086,6 +1100,21 @@
         "findings": [],
         "opinion_blockers": [],
         "date": "2026-10-22"
+      },
+      "claims": {
+        "manual_pending": "E6 (verify_integration): crear el proyecto de respaldo, aplicar infra/bootstrap con backup_project_id, correr scripts/backup-state.sh bootstrap, cargar STATE_BACKUP_BUCKET en el environment production, hacer un deploy a main (el paso 'Back up Terraform state' en verde) y correr STATE_BACKUP_BUCKET=… scripts/it/state-backup.sh, que debe terminar con 'state-backup: ok gs://…/infra-main/<marca>-<sha>.tfstate'. No se pudo correr 'bash -n' sobre scripts/it/state-backup.sh ni killswitch-drill.sh (la sesión no puede ejecutar scripts/it/); conviene correrlo antes de E6."
+      },
+      "evidence": {
+        "command": "scripts/env.sh bash -c 'npm run test:infra && npm run test:workflows && npm run test:ci && npm run check:spec'",
+        "exit_code": 0,
+        "passed": 74,
+        "failed": 0,
+        "total": 74,
+        "log_path": "artifacts/T-17/verify.log",
+        "log_sha256": "d2313e20f80046defcab03fd941b60c4a16604b1393e6bd3ce9de0bc70ffd9ba",
+        "commit": "05de516a61669d6e97d82b18cbde859218e6985c",
+        "timestamp": "2026-10-22T15:04:00+00:00",
+        "result": "74/74 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-17/verify.log)"
       }
     }
   ]

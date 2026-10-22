@@ -399,3 +399,12 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Hallazgos: (sin hallazgos).
 - Objeciones P0/P1 de pura opinión (no bloquean; para el usuario): ninguna.
 - Próxima acción autorizada: el orquestador lanza al implementador sobre T-17 con el plan aprobado.
+
+## 2026-10-22 12:03 · implementador de T-17 vía autopilot (claude)
+- T-17 (REQ-016): `infra/bootstrap` declara `backup_project_id` obligatoria (S-15, distinta de `project_id`), un proveedor `google.backup` y, en ese proyecto, el bucket `<backup_project_id>-tfstate-backup` versionado en `var.region` con una sola regla de lifecycle que borra a los 365 días (`with_state = ANY`); la cuenta de CI solo recibe `roles/storage.objectCreator` sobre él. Salidas nuevas: `state_backup_bucket` y `ci_state_backup_role`.
+- `deploy.yml`: tras `Terraform apply`, el paso `Back up Terraform state` (sin `if` ni `continue-on-error`) hace `terraform state pull` y sube a `infra-main/<AAAAMMDDThhmmssZ>-<sha>.tfstate` con la API JSON (`uploadType=media`, `ifGenerationMatch=0`, `curl --fail-with-body`); se agregó `setup-gcloud@v2` solo para el token y `STATE_BACKUP_BUCKET` desde `vars`.
+- Nuevos `scripts/backup-state.sh bootstrap` (una sola copia a `bootstrap/<marca>.tfstate`; sin estado local sale con 1 y nombra la ruta) y `scripts/it/state-backup.sh` (E6: busca el objeto del commit y lo restaura con `terraform state push` en una copia con backend local). `killswitch-drill.sh` exige `DRILL_BACKUP_PROJECT_ID`.
+- Pruebas: corridas `e1_bucket_de_respaldo`, `e2_ci_solo_crea_objetos`, `sin_backup_project_id` y `backup_igual_al_proyecto` en `bootstrap.tftest.hcl`; `test_e3_deploy_backs_up_state_after_apply`; `scripts/ci/tests/backup-state.test.mjs` (E4, E5 y bordes) en un directorio temporal, sin tocar el estado real.
+- Pendiente manual: el usuario crea el proyecto de respaldo (S-15), aplica `infra/bootstrap` con `backup_project_id`, corre `scripts/backup-state.sh bootstrap`, carga `STATE_BACKUP_BUCKET` en el environment `production`, hace un deploy a `main` y corre `STATE_BACKUP_BUCKET=… scripts/it/state-backup.sh` (E6).
+- Verificado y cómo: `scripts/env.sh bash -c 'npm run test:infra && npm run test:workflows && npm run test:ci && npm run check:spec'` → 74/74 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-17/verify.log), commit 05de516.
+- Próxima acción autorizada: el usuario hace la verificación de integración de T-17 (pendiente manual); el autopilot sigue con la siguiente tarea `ready`.
