@@ -610,7 +610,7 @@
         "T-01",
         "T-02"
       ],
-      "status": "verified_auto",
+      "status": "reviewed",
       "blocked_by": null,
       "notes": "2026-10-22: escalada por el orquestador (DEC-005): el decisor (jev) no resolvió la causa del fallo (confidence 0.45 < 0.8 (threshold)); sin informe; bloqueada por Q-06. 2026-10-22 (implementador): se apartó del plan en dos detalles internos que sugirió el crítico, siguiendo REQ-004: solo 401/403 en un detalle cortan la corrida (un 400 en un detalle es una línea de error y el job sigue; un listado que no responde 200 termina con 1 igual), y configure_logging es idempotente y resuelve sys.stderr en cada registro. BronzeWriter recibe los secretos. Quedan sin implementar otras dos sugerencias P2/P3 del crítico, que el plan aprobado no incluye: una pausa configurable entre requests ante el 429 (código 10500) y un tope a Retry-After. Para T-08: la imagen debe instalar tzdata (ZoneInfo('America/Santiago')) y fijar BRONZE_BUCKET y GOOGLE_CLOUD_PROJECT en el Cloud Run Job.",
       "touches": [
@@ -654,6 +654,13 @@
           "by": "record_evidence.py",
           "at": "2026-10-22T16:10:51+00:00",
           "reason": "verify con código 0: 61/61 pasan, 0 fallan"
+        },
+        {
+          "from": "verified_auto",
+          "to": "reviewed",
+          "by": "set-review",
+          "at": "2026-10-22T16:11:41.279Z",
+          "reason": "veredicto approved confirmado por el decisor"
         }
       ],
       "plan_review": {
@@ -718,6 +725,20 @@
         "commit": "c7cee5d3325681e6d20f16a4e99fb59da2f87b18",
         "timestamp": "2026-10-22T16:10:51+00:00",
         "result": "61/61 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-06/verify.log)"
+      },
+      "review": {
+        "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "No pude ejecutar las pruebas de la tarea (permiso denegado para scripts/env.sh uv run pytest ingest/tests); el veredicto se apoya en artifacts/T-06/verify.log (sha256 3a987c7b…cef5b16, coincide con el registrado: 61/61 pasan) y en la lectura del diff; npm run lint y npm run check:repo salen con 0. Cada ejemplo E1–E8 de REQ-004 tiene al menos una prueba en ingest/tests/test_mercadopublico.py; el alcance se limita a ingest/ y scripts/it/ (los touches de la tarea). Observaciones no bloqueantes: (a) la traza de REQ-004 apunta a tests/acceptance/T-06*, pero las pruebas viven en ingest/tests/ (el plan aprobado lo declara: test-author apagado); (b) un 401/403 en un detalle corta la corrida con 1 en lugar de quedar como línea de error y seguir, decisión de diseño razonable y probada, que REQ-004 no exige explícitamente; (c) con --from/--to y un cursor dentro del rango se omiten los días del rango anteriores al cursor, y con un cursor posterior a D el job sale con 2 (plan aprobado); (d) una excepción inesperada (p. ej. httpx.ConnectError, que no es timeout) termina con 1 sin vaciar el búfer del escritor ni guardar el cursor más allá del inicio del día; (e) Retry-After no tiene tope y no hay pausa configurable entre requests (sugerencias P2/P3 del crítico que el plan no incluyó); (f) falta correr bash -n y la verificación de integración de scripts/it/ingest-mp.sh, que corre el usuario.",
+        "date": "2026-10-22",
+        "decision": {
+          "question_id": "review_verdict",
+          "decider": "jev",
+          "confidence": 0.98,
+          "threshold": 0.8,
+          "timestamp": "2026-10-22T16:11:40.651Z"
+        }
       }
     },
     {

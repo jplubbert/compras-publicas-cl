@@ -448,3 +448,8 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Pendiente manual: el usuario corre `GOOGLE_CLOUD_PROJECT=<proyecto> IT_BUCKET=<bucket de pruebas> scripts/it/ingest-mp.sh <fecha hábil>` con ADC y espera `ingest-mp: ok run_id=… lineas=… requests=…`. Conviene correr antes `bash -n scripts/it/ingest-mp.sh` (esta sesión no pudo).
 - Verificado y cómo: `scripts/env.sh bash -c 'npm run test:ingest && npm run check:spec'` → 61/61 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-06/verify.log), commit c7cee5d.
 - Próxima acción autorizada: revisión independiente de T-06; después, el autopilot sigue con la siguiente tarea `ready` (T-07).
+
+## 2026-10-22 13:11 · revisor independiente (claude -p 2.1.295 (Claude Code)) vía autopilot
+- Hecho: revisión independiente de T-06 con contexto limpio (solo diff + REQ/DEC de la tarea). Veredicto: **approved** → estado `reviewed`. Hallazgos: sin hallazgos bloqueantes.
+- Verificado y cómo: veredicto completo en TASKS.json (`review` de T-06); salida íntegra en .autopilot/2026-10-22_130853/T-06-review-output.txt.
+- Próxima acción autorizada: continúa el autopilot; el usuario decide accepted después de la corrida.
