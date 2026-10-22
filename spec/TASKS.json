@@ -1338,7 +1338,41 @@
           "at": "2026-10-22T02:23:37.448Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
         }
-      ]
+      ],
+      "plan_review": {
+        "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "REVISAR",
+        "effective": "REVISAR",
+        "round": 1,
+        "plan": "plans/T-11.md",
+        "plan_sha": "e6c763554ddc7708815d52e7db6b0f03e263662d",
+        "plan_commit": "20a84df",
+        "findings": [
+          {
+            "id": "iam:workflow-sin-actas-sobre-dataform",
+            "severity": "P1",
+            "evidence_type": "fuente",
+            "evidence": "https://docs.cloud.google.com/dataform/docs/strict-act-as-mode — «Strict act-as mode is enforced for all repositories» y «You should have the Service Account User role granted for the effective service account used in the workflow invocation»; la cuenta efectiva es la de InvocationConfig si está fijada.",
+            "summary": "El paso 1.6 crea la invocación con invocationConfig.serviceAccount = compras-dataform, pero el paso 4 solo le da a compras-workflow roles/dataform.editor y roles/run.viewer. Sin iam.serviceAccounts.actAs sobre compras-dataform, workflowInvocations.create falla con un error de permisos en la primera corrida real. Ninguna prueba local lo detecta y la corrida diaria nunca llega a transformar."
+          },
+          {
+            "id": "iam:service-identity-dataform-no-confirmado",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "No encontré en la documentación de Terraform que google_project_service_identity acepte dataform.googleapis.com; solo un ejemplo de Pulumi lo usa.",
+            "summary": "Si generateServiceIdentity no acepta Dataform, el apply falla antes de crear el repositorio, y no hay un plan B documentado."
+          },
+          {
+            "id": "req-007:alerta-status-failed-no-documentado",
+            "severity": "P3",
+            "evidence_type": "fuente",
+            "evidence": "https://docs.cloud.google.com/workflows/docs/monitor — lista la etiqueta status de finished_execution_count, pero no sus valores; la métrica está en Beta.",
+            "summary": "El valor \"FAILED\" del filtro no está documentado de forma explícita; si fuera otro, la alerta de E4 nunca dispararía, y solo lo mostraría E5 en la integración."
+          }
+        ],
+        "opinion_blockers": [],
+        "date": "2026-10-22"
+      }
     },
     {
       "id": "T-12",
