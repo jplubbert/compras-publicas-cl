@@ -549,3 +549,13 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Bloqueos nuevos: T-08 (Q-07).
 - Motivo de parada: presupuesto de tareas alcanzado (1).
 - Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.
+
+## 2026-10-22 · Claude (claude-opus-5-5) · sesión: T-08 revisada por el usuario (Q-07)
+- José Pedro Lübbert registró su revisión de T-08 con `set-user-review` (T-103 de sdd-base): `reviewed` y Q-07
+  respondida. El revisor del orquestador había escrito un veredicto approved sin hallazgos, pero Jev lo confirmó con
+  confianza 0,34 (T-101 de sdd-base, que lo vuelve determinista, todavía no estaba en este repo).
+- Pendiente manual (del usuario, antes de aceptar): correr la integración E3 de REQ-006 (`scripts/it/run-jobs.sh`);
+  `bash -n` de `scripts/it/run-jobs.sh` y `tf-apply.sh`; revisar que un error de credenciales en el load job nombre la
+  tabla (hoy cae en el manejador genérico); volver a aplicar `infra/bootstrap` antes del merge. El revisor no pudo correr
+  pytest de T-08 (permiso denegado) y se apoyó en el hash del log de evidencia.
+- Próxima acción autorizada: upgrade de sdd-base (con T-101 revisada) y relanzar el encadenado (T-09).
