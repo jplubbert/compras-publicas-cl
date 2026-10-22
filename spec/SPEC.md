@@ -394,7 +394,7 @@ Trazas: objetivo §Criterio de éxito (1)(3) · decisiones: DEC-001 · prueba: t
 | S-14 | la API de Mercado Público trae un campo de fecha de última modificación o de cambio de estado por documento | `fecha_cambio` = ese campo; si no existe, `ingested_at`; T-02 lo confirma | requiere spike | T-02 |
 | S-08 | las series de la BDE son UF `F073.UFF.PRE.Z.D`, dólar observado `F073.TCO.PRE.Z.D` e IPC `F074.IPC.VAR.Z.Z.C.M` | esas tres; T-02 las confirma | reversible | T-02 encuentra otros códigos |
 | S-09 | BDE y mindicador coinciden hasta el centavo | tolerancia ≤ 0,01 CLP en UF y dólar | reversible | la reconciliación falla sin error real |
-| S-10 | `terraform test` con `mock_provider` prueba `infra/` sin credenciales y lee pruebas fuera del módulo con `-test-directory` | pruebas de infra en `tests/acceptance/T-NN*.tftest.hcl`; si no se puede, `scripts/acceptance.sh` copia el archivo al módulo antes de correrlo | reversible | T-01 lo descarta |
+| S-10 | `terraform test` con `mock_provider` prueba `infra/` sin credenciales y lee pruebas fuera del módulo con `-test-directory` (2026-10-22, T-01: lo primero se cumple; lo segundo no, y `scripts/acceptance.sh` copia el archivo a la raíz) | pruebas de infra en `tests/acceptance/T-NN*.tftest.hcl`; si no se puede, `scripts/acceptance.sh` copia el archivo al módulo antes de correrlo | reversible | T-01 lo descarta |
 | S-11 | no hace falta `spec/COVERAGE.json` en este corte | sin regla de cobertura desde aceptación | diferible | un corte futuro la pide |
 | S-12 | 30 a 50 millones de filas sintéticas (~3–5 GB) bastan para que se note la diferencia | 40.000.000 filas, 5 años de fechas, 2.000 organismos | reversible | el ahorro medido es menor que 50 % |
 | S-13 | los nombres de recursos del proveedor `google` (Dataform, taxonomía de policy tags, cuota de BigQuery, presupuesto) siguen vigentes tras el apagado de Data Catalog | los que confirme T-02 | requiere spike | T-02 |
@@ -405,7 +405,7 @@ Trazas: objetivo §Criterio de éxito (1)(3) · decisiones: DEC-001 · prueba: t
 | Q-01 | ¿El proyecto GCP va en una cuenta nueva (crédito de USD 300 por 90 días) o en una existente? | resuelta 2026-10-21: cuenta nueva (respuesta del usuario) | — | usuario | — |
 | Q-02 | ¿Ya tienes el ticket de Mercado Público (Clave Única) y el usuario de la BDE? | diferible; 2026-10-21: todavía no, los obtiene el usuario | `verify_integration` de T-06, T-07 | usuario | antes de la primera corrida real |
 | Q-03 | ¿Cuál es el correo de las alertas (presupuesto y Workflow)? | resuelta 2026-10-21: el Gmail del usuario; va en la variable `alert_email` de un `terraform.tfvars` fuera de git (repo público, R-05) | — | usuario | — |
-| Q-04 | ¿Cómo sigue T-01? El orquestador la escaló por la causa de su fallo según el decisor (DEC-015): el decisor (jev) no resolvió la causa del fallo (confidence 0.76 < 0.8 (threshold)) (sin informe). | bloqueante | T-01 | usuario | — |
+| Q-04 | ¿Cómo sigue T-01? El orquestador la escaló por la causa de su fallo según el decisor (DEC-015): el decisor (jev) no resolvió la causa del fallo (confidence 0.76 < 0.8 (threshold)) (sin informe). | resuelta 2026-10-22: T-01 y T-02 se implementan en sesión interactiva, que tiene red y web (el implementador del autopilot no tiene ninguna de las dos); decisión reversible según los criterios del usuario | — | Claude (sesión) | — |
 
 ## Plan (corte 1)
 ### Diseño

@@ -12,8 +12,8 @@
         "DEC-005"
       ],
       "depends_on": [],
-      "status": "blocked",
-      "blocked_by": "Q-04",
+      "status": "in_progress",
+      "blocked_by": null,
       "notes": "2026-10-21: herramientas con mise local en .tools/, sin sudo; verify a través de scripts/env.sh (pedido de José Pedro Lübbert). 2026-10-21: escalada por el orquestador (DEC-005): el decisor (jev) no resolvió la causa del fallo (confidence 0.76 < 0.8 (threshold)); sin informe; bloqueada por Q-04.",
       "kind": "tooling",
       "touches": [
@@ -48,6 +48,13 @@
           "by": "escalate",
           "at": "2026-10-22T02:42:57.847Z",
           "reason": "escalada al usuario por Q-04"
+        },
+        {
+          "from": "blocked",
+          "to": "in_progress",
+          "by": "Claude (sesión interactiva)",
+          "at": "2026-10-22T02:54:42.354Z",
+          "reason": "Q-04: T-01 se implementa en sesión, que tiene red para setup.sh (decisión reversible, criterios del usuario)"
         }
       ],
       "plan_review": {
