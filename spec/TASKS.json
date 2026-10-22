@@ -759,9 +759,9 @@
       "depends_on": [
         "T-06"
       ],
-      "status": "ready",
+      "status": "verified_auto",
       "blocked_by": null,
-      "notes": "",
+      "notes": "El payload de la BDE se redacta en BancoCentral.get_series solo cuando repite el token (p. ej. una Descripcion de error): así la línea del rechazo queda en bronze redactada, como pide el plan, sin que BronzeWriter la rechace. En el cli, BRONZE_BUCKET se valida antes que los argumentos de mercadopublico (común a los dos subcomandos, como en el plan); ambos casos siguen saliendo con 2. El helper `obs` de las pruebas quedó como función de conftest y no como método de Env.",
       "touches": [
         "ingest/",
         "scripts/it/"
@@ -775,6 +775,20 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:23:37.128Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "apply-result",
+          "at": "2026-10-22T19:01:35.999Z",
+          "reason": "resultado del implementador de T-07 vía autopilot (claude)"
+        },
+        {
+          "from": "in_progress",
+          "to": "verified_auto",
+          "by": "record_evidence.py",
+          "at": "2026-10-22T19:01:38+00:00",
+          "reason": "verify con código 0: 85/85 pasan, 0 fallan"
         }
       ],
       "plan_review": {
@@ -817,6 +831,21 @@
         ],
         "opinion_blockers": [],
         "date": "2026-10-22"
+      },
+      "claims": {
+        "manual_pending": "Correr GOOGLE_CLOUD_PROJECT=<proyecto> IT_BUCKET=<bucket de pruebas> scripts/it/ingest-indicadores.sh 2026-10-20 con ADC y el token cargado en bcentral-token: debe imprimir tres líneas 'S-08 …: encontrada' y 'ingest-indicadores: ok run_id=… series=3 …' y salir con 0. Además, `bash -n scripts/it/ingest-indicadores.sh` y la salida 2 sin argumentos no se comprobaron en esta sesión (el permiso para ejecutar scripts/it/ fue denegado)."
+      },
+      "evidence": {
+        "command": "scripts/env.sh bash -c 'npm run test:ingest && npm run check:spec'",
+        "exit_code": 0,
+        "passed": 85,
+        "failed": 0,
+        "total": 85,
+        "log_path": "artifacts/T-07/verify.log",
+        "log_sha256": "0e402d43243580d9262ac6b444eac911d7deba063cfd4b039a8121f440effe34",
+        "commit": "580ff284b7788360619019603a9a50c3e87a8253",
+        "timestamp": "2026-10-22T19:01:38+00:00",
+        "result": "85/85 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-07/verify.log)"
       }
     },
     {
