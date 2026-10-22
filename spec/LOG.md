@@ -530,3 +530,7 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Pendiente manual: antes del merge, el usuario vuelve a aplicar `infra/bootstrap` (roles nuevos de CI); después del merge y de un `deploy.yml` verde, `GOOGLE_CLOUD_PROJECT=<proyecto> GCP_REGION=us-central1 scripts/it/run-jobs.sh <fecha>` debe terminar con `run-jobs: ok`. La sesión no pudo correr `bash -n` sobre `scripts/it/run-jobs.sh` ni `scripts/it/tf-apply.sh` (sí corren sus pruebas de uso y de reintento).
 - Verificado y cómo: `scripts/env.sh bash -c 'npm run test:ingest && npm run test:infra && npm run test:workflows && npm run check:spec'` → 175/175 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-08/verify.log), commit 7c86bfd.
 - Próxima acción autorizada: revisión independiente de T-08; luego el usuario reaplica el bootstrap, hace el merge y corre la verificación de integración de T-08.
+
+## 2026-10-22 16:46 · autopilot (scripts/autopilot.sh): revisión sin veredicto de T-08
+- Decisión: escalar T-08 al usuario (DEC-030): revisión sin veredicto: el decisor (jev) no resolvió el veredicto de la revisión (confidence 0.34 < 0.8 (threshold); ver .autopilot/2026-10-22_160337/T-08-review-output.txt). Queda `blocked` por Q-07, nueva en «Preguntas abiertas» de SPEC.md.
+- Próxima acción autorizada: el usuario responde Q-07; el orquestador no vuelve a tomar T-08 mientras siga blocked.
