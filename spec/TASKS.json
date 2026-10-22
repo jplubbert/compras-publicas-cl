@@ -116,11 +116,6 @@
           "threshold": 0.8,
           "timestamp": "2026-10-22T03:39:27.683Z"
         }
-      },
-      "merged": {
-        "into": "autopilot/2026-10-22_010033/T-03-1",
-        "commit": "bd91412812dd70379480bbc003fedd2848873e69",
-        "at": "2026-10-22T11:44:54.421Z"
       }
     },
     {
@@ -216,11 +211,6 @@
           "threshold": 0.8,
           "timestamp": "2026-10-22T03:40:00.807Z"
         }
-      },
-      "merged": {
-        "into": "autopilot/2026-10-22_010033/T-03-1",
-        "commit": "bd91412812dd70379480bbc003fedd2848873e69",
-        "at": "2026-10-22T11:44:54.519Z"
       }
     },
     {
@@ -315,11 +305,6 @@
         ],
         "opinion_blockers": [],
         "date": "2026-10-22"
-      },
-      "merged": {
-        "into": "autopilot/2026-10-22_010033/T-03-1",
-        "commit": "bd91412812dd70379480bbc003fedd2848873e69",
-        "at": "2026-10-22T11:44:54.625Z"
       },
       "claims": {
         "manual_pending": "verify_integration de T-03 contra GCP: exportar TF_VAR_project_id, TF_VAR_region y TF_VAR_github_repository; correr scripts/it/tf-plan.sh bootstrap, aplicar infra/bootstrap a mano y correr scripts/it/tf-plan.sh main; después del primer apply de main, un segundo tf-plan.sh main debe salir sin cambios."
