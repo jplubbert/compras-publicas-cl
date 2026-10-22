@@ -914,47 +914,33 @@
       ],
       "plan_review": {
         "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
-        "verdict": "REVISAR",
-        "effective": "REVISAR",
-        "round": 1,
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 2,
         "plan": "plans/T-08.md",
-        "plan_sha": "1f1b96c62ee28f2f335b06f2acc2af55c8a330ea",
-        "plan_commit": "32c9b32",
+        "plan_sha": "6ad23801e8ad9e4f2264a649ee2f444107e78f5f",
+        "plan_commit": "fa2055e",
         "findings": [
           {
-            "id": "infra:actas-sin-orden-ni-propagacion",
-            "severity": "P1",
-            "evidence_type": "fuente",
-            "evidence": "https://discuss.hashicorp.com/t/handle-perms-eventual-consistency-propagation-time/74572 — depends_on no resuelve la propagación de IAM; https://docs.cloud.google.com/run/docs/configuring/jobs/service-identity — el desplegador necesita roles/iam.serviceAccountUser (actAs) sobre la cuenta del job.",
-            "summary": "El paso 9 crea el binding ci_actas_ingest en module.iam, y el paso 8 crea los google_cloud_run_v2_job, que dependen solo de module.iam.emails['ingest'] y no del binding. En el primer apply de deploy.yml, Terraform puede crear el job antes que el binding o antes de que se propague, y la creación falla por falta de iam.serviceAccounts.actAs. El apply queda en error."
-          },
-          {
-            "id": "deploy:fallo-permisos-en-apply-no-release",
+            "id": "req-006:e5-schemasuffix-fuera-de-deploy-yml",
             "severity": "P2",
-            "evidence_type": "opinión",
-            "evidence": "Plan, Riesgos: «el fallo se ve en el job release, después de apply y del respaldo del estado».",
-            "summary": "El repositorio de Artifact Registry y los Cloud Run Jobs se crean en el job apply (infra/main), que ya necesita roles/run.admin, roles/artifactregistry.admin y actAs. Sin el bootstrap reaplicado, falla el apply, no el release, y el riesgo está mal descrito."
+            "evidence_type": "archivo",
+            "evidence": "spec/SPEC.md:211 — E5 tiene como entrada `.github/workflows/deploy.yml` y espera que corra Dataform con `schemaSuffix: \"ci\"` y `raw_dataset=raw_ci`; el plan los pone en scripts/ci/dataform-ci.sh y deploy.yml solo llama al script.",
+            "summary": "La prueba del plan cubre E5 leyendo el script, pero una prueba de aceptación o un evaluador que lea solo deploy.yml no verá schemaSuffix ni raw_dataset. Es una lectura defendible del REQ, pero frágil."
           },
           {
-            "id": "it:conteo-run-jobs-solo-fecha-d",
+            "id": "req-006:sin-prueba-en-tests-acceptance",
             "severity": "P2",
-            "evidence_type": "opinión",
-            "evidence": "Plan, paso 14: cuenta las líneas de los archivos bajo fecha=D y las compara con las filas de raw con ese run_id.",
-            "summary": "Una corrida de Mercado Público que termina días pendientes del cursor (REQ-004 E8) escribe, con el mismo run_id, archivos en varias fecha=…; raw tendría más filas que las líneas de fecha=D y la integración falla sin error real."
+            "evidence_type": "archivo",
+            "evidence": "spec/SPEC.md:212 — «prueba: tests/acceptance/T-08*»; el plan no crea ni corre ningún archivo en tests/acceptance/.",
+            "summary": "La traza de REQ-006 apunta a tests/acceptance/T-08*, pero las pruebas del plan quedan en ingest/tests y scripts/ci/tests; la guarda de trazas o scripts/acceptance.sh podrían no encontrar la prueba de la tarea."
           },
           {
-            "id": "infra:apis-run-artifactregistry",
-            "severity": "P2",
-            "evidence_type": "opinión",
-            "evidence": "Plan, pasos 8 y 9: no mencionan google_project_service para run.googleapis.com ni artifactregistry.googleapis.com.",
-            "summary": "Si T-03 no habilitó esas APIs, el apply falla al crear el repositorio y los jobs."
-          },
-          {
-            "id": "req-006:ingest-date-requerida-bronze-antiguo",
+            "id": "req-014:policy-tag-rut-en-corrida-ci",
             "severity": "P3",
-            "evidence_type": "opinión",
-            "evidence": "Plan, pasos 1, 2 y 4: _ingest_date REQUIRED y subcomando load para reprocesar por run_id.",
-            "summary": "Los archivos de bronze escritos antes de este cambio (integración de T-06 y T-07) no traen _ingest_date, así que reprocesarlos con load falla."
+            "evidence_type": "archivo",
+            "evidence": "spec/SPEC.md:349 — la variable `policy_tag_rut` debe llegar a Dataform «en la corrida de `ci` de `deploy.yml`».",
+            "summary": "dataform-ci.sh pasa solo raw_dataset; hoy no falla porque la variable recién se exige con T-14, pero entonces la corrida de CI dejará de compilar si nadie la agrega."
           }
         ],
         "opinion_blockers": [],
