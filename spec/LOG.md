@@ -313,3 +313,18 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Bloqueos nuevos: ninguno.
 - Motivo de parada: presupuesto de tareas alcanzado (1).
 - Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.
+
+## 2026-10-22 10:45 · autopilot (scripts/autopilot.sh)
+- Hecho: lote autopilot/lote listo (DEC-033): T-04 revisadas y la suite del lote pasa; el merge es tuyo: `git checkout master && git merge --ff-only autopilot/lote`. Corrida 2026-10-22_104023 (5 min, 0 tarea(s) completada(s), 0 fallo(s)); registros en .autopilot/2026-10-22_104023/.
+- Tokens (todos los agentes, campo usage del evento result): T-05 plan: entrada 38 · salida 33.419 · caché leída 1.025.544 · caché escrita 93.864; total de la corrida: entrada 38 · salida 33.419 · caché leída 1.025.544 · caché escrita 93.864.
+- Tokens para el tope (DEC-048; cuentan entrada, salida y caché escrita): en esta corrida 127.321 cuentan para el tope (entrada 38 · salida 33.419 · caché escrita 93.864) y 1.025.544 de caché leída aparte; en 2026-10, 3.398.684 de un tope de 50.000.000 y 30.287.298 de caché leída.
+- Pendiente manual (el usuario la hace al aceptar en lote): T-03: verify_integration de T-03 contra GCP: exportar TF_VAR_project_id, TF_VAR_region y TF_VAR_github_repository; correr scripts/it/tf-plan.sh bootstrap, aplicar infra/bootstrap a mano y correr scripts/it/tf-plan.sh main; después del primer apply de main, un segundo tf-plan.sh main debe salir sin cambios; T-04: Integración en GitHub: crear el environment `production` (con aprobación) y las variables de repositorio GCP_PROJECT_ID, GCP_REGION, WIF_PROVIDER y CI_SERVICE_ACCOUNT (salidas del bootstrap); abrir un PR hacia `main` desde una rama del repo, comprobar que `checks` y `plan` pasan y que el PR recibe el comentario con `Plan:` o `No changes.`; correr `scripts/it/last-ci-run.sh` (sale 0 con `last-ci-run: success`).
+- Pendiente deploy (el usuario corre `merge to main (GitHub Actions applies infra/main); infra/bootstrap is applied by the user`; el orquestador no despliega): ninguna.
+- Investigador (DEC-005; modo web, topes 900 s y US$ 2 por invocación): investigadas: ninguna; reintentadas con la recomendación: ninguna; escaladas al usuario (blocked con su Q-NN): ninguna.
+- Crítica de planes (DEC-010; crítico claude, topes 1200 s y US$ 3): planes aprobados: ninguna; escaladas al usuario (blocked con su Q-NN): ninguna; objeciones P0/P1 de pura opinión, para el usuario: ninguna.
+- Cobertura desde aceptación (DEC-011 de sdd-base): fuera de la regla (sin spec/COVERAGE.json; la aceptación no corre en local con cobertura); tarea para habilitarla: T-16.
+- Verificado y cómo: sin comandos ejecutados.
+- En curso / roto: árbol de trabajo sucio (ver git status).
+- Bloqueos nuevos: ninguno.
+- Motivo de parada: la sesión del planificador en T-05 accedió al contexto de otro agente (ver .autopilot/2026-10-22_104023/T-05-plan-1-audit.txt; nada se aplica).
+- Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.
