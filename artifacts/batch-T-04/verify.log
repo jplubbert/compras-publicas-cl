@@ -2,9 +2,9 @@
 > test:workflows
 > scripts/env.sh uv run --frozen pytest scripts/ci/tests
 
-.........................                                                [100%]
-Tests: 0 failed, 25 passed, 25 total
-25 passed in 0.17s
+.................................                                        [100%]
+Tests: 0 failed, 33 passed, 33 total
+33 passed in 0.67s
 
 > check:repo
 > node scripts/ci/check-repo.mjs

@@ -3,7 +3,7 @@
 > scripts/env.sh uv run --frozen pytest finops/killswitch/tests
 
 ..................                                                       [100%]
-18 passed in 0.27s
+18 passed in 0.66s
 
 > test:infra
 > scripts/ci/tf-test.sh
@@ -13,6 +13,7 @@ Success! The configuration is valid.
 tests/bootstrap.tftest.hcl... in progress
   run "state_bucket_and_wif"... pass
   run "ci_account_without_billing"... pass
+  run "t08_ci_run_y_artifact_registry"... pass
   run "e2_without_project_id"... pass
   run "e2_without_region"... pass
   run "e2_without_github_repository"... pass
@@ -32,7 +33,7 @@ tests/bootstrap.tftest.hcl... in progress
 tests/bootstrap.tftest.hcl... tearing down
 tests/bootstrap.tftest.hcl... pass
 
-Success! 18 passed, 0 failed.
+Success! 19 passed, 0 failed.
 Success! The configuration is valid.
 
 tests/main.tftest.hcl... in progress
@@ -46,11 +47,15 @@ tests/main.tftest.hcl... in progress
   run "e6_cuotas_bigquery"... pass
   run "e6_cuota_no_positiva"... pass
   run "secretos_sin_versiones"... pass
+  run "t08_ingest_jobs"... pass
+  run "t08_raw_tables"... pass
+  run "t08_ci_actas"... pass
+  run "t08_apis"... pass
 tests/main.tftest.hcl... tearing down
 tests/main.tftest.hcl... pass
 
-Success! 10 passed, 0 failed.
-Tests: 0 failed, 0 skipped, 28 passed, 28 total
+Success! 14 passed, 0 failed.
+Tests: 0 failed, 0 skipped, 33 passed, 33 total
 
 > check:spec
 > node scripts/check-spec.mjs

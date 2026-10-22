@@ -449,14 +449,14 @@
       "evidence": {
         "command": "scripts/env.sh bash -c 'npm run test:workflows && npm run check:repo && npm run check:spec'",
         "exit_code": 0,
-        "passed": 25,
+        "passed": 33,
         "failed": 0,
-        "total": 25,
+        "total": 33,
         "log_path": "artifacts/batch-T-04/verify.log",
-        "log_sha256": "f4515115ae57bd9db74f7b295db29b69deb7d9af722fade81207296f4cbb03fe",
-        "commit": "fd86da56c331bb0ad704cca463dc3452380c6617",
-        "timestamp": "2026-10-22T19:02:16+00:00",
-        "result": "25/25 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-04/verify.log)",
+        "log_sha256": "124572caaa84b0fe36a2ce29d5e0890871afd02a32853d5de3034fce9d3e1fbb",
+        "commit": "bc4f116d44b31715de428b05edb395495bc42191",
+        "timestamp": "2026-10-22T20:25:20+00:00",
+        "result": "33/33 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-04/verify.log)",
         "batch": [
           "T-04"
         ]
@@ -568,14 +568,14 @@
       "evidence": {
         "command": "scripts/env.sh bash -c 'npm run test:finops && npm run test:infra && npm run check:spec'",
         "exit_code": 0,
-        "passed": 28,
+        "passed": 33,
         "failed": 0,
-        "total": 28,
+        "total": 33,
         "log_path": "artifacts/batch-T-05/verify.log",
-        "log_sha256": "b466e66c82206d06fc2c43e7bb14ccd98a1ac06235f0f15fa216586a28cc2d4d",
-        "commit": "fd86da56c331bb0ad704cca463dc3452380c6617",
-        "timestamp": "2026-10-22T19:02:24+00:00",
-        "result": "28/28 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-05/verify.log)",
+        "log_sha256": "943e33e5bb54ea391c84003a68041db7cc9c717d4b81c038b97ce41af31c6d59",
+        "commit": "bc4f116d44b31715de428b05edb395495bc42191",
+        "timestamp": "2026-10-22T20:25:31+00:00",
+        "result": "33/33 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-05/verify.log)",
         "batch": [
           "T-05"
         ]
@@ -717,14 +717,14 @@
       "evidence": {
         "command": "scripts/env.sh bash -c 'npm run test:ingest && npm run check:spec'",
         "exit_code": 0,
-        "passed": 85,
+        "passed": 109,
         "failed": 0,
-        "total": 85,
+        "total": 109,
         "log_path": "artifacts/batch-T-06_T-07/verify.log",
-        "log_sha256": "0e402d43243580d9262ac6b444eac911d7deba063cfd4b039a8121f440effe34",
-        "commit": "fd86da56c331bb0ad704cca463dc3452380c6617",
-        "timestamp": "2026-10-22T19:02:26+00:00",
-        "result": "85/85 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-06_T-07/verify.log)",
+        "log_sha256": "46f1db3df4243a9d9101bc807512d721b8f7ff2dce56c047df02e42eed0bcf20",
+        "commit": "bc4f116d44b31715de428b05edb395495bc42191",
+        "timestamp": "2026-10-22T20:25:34+00:00",
+        "result": "109/109 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-06_T-07/verify.log)",
         "batch": [
           "T-06",
           "T-07"
@@ -846,14 +846,14 @@
       "evidence": {
         "command": "scripts/env.sh bash -c 'npm run test:ingest && npm run check:spec'",
         "exit_code": 0,
-        "passed": 85,
+        "passed": 109,
         "failed": 0,
-        "total": 85,
+        "total": 109,
         "log_path": "artifacts/batch-T-06_T-07/verify.log",
-        "log_sha256": "0e402d43243580d9262ac6b444eac911d7deba063cfd4b039a8121f440effe34",
-        "commit": "fd86da56c331bb0ad704cca463dc3452380c6617",
-        "timestamp": "2026-10-22T19:02:26+00:00",
-        "result": "85/85 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-06_T-07/verify.log)",
+        "log_sha256": "46f1db3df4243a9d9101bc807512d721b8f7ff2dce56c047df02e42eed0bcf20",
+        "commit": "bc4f116d44b31715de428b05edb395495bc42191",
+        "timestamp": "2026-10-22T20:25:34+00:00",
+        "result": "109/109 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-06_T-07/verify.log)",
         "batch": [
           "T-06",
           "T-07"
@@ -983,11 +983,14 @@
         "passed": 175,
         "failed": 0,
         "total": 175,
-        "log_path": "artifacts/T-08/verify.log",
-        "log_sha256": "e1ef30d964d9838cb456be9279b154d294b17acdf5f5990b8ec10abe9594e8cb",
-        "commit": "7c86bfdf75ddf8c39b521270019f452e98480863",
-        "timestamp": "2026-10-22T19:45:19+00:00",
-        "result": "175/175 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-08/verify.log)"
+        "log_path": "artifacts/batch-T-08/verify.log",
+        "log_sha256": "1072bca6874a25f447308e74fb7ef2464ae690feb80f873339948273af9d6dec",
+        "commit": "bc4f116d44b31715de428b05edb395495bc42191",
+        "timestamp": "2026-10-22T20:25:45+00:00",
+        "result": "175/175 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-08/verify.log)",
+        "batch": [
+          "T-08"
+        ]
       },
       "review": {
         "reviewer": "José Pedro Lübbert",
@@ -1102,11 +1105,14 @@
         "passed": 33,
         "failed": 0,
         "total": 33,
-        "log_path": "artifacts/T-09/verify.log",
-        "log_sha256": "0c9609e7b3ff63b10360d2d0b8ce8a0572f1f6a67b814de63adc4ff8b88426b5",
-        "commit": "0cedff3291ee9609907cf5c1fa849341f7d2b1f1",
-        "timestamp": "2026-10-22T20:24:17+00:00",
-        "result": "33/33 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-09/verify.log)"
+        "log_path": "artifacts/batch-T-09/verify.log",
+        "log_sha256": "bf20a9da4efa8795cc5daf9f45a10712cfcf974a2b87fd70e09844a74d482cb1",
+        "commit": "bc4f116d44b31715de428b05edb395495bc42191",
+        "timestamp": "2026-10-22T20:25:49+00:00",
+        "result": "33/33 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-09/verify.log)",
+        "batch": [
+          "T-09"
+        ]
       },
       "review": {
         "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
@@ -1443,14 +1449,14 @@
       "evidence": {
         "command": "scripts/env.sh bash -c 'npm run test:infra && npm run test:workflows && npm run test:ci && npm run check:spec'",
         "exit_code": 0,
-        "passed": 74,
+        "passed": 87,
         "failed": 0,
-        "total": 74,
+        "total": 87,
         "log_path": "artifacts/batch-T-17/verify.log",
-        "log_sha256": "cf58d1ba651b785420b8d1d93eaba3a293500adbd381b5b07117406cbc74e809",
-        "commit": "fd86da56c331bb0ad704cca463dc3452380c6617",
-        "timestamp": "2026-10-22T19:02:35+00:00",
-        "result": "74/74 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-17/verify.log)",
+        "log_sha256": "b2c673def03cfec4974300e764f2c793a4504f5907ed6a9e4c417af75419828d",
+        "commit": "bc4f116d44b31715de428b05edb395495bc42191",
+        "timestamp": "2026-10-22T20:25:59+00:00",
+        "result": "87/87 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-17/verify.log)",
         "batch": [
           "T-17"
         ]

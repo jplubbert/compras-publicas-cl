@@ -7,6 +7,7 @@ Success! The configuration is valid.
 tests/bootstrap.tftest.hcl... in progress
   run "state_bucket_and_wif"... pass
   run "ci_account_without_billing"... pass
+  run "t08_ci_run_y_artifact_registry"... pass
   run "e2_without_project_id"... pass
   run "e2_without_region"... pass
   run "e2_without_github_repository"... pass
@@ -26,7 +27,7 @@ tests/bootstrap.tftest.hcl... in progress
 tests/bootstrap.tftest.hcl... tearing down
 tests/bootstrap.tftest.hcl... pass
 
-Success! 18 passed, 0 failed.
+Success! 19 passed, 0 failed.
 Success! The configuration is valid.
 
 tests/main.tftest.hcl... in progress
@@ -40,43 +41,47 @@ tests/main.tftest.hcl... in progress
   run "e6_cuotas_bigquery"... pass
   run "e6_cuota_no_positiva"... pass
   run "secretos_sin_versiones"... pass
+  run "t08_ingest_jobs"... pass
+  run "t08_raw_tables"... pass
+  run "t08_ci_actas"... pass
+  run "t08_apis"... pass
 tests/main.tftest.hcl... tearing down
 tests/main.tftest.hcl... pass
 
-Success! 10 passed, 0 failed.
-Tests: 0 failed, 0 skipped, 28 passed, 28 total
+Success! 14 passed, 0 failed.
+Tests: 0 failed, 0 skipped, 33 passed, 33 total
 
 > test:workflows
 > scripts/env.sh uv run --frozen pytest scripts/ci/tests
 
-.........................                                                [100%]
-Tests: 0 failed, 25 passed, 25 total
-25 passed in 0.16s
+.................................                                        [100%]
+Tests: 0 failed, 33 passed, 33 total
+33 passed in 0.28s
 
 > test:ci
 > node --test --test-reporter=spec "scripts/ci/tests/*.test.mjs"
 
-✔ E4: one copy of the bootstrap state to bootstrap/<timestamp>.tfstate (9.895392ms)
-✔ E5: without the local state it fails and names the path (4.449383ms)
-✔ without an argument or with another root it prints usage and exits 2 (7.783695ms)
-✔ without STATE_BACKUP_BUCKET it exits 1 and names the variable (3.622828ms)
-✔ a failing gcloud makes it fail (6.666991ms)
-✔ without gcloud in PATH it exits 2 (3.800204ms)
-✔ a clean tree passes (34.990186ms)
-✔ rule composer fails and names the file (32.120353ms)
-✔ rule literal-project fails and names the file (35.368151ms)
-✔ rule literal-account fails and names the file (36.935888ms)
-✔ rule literal-region fails and names the file (31.469872ms)
-✔ rule credentials-json fails and names the file (34.506861ms)
-✔ rule sa-key fails and names the file (33.374888ms)
-✔ rule secret-version-data fails and names the file (33.716725ms)
-✔ a secret version without secret_data and the credentials input named in a .md pass (35.439746ms)
-✔ protocol records in artifacts/ that name the credentials input pass (35.934292ms)
-✔ env.sh resolves node, terraform, uv and python inside .tools/ with a bare PATH (17.906256ms)
-✔ env.sh without a .tools/ asks for scripts/setup.sh (5.65827ms)
-✔ without an argument it prints usage and exits 2 (8.36216ms)
-✔ an unknown root prints usage and exits 2 (5.833763ms)
-✔ a missing TF_VAR_project_id is named and exits 1 (4.439945ms)
+✔ E4: one copy of the bootstrap state to bootstrap/<timestamp>.tfstate (10.940202ms)
+✔ E5: without the local state it fails and names the path (4.544199ms)
+✔ without an argument or with another root it prints usage and exits 2 (8.065764ms)
+✔ without STATE_BACKUP_BUCKET it exits 1 and names the variable (4.701705ms)
+✔ a failing gcloud makes it fail (8.178867ms)
+✔ without gcloud in PATH it exits 2 (4.747261ms)
+✔ a clean tree passes (40.196061ms)
+✔ rule composer fails and names the file (35.397725ms)
+✔ rule literal-project fails and names the file (34.378647ms)
+✔ rule literal-account fails and names the file (33.96593ms)
+✔ rule literal-region fails and names the file (33.70031ms)
+✔ rule credentials-json fails and names the file (31.710216ms)
+✔ rule sa-key fails and names the file (35.392214ms)
+✔ rule secret-version-data fails and names the file (36.799842ms)
+✔ a secret version without secret_data and the credentials input named in a .md pass (34.256436ms)
+✔ protocol records in artifacts/ that name the credentials input pass (36.050041ms)
+✔ env.sh resolves node, terraform, uv and python inside .tools/ with a bare PATH (17.37105ms)
+✔ env.sh without a .tools/ asks for scripts/setup.sh (6.342112ms)
+✔ without an argument it prints usage and exits 2 (7.283814ms)
+✔ an unknown root prints usage and exits 2 (5.842141ms)
+✔ a missing TF_VAR_project_id is named and exits 1 (4.331889ms)
 ℹ tests 21
 ℹ suites 0
 ℹ pass 21
@@ -84,7 +89,7 @@ Tests: 0 failed, 25 passed, 25 total
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 394.954736
+ℹ duration_ms 403.986463
 
 > check:spec
 > node scripts/check-spec.mjs
