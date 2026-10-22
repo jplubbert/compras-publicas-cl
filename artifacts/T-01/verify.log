@@ -1,0 +1,1108 @@
+
+> lint
+> scripts/env.sh uv run --frozen ruff check ingest finops benchmarks && scripts/env.sh uv run --frozen ruff format --check ingest finops benchmarks && scripts/env.sh terraform fmt -check -recursive infra
+
+All checks passed!
+2 files already formatted
+
+> test
+> npm run test:ci && npm run test:ingest && npm run test:infra && npm run test:dataform && npm run test:sdd
+
+
+> test:ci
+> node --test --test-reporter=spec "scripts/ci/tests/*.test.mjs"
+
+✔ a clean tree passes (37.659727ms)
+✔ rule composer fails and names the file (34.837663ms)
+✔ rule literal-project fails and names the file (34.227224ms)
+✔ rule literal-account fails and names the file (35.45719ms)
+✔ rule literal-region fails and names the file (34.048778ms)
+✔ rule credentials-json fails and names the file (32.417547ms)
+✔ rule sa-key fails and names the file (35.25554ms)
+✔ rule secret-version-data fails and names the file (35.767414ms)
+✔ a secret version without secret_data and the credentials input named in a .md pass (39.185289ms)
+✔ env.sh resolves node, terraform, uv and python inside .tools/ with a bare PATH (19.075876ms)
+✔ env.sh without a .tools/ asks for scripts/setup.sh (8.286101ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 375.668389
+
+> test:ingest
+> scripts/env.sh uv run --frozen pytest ingest/tests
+
+.                                                                        [100%]
+1 passed in 0.01s
+
+> test:infra
+> scripts/ci/tf-test.sh
+
+Success! The configuration is valid.
+
+
+Success! 0 passed, 0 failed.
+Success! The configuration is valid.
+
+
+Success! 0 passed, 0 failed.
+
+> test:dataform
+> scripts/env.sh bash -c '[ -d dataform/node_modules ] || npm ci --prefix dataform --silent' && scripts/env.sh node --test --test-reporter=spec "dataform/tests/*.test.mjs"
+
+✔ the Dataform project compiles offline and declares the raw source in us-central1 (404.982142ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 453.894134
+
+> test:sdd
+> node --test --test-reporter=spec "scripts/test/*.test.mjs"
+
+▶ access_guard core (DEC-016)
+  ✔ allows what is inside the worktree, the role's result directory, /dev/null and tools without paths (6.971526ms)
+  ✔ denies Read of ~/.claude by absolute path (1.119337ms)
+  ✔ denies Read with a literal ~ (1.160185ms)
+  ✔ denies Read with $HOME (1.196663ms)
+  ✔ denies Read of ~/.codex (0.910394ms)
+  ✔ denies Read through a relative path out of the worktree (1.575837ms)
+  ✔ denies Read through a symlink in the worktree (0.881149ms)
+  ✔ denies Read of a file outside the worktree (0.890807ms)
+  ✔ denies Grep with a path in ~/.claude (0.928849ms)
+  ✔ denies Grep through the symlink (0.948886ms)
+  ✔ denies Glob with a pattern under ~/.claude (0.9988ms)
+  ✔ denies Glob with a path outside (1.125679ms)
+  ✔ denies Bash cat (1.024129ms)
+  ✔ denies Bash rg with ${HOME} (0.993671ms)
+  ✔ denies Bash find on ~ (1.002297ms)
+  ✔ denies Bash ls through the symlink (1.226139ms)
+  ✔ denies Bash in a pipeline after a harmless command (1.026544ms)
+  ✔ denies Bash with a redirection out of the worktree (1.079282ms)
+  ✔ denies Bash inside a command substitution (1.153792ms)
+  ✔ denies Bash with an option value (1.112615ms)
+  ✔ denies a cwd outside the worktree (1.409524ms)
+  ✔ names no agent: without deny paths, ~/.claude is just a path outside the worktree (1.118365ms)
+  ✔ denies a variable it cannot resolve rather than guessing (1.249523ms)
+  ✔ says which path and why (1.165925ms)
+✔ access_guard core (DEC-016) (34.025444ms)
+▶ write-protected paths: tests/acceptance/ for the implementer (DEC-027, T-59)
+  ✔ denies Write, Edit and MultiEdit under it, and Bash commands that write there (2.244947ms)
+  ✔ still allows reading and running them, and writing elsewhere; without denyWrite nothing changes (2.086739ms)
+  ✔ the hook takes it as --deny-write (36.107605ms)
+✔ write-protected paths: tests/acceptance/ for the implementer (DEC-027, T-59) (40.708827ms)
+▶ no skipping the commit hook: by the real options of the command, not by its text (DEC-027, T-74)
+  ✔ denies git commit with -n or --no-verify (also in a cluster like -nm), git push --no-verify and git -c core.hooksPath (1.84824ms)
+  ✔ allows a commit whose message mentions -n or --no-verify, and the options that only look alike (2.406912ms)
+✔ no skipping the commit hook: by the real options of the command, not by its text (DEC-027, T-74) (4.424821ms)
+▶ access_guard Claude Code adapter (PreToolUse hook)
+  ✔ calls the port: a denial blocks with exit 2 and the reason on stderr; an allowed call exits 0 (77.37834ms)
+  ✔ agrees with the core on every tool and path it is given (142.030439ms)
+  ✔ fails closed: unreadable input or a missing root blocks the tool (62.233795ms)
+✔ access_guard Claude Code adapter (PreToolUse hook) (281.912143ms)
+▶ another repository (DEC-021)
+  ✔ the guard denies writing or running in another repository (1.492019ms)
+  ✔ the adapter allows only the repositories the task declares, approved (64.304804ms)
+✔ another repository (DEC-021) (65.95391ms)
+▶ ADR migration and loader (DEC-035, T-67)
+  ✔ migrate turns a DEC into spec/adr/0005-<title>.md with the MADR sections, and takes it out of DECISIONS.md (63.675781ms)
+  ✔ the loader reads ADRs and the reversible DECs alike; check-spec and the reviewer context see a migrated DEC (185.130589ms)
+  ✔ index regenerates the table between its markers and nothing else; parseAdr reads the header fields (159.418067ms)
+  ✔ spec/adr/ is allowed in spec/ (check-spec); existsSync helper (129.567493ms)
+✔ ADR migration and loader (DEC-035, T-67) (538.935824ms)
+▶ new ADRs are born proposed and Jev accepts them; agents get only the decisions in force that matter (DEC-036, T-69)
+  ✔ new creates the next number in proposed, with the MADR sections, and updates the index (DEC-036) (48.46936ms)
+  ✔ accept asks the decider: over the threshold it is accepted with its approver and record; under it, it stays proposed and exits 1 (DEC-036) (327.312193ms)
+  ✔ select: the decisions the task cites, the most recent in force and those whose Módulos cross its touches; never superseded or proposed (DEC-036) (234.024949ms)
+✔ new ADRs are born proposed and Jev accepts them; agents get only the decisions in force that matter (DEC-036, T-69) (610.26779ms)
+▶ select follows the chain of replacements (DEC-036, T-72)
+  ﹣ T-27 cites DEC-011; with 0011 superseded by 0039 (accepted), it gets 0039 even with AUTOPILOT_ADR_RECENT=0 (0.096031ms) # SKIP
+  ✔ a chain of two replacements ends at the one in force; a chain that ends in a proposed ADR gives nothing for that citation (201.940479ms)
+✔ select follows the chain of replacements (DEC-036, T-72) (202.298102ms)
+▶ autopilot-stream formatEvent
+  ✔ init, text, tools and result in one line each (1.240095ms)
+  ✔ TodoWrite summarizes the current item; unknown events print nothing (0.285858ms)
+  ✔ tokensSummary adds up per task and gives the run total (in Spanish for spec/LOG.md) (0.390535ms)
+  ✔ trims long lines and passes through what is not JSON (0.222679ms)
+✔ autopilot-stream formatEvent (3.042708ms)
+▶ autopilot-stream CLI
+  ✔ writes prefixed lines, the full stream in --raw, the final event in --result and its tokens in --tokens (115.25192ms)
+✔ autopilot-stream CLI (115.371164ms)
+▶ autopilot-stream auditStream (DEC-008)
+  ✔ lists the tool calls with a path of .autopilot/ or under a forbidden directory; literal paths only (0.791209ms)
+  ✔ without forbidden directories it still catches .autopilot/; a clean stream gives nothing (1.072239ms)
+✔ autopilot-stream auditStream (DEC-008) (2.101576ms)
+▶ auditSession: an attempt the guard denied is logged, not a breach (DEC-018)
+  ✔ denied by access_guard, by the permission rules or by a failing hook: logged and the run goes on (0.476758ms)
+  ✔ an access that got a result — or with no result proving a denial — still stops the run (0.336283ms)
+  ✔ reads outside the allowed paths follow the same rule (0.465637ms)
+✔ auditSession: an attempt the guard denied is logged, not a breach (DEC-018) (1.524871ms)
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+▶ autopilot-tasks review-duration (DEC-023, T-54)
+  ✔ the median of the last reviews measured in .autopilot/*/live.log (reviewer … on <ID> → verdict on <ID>), across midnight (46.918739ms)
+  ✔ only the last N (--last); a review with no verdict does not count; no history → null (76.182188ms)
+✔ autopilot-tasks review-duration (DEC-023, T-54) (123.958052ms)
+▶ autopilot-tasks manual-pending
+  ✔ lists claims.manual_pending of verified_auto or reviewed tasks (the legacy evidence.manual_pending too); not accepted ones (72.39121ms)
+✔ autopilot-tasks manual-pending (72.606475ms)
+▶ autopilot-tasks pick
+  ✔ picks nothing if no eligible task has its dependencies closed (35.405884ms)
+  ✔ picks an approved_for_impl task whose dependencies are closed, same as a ready one (70.120014ms)
+  ✔ resumes an in_progress task with its dependencies closed (35.821976ms)
+  ✔ --exclude skips the given tasks and picks the next eligible one (101.496981ms)
+  ✔ does not pick tasks in other states even if their dependencies are closed (30.640061ms)
+  ✔ picks the first ready task whose dependencies are done/accepted/delivered (67.054994ms)
+  ✔ a reviewed dependency counts as closed (chains without waiting for accepted); verified_auto does not (64.374266ms)
+  ✔ skips a ready task whose dependency is still open (31.159559ms)
+  ✔ --task forces a specific task even if it is not ready (66.248415ms)
+✔ autopilot-tasks pick (503.050689ms)
+▶ touches crossing (pathsCross)
+  ✔ app/ crosses app/src/x.ts (0.740304ms)
+  ✔ app/src/x.ts crosses app/ (0.479884ms)
+  ✔ app/ crosses app/ (0.493349ms)
+  ✔ app crosses app/ (0.415382ms)
+  ✔ README.md crosses README.md (0.456239ms)
+  ✔ app/ does not cross apps/ (0.581285ms)
+  ✔ app/ does not cross apps/admin/x.ts (0.646848ms)
+  ✔ app/src/a.ts does not cross app/src/b.ts (0.585363ms)
+  ✔ app/src/ does not cross app/srcs/x.ts (0.5154ms)
+  ✔ README.md does not cross README.md.bak (0.447703ms)
+✔ touches crossing (pathsCross) (5.79467ms)
+▶ autopilot-tasks pick-batch
+  ✔ takes eligible tasks in order, skipping those whose touches cross the batch (app/ blocks app/…, not apps/) (31.071793ms)
+  ✔ crosses by segment prefix between files and directories (T-04 app/src/orders/ blocks T-05 …/discounts.ts) (30.280974ms)
+  ✔ stops at --max and honors --exclude (60.805196ms)
+  ✔ uses the same eligibility as pick: --max 1 is pick (127.247615ms)
+  ✔ a task without touches runs alone (63.7122ms)
+  ✔ outputs the same fields as pick, plus touches (32.443575ms)
+  ✔ fails without a valid --max (128.420735ms)
+✔ autopilot-tasks pick-batch (475.003551ms)
+▶ autopilot-tasks pending-reviews
+  ✔ lists the tasks in verified_auto, in order (68.494333ms)
+✔ autopilot-tasks pending-reviews (68.676076ms)
+▶ autopilot-tasks check-authority
+  ✔ detects reserved statuses granted by the executor (100.266184ms)
+  ✔ accepts accepted if it already was before (63.247223ms)
+✔ autopilot-tasks check-authority (163.663099ms)
+▶ autopilot-tasks context
+  ✔ includes the task, its full REQs and its DECs (32.825424ms)
+  ✔ without REQs, states that the description acts as the requirement (35.995474ms)
+✔ autopilot-tasks context (68.969658ms)
+▶ autopilot-tasks parse-verdict
+  ✔ extracts the final json block (32.951863ms)
+  ✔ accepts a bare JSON object (output of --output-schema) (33.74178ms)
+  ✔ uses the last block when there are several (33.895129ms)
+  ✔ keeps a research_question only with a rejection (DEC-005) (67.852395ms)
+  ✔ fails without a verdict or with an unknown verdict (60.07402ms)
+✔ autopilot-tasks parse-verdict (228.833695ms)
+▶ autopilot-tasks set-review
+  ✔ needs the decision that confirms the verdict (DEC-015): none, another answer, an escalation or another question → exit 2, nothing written (128.87527ms)
+  ✔ stores who decided: the decider, its confidence and when (31.891005ms)
+  ✔ approved on verified_auto moves to reviewed and stores review (31.334387ms)
+  ✔ rejected keeps the status and records the findings (31.651965ms)
+  ✔ approved on a task that is not verified_auto does not change the status (31.803461ms)
+  ✔ rejects invalid verdicts (31.71791ms)
+  ✔ stores research_question with a rejection, never with an approval; check:spec validates it (255.175631ms)
+✔ autopilot-tasks set-review (542.823583ms)
+▶ autopilot-tasks reopen
+  ✔ moves a rejected verified_auto task back to in_progress; refuses anything else (93.721693ms)
+✔ autopilot-tasks reopen (93.827912ms)
+▶ autopilot-tasks set-acceptance-review
+  ✔ needs the decision that confirms the verdict (DEC-015, T-36) (124.037601ms)
+  ✔ stores the verdict and the commit range as acceptance_review of a spec task; the status does not change (30.172039ms)
+  ✔ refuses a task without acceptance tests (tooling, no REQ), an invalid verdict or an invalid range (128.108056ms)
+✔ autopilot-tasks set-acceptance-review (282.497243ms)
+▶ test-author support in autopilot-tasks (DEC-006)
+  ✔ check-tests validates files (only <ID>*, written in the session, all listed), REQ cited, red and log (124.701913ms)
+  ✔ check-result accepts test_dispute only with blocked_by, and one of the task REQ (94.725843ms)
+  ✔ the disputed test is a fact to check (T-40): it must exist and be one of the task's own tests (63.519256ms)
+  ✔ unblock moves a blocked task back to in_progress; refuses any other status (58.197075ms)
+✔ test-author support in autopilot-tasks (DEC-006) (341.393235ms)
+▶ autopilot-tasks research-check
+  ✔ accepts a complete report (list markers and bold tolerated) → action, confidence and no cut (31.938194ms)
+  ✔ recortar needs "Recorte propuesto" with Título and Descripción (the description runs to the end of the section) (94.332282ms)
+  ✔ lists every problem: missing or empty sections, missing, repeated or unknown action and confidence (29.65205ms)
+  ✔ a missing report fails (27.688383ms)
+✔ autopilot-tasks research-check (183.886857ms)
+▶ autopilot-tasks escalate
+  ✔ adds a blocking Q-NN that points to the report and blocks the task with it; check:spec passes (97.378828ms)
+  ✔ with a cut: the split-off work becomes a new specified task (kind, REQ, DEC and touches of the original; depends on it) (99.290767ms)
+  ✔ without a report it says so; without the questions table it fails and writes nothing (60.172615ms)
+✔ autopilot-tasks escalate (257.002101ms)
+▶ plan and critic checks (DEC-010)
+  ✔ plan-check: the fixed sections in order and nothing else (193.712497ms)
+  ✔ critic-check: effective verdict, blocking and opinion-only findings, repeated ids (118.103779ms)
+  ✔ critic-check: archivo evidence must be an existing line of a readable file; sources must be URLs (154.498795ms)
+  ✔ critic-check: research requests only in the first session, at most 2 (125.337239ms)
+  ✔ set-plan-review stores the check; question-check validates a researcher answer (172.589616ms)
+✔ plan and critic checks (DEC-010) (764.51988ms)
+▶ additive tests/acceptance/ diff (acceptanceDiffProblems)
+  ✔ new files and added lines with no runner configuration are additive (1.053674ms)
+  ✔ lists deletions, renames, copies, mode and type changes, deleted lines and binary changes (0.744713ms)
+  ✔ a diff without changes under tests/acceptance/ is not an additive acceptance diff (0.537312ms)
+  ✔ runner configuration outside tests/acceptance/: by file name anywhere, or by path when the glob has "/" (0.491636ms)
+  ✔ globMatches: * and ? stay within a segment (0.440249ms)
+✔ additive tests/acceptance/ diff (acceptanceDiffProblems) (3.416813ms)
+▶ autopilot-tasks scope-check
+  ✔ accepts paths covered by touches (a directory covers everything below it, by segments) (90.081267ms)
+  ✔ lists spec/ and paths outside touches (apps/ is not app/, README.md.bak is not README.md) (30.05557ms)
+  ✔ a file entry does not cover its siblings; a task without touches covers nothing (61.540581ms)
+✔ autopilot-tasks scope-check (181.87501ms)
+▶ autopilot-tasks check-result / apply-result
+  ✔ normalizes a valid result: outcome finished by default, claims kept as declared (62.919256ms)
+  ✔ a pending deploy is the structured "deploy" {what, then}, never a line of the log (T-39) (278.758514ms)
+  ✔ "status" and "evidence" are not the implementer's (DEC-014): a reserved status is an authority violation, any other one an error (183.903749ms)
+  ✔ awaiting_acceptance_approval only on a spec task; blocked_by excludes an outcome (120.23899ms)
+  ✔ missing_requirement (DEC-011): {lines, reason}, only with blocked_by; applied as a note (121.929492ms)
+  ✔ the missing lines are a fact to check (T-40): <path>:<line>[-<line>] of an existing file in the task's touches, within its length (185.602478ms)
+  ✔ missing or invalid results fail (exit 1) with every reason listed (491.433254ms)
+  ✔ "log" states no test results (T-35): no "Verificado" line and no counts; the orchestrator writes them from the evidence (213.516946ms)
+  ✔ verified-line prints the verification line from the evidence record_evidence.py wrote; log-verified adds it to the last LOG.md entry (119.3628ms)
+  ✔ assumption ids must be new; without a Supuestos table in SPEC.md they cannot be applied (93.937417ms)
+  ✔ apply-result writes the status the orchestrator derived, claims, notes, a LOG.md entry and the assumption rows; never evidence (62.430916ms)
+  ✔ apply-result: --status is in_progress or blocked and must agree with blocked_by; nothing is written if invalid (216.229974ms)
+✔ autopilot-tasks check-result / apply-result (2150.88117ms)
+▶ autopilot.sh
+  ✔ is executable and --help describes the cycle (13.674136ms)
+  ▶ --dry-run
+    ✔ T-83: the implementer prompt forbids "- Verificado" lines and test counts in "log" (DEC-014) (1319.22299ms)
+    ✔ launches nothing and does not modify the repo (no configuration: defaults) (1333.641387ms)
+    ✔ applies scripts/autopilot.config.sh: prompt, permissions, deploy, orchestrator task and environment hooks (1365.971449ms)
+    ✔ with AUTOPILOT_PUSH_REMOTE it shows the push after review (default branch: the one the run starts on); it pushes nothing (2753.753894ms)
+    ✔ with AUTOPILOT_DEMO_DEPLOY_CMD it shows the demo deploy and warns about missing hooks and identities; it runs nothing (1384.587209ms)
+    ✔ with AUTOPILOT_ACCEPTANCE_REVIEW=additive it shows the acceptance review and the runner configuration; an invalid value stops (1963.355569ms)
+    ✔ with AUTOPILOT_RESEARCH it shows the researcher, its command and its caps (higher for deep); invalid values stop (8836.039732ms)
+    ✔ with AUTOPILOT_TEST_AUTHOR=on it shows the test-author and its command; it needs AUTOPILOT_ACCEPTANCE_CMD (4014.044507ms)
+    ✔ plan gate (DEC-010): off by default; on, it shows the planner and critic commands and needs valid caps (4676.053023ms)
+    ✔ every role passes every explicit flag of the claude adapter (T-19): it fails if one goes missing (4220.064815ms)
+    ✔ the claude adapter runs only the pinned Claude Code version (616.420542ms)
+    ✔ the implementer cannot skip the commit hook: the access guard checks the options, not glob rules on the text (DEC-027, T-70, T-74) (687.422946ms)
+    ✔ the implementer of a task that is not spec cannot write tests/acceptance/ (--deny-write in its guard); a spec task can (DEC-027, T-59) (1311.548207ms)
+    ✔ --print-agent-command prints the exact command of a role and exits, without a run (662.051516ms)
+    ▶ agents per role (DEC-008)
+      ✔ claude by default for every role, through scripts/agents/claude.sh, with its contract and an isolated command (2844.734195ms)
+      ✔ AUTOPILOT_REVIEWER is deprecated: claude and auto mean claude, with a warning; codex does not start (3333.754123ms)
+      ✔ an agent without an adapter, without the role or missing a contract point of the role does not start (nor --check) (2883.022343ms)
+    ✔ agents per role (DEC-008) (9061.677296ms)
+    ✔ with a TASKS.json without tasks it ends without error (1036.477294ms)
+  ✔ --dry-run (45242.974917ms)
+  ▶ full cycle with agent doubles (claude adapter)
+    ✔ implements, reviews (approved → reviewed), writes LOG and commits; never pushes (4038.377261ms)
+    ▶ the reviewer reviews the task's commits with read-only git and does not re-run the full suite (T-52)
+      ✔ the prompt names the task's commits, how to read them (git show/diff/log, one command per call, never HEAD) and the evidence log with its sha256 (4047.223496ms)
+      ✔ it may run only the test files the task's commits changed; without evidence of record_evidence.py the prompt says so (5231.7883ms)
+    ✔ the reviewer reviews the task's commits with read-only git and does not re-run the full suite (T-52) (9279.129227ms)
+    ✔ a task with no commit of its own is not reviewed: no diff, no reviewer; it goes to the user (T-52) (1551.64919ms)
+    ✔ before picking a task it reviews pending verified_auto tasks (approved → reviewed) without counting them as tasks (5217.702335ms)
+    ✔ a rejected pending task stays verified_auto and is not reviewed again in the same run (5257.559517ms)
+    ✔ the implementer inherits the autopilot_env hook environment; progress is readable in the terminal and in live.log (4252.406731ms)
+    ✔ chains: with T-03 reviewed it takes T-04 (depends on T-01 and T-03) in the same run (6801.974127ms)
+    ✔ rejected keeps verified_auto and goes on; with no more ready tasks it ends with exit 0 (4095.64874ms)
+    ✔ stops with exit 1 if the implementer grants accepted (2379.949446ms)
+    ✔ stops with exit 1 and commits nothing if the implementer leaves the tree dirty (1793.900281ms)
+    ✔ a task that ends unchanged is not a failure: it is skipped and the next independent one is taken (5057.476435ms)
+    ✔ failures are counted per task: two on T-03 abandon it and the run goes on with T-08 (6243.598466ms)
+    ✔ a task whose result has "deploy" stays in_progress with Pendiente deploy: not a failure, the next one follows (5753.102367ms)
+    ✔ a spec task that asks for awaiting_acceptance_approval with commits waits for the user and is not a failure (5765.680236ms)
+    ✔ awaiting_acceptance_approval on a non-spec task is an invalid result: a failure (9536.857852ms)
+    ✔ the summary lists the pending manual checks (4004.533513ms)
+    ▶ closed decisions through the port decide (DEC-015)
+      ✔ the review verdict is the decider's: each decision is recorded in artifacts/decisions/ with the summary (4028.515955ms)
+      ✔ low confidence on the verdict escalates to the user: the task is not reviewed, it is blocked by a new question (T-62) (4097.137095ms)
+      ✔ a decider error escalates; it never falls back to the reviewer's own verdict (4063.941944ms)
+      ✔ a decider that disagrees with the review escalates too (4161.199229ms)
+      ✔ a failure whose cause is not the implementation goes to the user, not to a retry (2762.371555ms)
+      ✔ an answer outside the enum is rejected and escalates (2748.330277ms)
+    ✔ closed decisions through the port decide (DEC-015) (21861.829344ms)
+    ▶ the status comes from facts, not from the implementer (DEC-014, T-34)
+      ✔ a finished result is closed by record_evidence.py: verified_auto with its evidence; the claims are kept apart (4032.459994ms)
+      ✔ a result that proposes a status and its own evidence is invalid: nothing is applied (3976.745013ms)
+      ✔ a finished result whose verify fails is not applied (a failure) (4474.626009ms)
+      ✔ outcome unfinished leaves it in_progress (applied) and counts as a failure (4845.447946ms)
+    ✔ the status comes from facts, not from the implementer (DEC-014, T-34) (17329.475221ms)
+    ✔ with two implementer failures it abandons the task (exit 1) after retrying the same one (3409.831476ms)
+    ▶ single writer of spec/ (implementer result)
+      ✔ the implementer commits only code; the orchestrator applies status, evidence, notes, LOG and assumptions in its own spec/ commit (4041.159879ms)
+      ✔ commits that touch spec/: the task fails without applying anything and is not retried (2445.440807ms)
+      ✔ commits that touch paths outside touches: the task fails without applying anything and is not retried (2423.133986ms)
+      ✔ a task whose commit overwrites scripts/autopilot.sh does not alter the running orchestrator (it runs from a copy) (2410.806537ms)
+      ✔ a missing result counts as a failure: retried, then abandoned; nothing applied (3953.308808ms)
+      ✔ a invalid result counts as a failure: retried, then abandoned; nothing applied (3937.988562ms)
+    ✔ single writer of spec/ (implementer result) (19212.191755ms)
+    ▶ ntfy notice on stop
+      ✔ without NTFY_TOPIC it does not call curl (4058.326335ms)
+      ✔ if it finished fine: one normal-priority notice to the topic, with reason, done/failed and next action (4239.861014ms)
+      ✔ a budget limit (tasks) asks for intervention: high priority (4006.848886ms)
+      ✔ if it needs intervention (failures): high priority and alert tag, with the abandoned tasks (3415.908865ms)
+      ✔ a pending deploy also asks for intervention (2887.876328ms)
+      ✔ a reviewer rejection asks for intervention: high priority, with the rejected task (4059.422177ms)
+      ✔ an AUTOPILOT_NTFY_MAX below 1000 is taken as 1000: the fixed fields are complete (3424.191035ms)
+      ✔ with many tasks: lists are shortened (5 and "(+N more)") and only the detail is trimmed to the limit (45348.828199ms)
+      ✔ a blocked task: the orchestrator applies blocked_by, stops and asks to resolve the block (2857.842332ms)
+      ✔ a long free-text blocked_by fails check:spec: nothing is applied and it counts as a failure, not a block (4327.099719ms)
+      ✔ if ntfy fails, the run keeps its result and the summary is committed anyway (4098.193579ms)
+      ✔ if it crashes before the summary, it notifies with high priority (961.087149ms)
+      ✔ reads the topic from AUTOPILOT_LOCAL_CONFIG and does not pass it to the implementer (3977.192026ms)
+      ✔ loads AUTOPILOT_SECRETS: its key reaches the decider, never the implementer or the reviewer (3988.297206ms)
+      ✔ without a secrets file the run goes on (the decider has no key and its decisions escalate) (3523.709479ms)
+      ✔ --dry-run shows the notice without sending it (1518.872529ms)
+      ✔ --no-notify does not call curl, also when it needs intervention; the LOG.md summary is the same (3401.829894ms)
+      ✔ --no-notify also silences the notice of a crash (934.349148ms)
+    ✔ ntfy notice on stop (101030.501255ms)
+    ▶ push after review (DEC-004 point 1)
+      ✔ after an approved verdict (reviewed) it pushes HEAD to the base branch, without --force (4105.295797ms)
+      ✔ AUTOPILOT_PUSH_BRANCH chooses the remote branch (4119.915585ms)
+      ✔ nothing is pushed with a rejected verdict (4060.299543ms)
+      ✔ off by default: with a remote but without AUTOPILOT_PUSH_REMOTE it pushes nothing (4065.671299ms)
+      ✔ a rejected push (not a fast-forward) undoes nothing, is not retried, stops pushing and asks for intervention (7113.543123ms)
+      ✔ the implementer and the reviewer still cannot push (their pushurl is disabled), also with the push on (4104.60066ms)
+    ✔ push after review (DEC-004 point 1) (27569.608653ms)
+    ▶ demo deploy (DEC-004 point 2)
+      ✔ identity in the list: deploys with the hook credentials, runs the post-deploy and relaunches the implementer (5783.245411ms)
+      ✔ identity outside the list: no deploy, Pendiente deploy for the user, flagged in the notice; the identity stays out of LOG.md (3117.969298ms)
+      ✔ empty identity: no deploy (3097.901803ms)
+      ✔ a failing identity hook: no deploy (3120.418322ms)
+      ✔ a missing hook: no deploy (3067.609293ms)
+      ✔ no demo identities in the local configuration: no deploy (3152.322925ms)
+      ✔ a failed deploy: Pendiente deploy for the user, no post-deploy, no relaunch (3105.210404ms)
+      ✔ at most one demo deploy per task and run: a second Pendiente deploy goes to the user (4621.512889ms)
+      ✔ off by default: hooks and identities without AUTOPILOT_DEMO_DEPLOY_CMD deploy nothing (as today) (3090.789873ms)
+    ✔ demo deploy (DEC-004 point 2) (32157.40442ms)
+    ▶ reviewer approval of additive acceptance diffs (DEC-004 point 3)
+      ✔ additive diff approved: acceptance_review recorded, the implementer is relaunched and the task follows its cycle (6679.832836ms)
+      ✔ additive diff rejected: the verdict is recorded and the task waits for the user (3970.38197ms)
+      ✔ not additive (delete): no reviewer, it waits for the user (3063.163172ms)
+      ✔ not additive (modify): no reviewer, it waits for the user (3130.104659ms)
+      ✔ not additive (rename): no reviewer, it waits for the user (3090.816244ms)
+      ✔ not additive (chmod): no reviewer, it waits for the user (3109.989164ms)
+      ✔ not additive (runner): no reviewer, it waits for the user (3245.138966ms)
+      ✔ at most one approval per task and run: a second acceptance diff goes to the user (5406.820795ms)
+      ✔ off by default: an additive diff waits for the user, as today, without a reviewer (3053.723645ms)
+    ✔ reviewer approval of additive acceptance diffs (DEC-004 point 3) (34750.362461ms)
+    ▶ researcher (DEC-005)
+      ✔ two failures in a row: researches, commits the report and retries once with its path in the prompt (6828.059007ms)
+      ✔ a researched retry that fails again is escalated: blocked by a new Q-NN pointing to the report (5488.150462ms)
+      ✔ STUB_RESEARCH=escalate: no retry, the task is escalated (blocked by Q-03) (4317.816033ms)
+      ✔ STUB_RESEARCH=low: no retry, the task is escalated (blocked by Q-03) (4359.256461ms)
+      ✔ STUB_RESEARCH=invalid: no retry, the task is escalated (blocked by Q-03) (4087.363331ms)
+      ✔ STUB_RESEARCH=none: no retry, the task is escalated (blocked by Q-03) (4019.890722ms)
+      ✔ STUB_RESEARCH=budget: no retry, the task is escalated (blocked by Q-03) (3996.672735ms)
+      ✔ STUB_RESEARCH=slow: no retry, the task is escalated (blocked by Q-03) (4955.284113ms)
+      ✔ the researcher's confidence no longer routes (T-37): a "baja" report the decider settles as reintentar is retried (6767.421238ms)
+      ✔ the decider, not the report, settles the action (T-37): a report that suggests escalar is retried if the decider says reintentar (6746.346412ms)
+      ✔ recortar: the split-off work becomes a new specified task, not taken in the run, and the task is escalated (4306.386001ms)
+      ✔ a researcher that changes another file stops the run; nothing is discarded or committed (3402.422739ms)
+      ✔ scope violations are not researched (they go to the user as today) (2404.440264ms)
+      ▶ reviewer trigger (research_question)
+        ✔ a rejection with research_question is researched; on reintentar the task goes back to in_progress, is relaunched and reviewed again (7735.915419ms)
+        ✔ a rejection after the researched retry is escalated (blocked by Q-03) (8139.323682ms)
+        ✔ escalar on a review trigger blocks the task from verified_auto (5087.61839ms)
+        ✔ a rejection without research_question stays as today (verified_auto, no researcher) (4087.003088ms)
+        ✔ off: the reviewer prompt does not mention research_question and nothing is researched (4044.244026ms)
+      ✔ reviewer trigger (research_question) (29094.376012ms)
+      ✔ off by default: two failures abandon the task as today, without a researcher (3429.412263ms)
+    ✔ researcher (DEC-005) (94204.123406ms)
+    ▶ isolated agents (DEC-008)
+      ✔ each role gets only its prompt on stdin in a new, ephemeral session; the result is written outside the repository (4011.191001ms)
+      ✔ the tokens of every agent count in the summary and result.json, the reviewer too (T-18) (4006.76682ms)
+      ✔ an attempt the access guard denied is logged and the run goes on (DEC-018) (4048.955385ms)
+      ✔ an implementer session that reads .autopilot/ stops the run; nothing is integrated or applied (2279.783065ms)
+      ✔ a session that reads the agent's private paths (~/.claude) stops the run too (2239.996371ms)
+      ✔ a reviewer session that reads .autopilot/ stops the run; its verdict is not recorded (3441.85861ms)
+      ✔ a researcher session that reads .autopilot/ stops the run; nothing is applied (3381.168078ms)
+    ✔ isolated agents (DEC-008) (23410.026433ms)
+    ▶ test-author (DEC-006)
+      ✔ red tests from the spec, approved by the reviewer, before the implementer; green before applying its result (6072.393724ms)
+      ✔ STUB_TESTS=green: no tests are committed and the task is escalated (blocked by Q-03) (2396.008772ms)
+      ✔ STUB_TESTS=blocked: no tests are committed and the task is escalated (blocked by Q-03) (2367.508501ms)
+      ✔ STUB_TESTS=invalid: no tests are committed and the task is escalated (blocked by Q-03) (2399.234081ms)
+      ✔ a test-author that writes outside tests/acceptance/<ID>* stops the run; nothing is discarded (1721.51871ms)
+      ✔ a test-author that reads outside spec/ and tests/acceptance/ stops the run (1704.556041ms)
+      ✔ without the reviewer gate the tests wait for the user; approve-tests opens the gate for the next run (6928.488282ms)
+      ✔ tests rejected by the reviewer wait for the user (3267.850614ms)
+      ✔ an implementer whose commits touch tests/acceptance/ stops the run; nothing is integrated (3891.664539ms)
+      ✔ green that fails after implementing is a failure: the result is not applied (5903.547708ms)
+      ✔ a disputed test without the researcher: the test is not changed and the task is escalated (5195.065032ms)
+      ✔ a disputed test with the researcher: upheld → back to in_progress and relaunched with the report (8596.844301ms)
+      ✔ off by default: a task with REQ goes straight to the implementer, as today (4239.585137ms)
+    ✔ test-author (DEC-006) (54684.953388ms)
+    ▶ plan critique gate (DEC-010)
+      ✔ off: no planner and no critic; the implementer gets no plan (4227.694477ms)
+      ✔ planner → critic APROBAR → implementer with the approved plan; the critic gets no narrative of the planner (5925.234616ms)
+      ✔ REVISAR → the planner gets the findings; round 2 the critic gets only their ids → APROBAR (7972.563615ms)
+      ✔ each blocking finding is confirmed by the decider (T-38): one it reads as not blocking escalates the plan (3688.609142ms)
+      ✔ a blocking finding the decider cannot settle escalates too (T-38) (3650.817988ms)
+      ✔ a blocking id repeated in round 2 → ESCALAR: blocked by a new Q-NN; the implementer never starts (5886.536904ms)
+      ✔ REVISAR again in round 2 with other findings → escalated after 2 rounds (5846.710615ms)
+      ✔ the critic may escalate on its own (3726.97579ms)
+      ✔ APROBAR with a P0 backed by a source is REVISAR; a P0 that is only an opinion does not block but is shown (8022.736214ms)
+      ✔ a verdict with a file line that does not exist is invalid: escalated (3127.994802ms)
+      ✔ a verdict with a file the critic may not read is invalid: escalated (3119.399371ms)
+      ✔ a verdict with a source that is not a URL is invalid: escalated (3128.923358ms)
+      ✔ research_requests → the deep researcher answers, then a new critic session decides with the reports (7060.153971ms)
+      ✔ a plan with sections of its own is invalid: not committed, kept as a draft, escalated (2516.198304ms)
+      ✔ a planner that writes outside plans/<ID>.md stops the run; nothing is discarded (1882.915803ms)
+      ✔ a critic that reads another agent's records stops the run (2607.671134ms)
+      ▶ scripts/critic-gate.sh (DEC-010 point 8: the cuts of /analista)
+        ✔ APROBAR → exit 0 with the checked verdict on stdout; it commits nothing and works on a dirty tree (1462.959906ms)
+        ✔ REVISAR → 1; round 2 with --previous: a repeated id or REVISAR again → 3 (6099.32994ms)
+        ✔ an invalid plan, an invalid verdict or a plan outside plans/ → 2 (2250.383502ms)
+      ✔ scripts/critic-gate.sh (DEC-010 point 8: the cuts of /analista) (9812.825032ms)
+      ✔ an approved plan opens the gate only while unchanged: an edited plan goes back to the critic (no new planner) (9863.255124ms)
+    ✔ plan critique gate (DEC-010) (92068.070224ms)
+    ▶ queue policy and --review-only (DEC-023, T-54)
+      ✔ more than 4 in verified_auto: the run only reviews; nothing is implemented (7540.97554ms)
+      ✔ 4 or fewer: reviews the oldest, implements one and leaves it in the queue (4553.723696ms)
+      ✔ an empty queue: implements one and reviews it; never a second task (4078.416553ms)
+      ✔ no review starts if the time left is under its expected duration (median of past reviews, or the default) (1799.697217ms)
+      ✔ --review-only: its own budget, reviews the whole queue and never implements; --dry-run estimates how long it takes (4917.354469ms)
+      ✔ policy off: as before (reviews the queue, then implements while it can) (10413.467388ms)
+    ✔ queue policy and --review-only (DEC-023, T-54) (33303.928553ms)
+    ▶ every run leaves a trace (DEC-024, T-55)
+      ✔ a normal stop: status ok, written through a temporary file; the heartbeat names the orchestrator (4020.332609ms)
+      ✔ time budget exhausted: timeout, with partial.patch (1367.29446ms)
+      ✔ monthly token cap: budget_exhausted (1524.639306ms)
+      ✔ the agent reports its usage limit: usage_limited; the run stops without retrying (1865.06076ms)
+      ✔ the agent ends with an API error: api_error; the run stops (1869.686524ms)
+      ✔ an unexpected exit: error; a dirty tree at the start also leaves result.json, with the diff in partial.patch (1617.619772ms)
+check:spec: ok
+      ✔ SIGTERM during the run: sigterm, partial.patch with the uncommitted work and the branch it was left on (4251.895732ms)
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+check:spec: ok
+      ✔ an agent with no activity for AUTOPILOT_STALL_SECONDS: INT to the agent and the run ends stalled (2918.805849ms)
+      ✔ at the start, a run directory without result.json nor a stop line is marked crashed_orphan (4042.978441ms)
+      ✔ a run directory already taken (another run in the same second) is never reused; --dry-run ends 0 (T-55) (8416.752253ms)
+      ✔ every agent runs under timeout -s INT -k (INT first, KILL after) (137.01229ms)
+    ✔ every run leaves a trace (DEC-024, T-55) (32032.6517ms)
+    ✔ every status change of a run is in status_log with its script, and merged records the integration (DEC-028, T-60) (4035.554656ms)
+    ▶ instrumentation per task in evidence/<ID>.json (DEC-026, T-58)
+      ✔ an attempt and its review leave their records, committed with the summary (4018.93441ms)
+      ✔ failed attempts are recorded too, with the gate that failed (3938.234612ms)
+    ✔ instrumentation per task in evidence/<ID>.json (DEC-026, T-58) (7957.309315ms)
+    ✔ without the test-author, a diff of the implementer that touches tests/acceptance/ is not integrated and stops the run (DEC-027, T-59) (2291.979809ms)
+    ▶ a block declared by the implementer: Q-NN, Jev's classification, never retried (DEC-029, T-61)
+      ✔ spec_test_conflict: blocked by a new Q-NN with the detail; the decider classifies it; not integrated, not retried (3155.602405ms)
+      ✔ open_question with the decider under its threshold: still blocked by a Q-NN, unclassified (3176.323505ms)
+      ✔ implementer with high confidence: relaunched once with the reason; a second block escalates (DEC-031, T-63) (4750.999308ms)
+      ✔ test, spec or user_answer with high confidence, or implementer with low confidence: escalated, never relaunched (DEC-031, T-63) (6242.332906ms)
+      ✔ an unknown kind makes the result invalid (a failure, as any invalid result) (2742.266157ms)
+    ✔ a block declared by the implementer: Q-NN, Jev's classification, never retried (DEC-029, T-61) (20067.792153ms)
+    ✔ the implementer and the critic get only the selected decisions in force, not all of spec/adr/ (DEC-036, T-69) (6452.126499ms)
+    ▶ batch branch: runs integrate into autopilot/lote; master moves only by the user (DEC-033, T-65)
+      ✔ the run works on the batch branch: master does not move; the reviewed batch is closed with one --batch suite and a merge command for the user (4528.689704ms)
+      ✔ T-86: a failed batch suite asks for intervention: not ready, intervention true and a next action that says what to do (4297.402594ms)
+      ✔ a task left in verified_auto (a rejection) keeps the batch open: no batch suite, not ready (4320.885323ms)
+      ✔ the push goes to the batch branch, only when the batch is ready; never to master (4549.281979ms)
+      ✔ after the user merges it, the next run records merged and starts a new batch from master (6331.895128ms)
+    ✔ batch branch: runs integrate into autopilot/lote; master moves only by the user (DEC-033, T-65) (24028.426625ms)
+    ▶ a review without a verdict blocks its task and the run goes on (DEC-030, T-62)
+      ✔ a reviewer with no valid JSON verdict: blocked by a new Q-NN with the reason; the next task of the queue is reviewed (3714.588102ms)
+    ✔ a review without a verdict blocks its task and the run goes on (DEC-030, T-62) (3714.657623ms)
+    ▶ no start gate: the orchestrator grants approved_for_impl after the critique, outside sensitive zones (DEC-022, T-53)
+      ✔ plan gate off: a specified task is not taken (no critic, no grant) (1631.8729ms)
+      ✔ not sensitive and APROBAR: approved_for_impl with impl_approval, a LOG entry and its commit; then implemented (6436.109545ms)
+      ✔ a sensitive touch: no critic, it stays specified for the user and is listed in sensitive_wait with the zone (1842.533072ms)
+      ✔ a sensitive file under a touched directory counts too (1846.28283ms)
+      ✔ the critic escalates: nothing is granted (3708.054404ms)
+      ✔ a decision of the task not accepted: not taken (1673.226786ms)
+      ✔ an auto-approved task that changes one assertion of an existing test is escalated; a new test file is not (DEC-034, T-66) (5042.567053ms)
+      ✔ an auto-approved task that only adds a test file goes on (DEC-034, T-66) (6488.559645ms)
+      ✔ an auto-approved task whose diff deletes a test: the result is not applied and it is escalated (5245.940792ms)
+    ✔ no start gate: the orchestrator grants approved_for_impl after the critique, outside sensitive zones (DEC-022, T-53) (33915.576912ms)
+    ▶ coverage from acceptance (DEC-011)
+      ✔ out of the rule: the summary keeps one specified task to enable it, created once, in the summary commit (5855.774709ms)
+      ✔ in the rule: every line the task added is reached → applied; the prompt explains the rule (4666.393712ms)
+      ✔ a line the task added that no acceptance test reaches: not applied, retried with those lines (6212.455215ms)
+      ✔ the implementer reports a missing requirement → escalated with a Q-NN (3745.380425ms)
+      ✔ baseline: it goes down with the task's result and each file in it gets one cleanup task (4704.548997ms)
+      ✔ a coverage command that cannot run stops the run without applying anything (2933.967719ms)
+      ✔ --dry-run says how the rule applies and creates nothing (1723.695685ms)
+    ✔ coverage from acceptance (DEC-011) (29842.527895ms)
+    ▶ deterministic evidence at the close (DEC-014)
+      ✔ the Stop hook records a report; the orchestrator re-runs verify and record_evidence.py writes evidence and status (4250.725931ms)
+      ✔ a hook that is down (no report) blocks the close: nothing applied (4286.969946ms)
+      ✔ a report altered by hand: blocked by evidence_mismatch, the run stops (3164.375191ms)
+      ✔ a verify that fails when the orchestrator re-runs it: not applied (4592.937141ms)
+    ✔ deterministic evidence at the close (DEC-014) (16295.184009ms)
+    ▶ tokens of the run and monthly cap (DEC-048, T-88)
+      ✔ T-88: a run whose agents are test doubles never writes the real ledger: tokens.test-doubles.jsonl, and no costs.jsonl at all (DEC-048, T-73) (4113.457681ms)
+      ✔ T-88: every invocation adds its four token kinds to the ledger; summary, notice and result.json give the counted tokens and cache read apart, no dollars (4119.494007ms)
+      ✔ T-88: with the monthly cap reached no agent is launched: the run stops and asks for intervention (high priority) (1607.987001ms)
+      ✔ T-88: cache read does not count for the cap: a huge cache read below it runs as usual; an invalid cap stops at the start (4794.762584ms)
+      ✔ T-88: only the obsolete AUTOPILOT_MONTHLY_BUDGET_USD set: no agent is launched and it asks to set the cap in tokens (1549.059222ms)
+    ✔ tokens of the run and monthly cap (DEC-048, T-88) (16185.013359ms)
+    ▶ result.json of the run
+      ✔ normal run: done tasks, stop reason, tokens and duration; its path is the last line of the output (4254.537185ms)
+      ✔ finished fine: no intervention (4437.158527ms)
+      ✔ with failures: failed, abandoned, exit code 1 and intervention (3544.435113ms)
+      ✔ waiting for a deploy: listed, with intervention (3076.310694ms)
+      ✔ rejected by the reviewer: listed, with intervention (4254.831753ms)
+      ✔ if it crashes after creating the run directory, it still leaves result.json with intervention (1116.846733ms)
+      ✔ --dry-run writes no result.json (1660.368371ms)
+    ✔ result.json of the run (22344.799278ms)
+  ✔ full cycle with agent doubles (claude adapter) (855186.963874ms)
+  ▶ --check
+    ✔ an eligible task: exit 0 with the task and the pending reviews; launches and writes nothing (774.776243ms)
+    ✔ only pending reviews (verified_auto): exit 0 (725.267463ms)
+    ✔ nothing to do: exit 3, without notice or result.json (678.389201ms)
+    ✔ dirty tree: exit 2 with the reason (622.375909ms)
+    ✔ lock busy (a run in progress): exit 2; with the lock free it does not keep it (1320.735824ms)
+  ✔ --check (4121.749893ms)
+  ✔ refuses to run with a dirty tree (in a dry run it only warns) (2224.6805ms)
+✔ autopilot.sh (906790.241984ms)
+▶ check-adr (DEC-035, T-68)
+  ✔ passes with every accepted ADR enforced and the index up to date (162.37775ms)
+  ✔ fails if an accepted ADR has no Enforced-by, points to a missing file, or to a test name that is not there (310.496241ms)
+  ✔ cmd: runs the command and fails if it fails; manual: needs a reason (371.111359ms)
+  ✔ with --run it runs the referenced tests too, and fails if they fail (385.057498ms)
+  ✔ a violation in the frozen baseline passes; the baseline may only shrink (343.39257ms)
+  ✔ an accepted ADR is immutable: a changed body fails, committed or not; only its Estado may become superseded by an existing NNNN (471.026072ms)
+  ✔ fails if the generated index is out of date (134.816226ms)
+  ✔ the Enforced-by line of an accepted ADR may change (that is how a baseline violation is fixed) (160.317931ms)
+  ✔ a new ADR is born proposed: one committed as accepted fails (DEC-036, T-71) (220.751377ms)
+  ✔ a new ADR may only be accepted with at least two options with their pros and cons; the migrated ones are exempt (DEC-036, T-71) (490.342451ms)
+  ✔ adr accept refuses, without asking the decider, an ADR with fewer than two such options (DEC-036, T-71) (159.61641ms)
+  ✔ the Módulos line of an accepted ADR may change; each value must be an existing file, not a folder, README.md or AGENTS.md (DEC-042, T-75) (507.171718ms)
+  ✔ the real repository passes (570.337608ms)
+✔ check-adr (DEC-035, T-68) (4288.598968ms)
+▶ check-coverage (DEC-011)
+  ✔ without spec/COVERAGE.json the repository is out of the rule: exit 0 and it says so (61.855674ms)
+  ✔ every line reached by acceptance tests citing a REQ (also in a child process) → ok (265.51528ms)
+  ✔ an unreached line fails with file:lines, a file no test loads counts whole, and so on (172.01222ms)
+  ✔ only tests under tests/acceptance/ that cite an existing REQ count (56.129071ms)
+  ✔ code outside sources, tests and exceptions fails; an exception needs an accepted DEC (522.537859ms)
+  ✔ baseline: old unreached lines are tolerated up to their count; above it fails; below it can go down (626.141898ms)
+  ✔ adopt writes the current counts as the baseline; an empty baseline makes the rule total (901.31414ms)
+  ✔ --since: a new or changed line must be reached even where the baseline tolerates old ones (474.077547ms)
+  ✔ a command that leaves no lcov is an error (exit 2) (56.336753ms)
+  ✔ check:spec accepts spec/COVERAGE.json and validates it (360.312626ms)
+✔ check-coverage (DEC-011) (3497.835205ms)
+▶ check-coverage helpers
+  ✔ globs: "dir/" covers everything below; ** and * as usual (13.857882ms)
+  ✔ lcov: absolute paths relative to the root, files outside it dropped, hits merged (14.450497ms)
+✔ check-coverage helpers (28.435489ms)
+▶ state changes only through the scripts (DEC-028, T-60)
+  ✔ a commit that changes a status by hand fails; the same change through tasks set-status passes, with its entry (324.413575ms)
+  ✔ the commit-msg hook checks the staged change too (170.014649ms)
+  ✔ set-status never writes verified_auto, implemented, reviewed or done; accepted, approved_for_impl and delivered only by a person (267.472064ms)
+  ✔ without status_log_since the rule does not run (projects that have not adopted it); status_log must be well formed (191.706801ms)
+✔ state changes only through the scripts (DEC-028, T-60) (954.586323ms)
+▶ an agent sets only in_progress and blocked; the user keeps the rest of DEC-028 (DEC-032, T-64)
+  ✔ set-status with an agent in --by accepts only in_progress and blocked; a person keeps specified, ready, superseded… (202.644154ms)
+  ✔ check:spec rejects a status_log entry of an agent (not one of the scripts) towards another status (176.031427ms)
+✔ an agent sets only in_progress and blocked; the user keeps the rest of DEC-028 (DEC-032, T-64) (378.957953ms)
+▶ check:spec
+  ✔ passes with the test spec (98.773483ms)
+  ✔ passes on the real repository (including its history) (264.729891ms)
+  ✔ fails if TASKS.json is not valid JSON (69.520385ms)
+  ✔ fails with done without complete evidence (100.680774ms)
+  ✔ passes with done and complete evidence (91.437701ms)
+  ▶ every evidence points to its log with the sha256, in any status (T-41, DEC-014)
+    ✔ hand-written evidence fails in verified_auto, reviewed or accepted too (477.521431ms)
+    ✔ the explicit "evidence_legacy" list exempts tasks recorded before DEC-014; it must name existing tasks (400.657419ms)
+    ✔ evidence.integration needs its log and sha256 as well; an evidence with only a reverification mark is not checked (173.070021ms)
+  ✔ every evidence points to its log with the sha256, in any status (T-41, DEC-014) (1051.518369ms)
+  ✔ fails with blocked without blocked_by (89.586015ms)
+  ✔ fails with blocked whose reference is not in reqs/decisions/depends_on (88.086332ms)
+  ✔ fails with blocked by a missing Q- (92.179518ms)
+  ✔ passes with blocked referencing DEC-005 (90.974389ms)
+  ✔ passes with blocked referencing T-03 (89.57258ms)
+  ✔ passes with blocked referencing REQ-002 (93.408301ms)
+  ✔ passes with blocked referencing Q-02 (97.977605ms)
+  ✔ fails with an extra file in spec/; spec/contracts/ accepts any contract (90.248312ms)
+  ✔ fails with references to missing REQs, DECs or tasks (92.910084ms)
+  ✔ rejects an unknown kind (98.140592ms)
+  ▶ external_repos (DEC-021)
+    ✔ accepts an approved external repository and rejects an entry without approval or with a relative path (162.654751ms)
+  ✔ external_repos (DEC-021) (162.769467ms)
+  ▶ plan_review (DEC-010 point 7)
+    ✔ accepts a well-formed plan_review, and null; rejects it on a spec task (166.841524ms)
+    ✔ lists every malformed field (98.099314ms)
+    ✔ APROBAR is impossible with a P0/P1 backed by a source or a file line (99.125667ms)
+  ✔ plan_review (DEC-010 point 7) (364.235273ms)
+  ▶ acceptance_review (DEC-004 point 3)
+    ✔ accepts a well-formed acceptance_review on a spec task, and null (90.096256ms)
+    ✔ accepts it on a task with REQ (its tests come from the test-author, DEC-006); rejects it on a tooling task (178.654265ms)
+    ✔ lists every malformed field (97.850616ms)
+    ✔ rejects a value that is not an object (95.517854ms)
+  ✔ acceptance_review (DEC-004 point 3) (462.365775ms)
+  ▶ touches
+    ✔ fails if an open task has no touches, or an empty list (96.639455ms)
+    ✔ fails if touches is not an array (91.879253ms)
+    ✔ rejects touches entry "../other/x.ts" (must not contain "..") (92.982259ms)
+    ✔ rejects touches entry "app/../spec/TASKS.json" (must not contain "..") (88.027501ms)
+    ✔ rejects touches entry "app/*.ts" (must not contain wildcards) (91.661173ms)
+    ✔ rejects touches entry "app/**/" (must not contain wildcards) (93.750766ms)
+    ✔ rejects touches entry "src/x?.ts" (must not contain wildcards) (98.250359ms)
+    ✔ rejects touches entry "spec/" (must not include spec/) (98.132597ms)
+    ✔ rejects touches entry "spec/TASKS.json" (must not include spec/) (94.672993ms)
+    ✔ rejects touches entry "/abs/path" (must be relative to the root) (94.319988ms)
+    ✔ rejects touches entry "" (must be a non-empty string) (92.280939ms)
+    ✔ rejects touches entry "app//x.ts" (must not contain empty or "." segments) (96.311479ms)
+    ✔ rejects touches entry "./app/" (must not contain empty or "." segments) (96.110229ms)
+    ✔ does not validate the touches of a closed task: it is history (R-02) (170.771263ms)
+    ✔ accepts files, directories ending in / and names that only start with spec (94.645311ms)
+    ✔ does not require touches on a closed task (accepted) (93.295199ms)
+    ✔ does not require touches on a closed task (done) (92.02644ms)
+    ✔ does not require touches on a closed task (delivered) (88.981867ms)
+    ✔ does not require touches on a closed task (superseded) (90.412451ms)
+  ✔ touches (1856.056196ms)
+  ▶ history
+    ✔ fails if an implementation task edits tests/acceptance/ (103.957053ms)
+    ✔ fails if a commit with Task: none edits tests/acceptance/ (107.470418ms)
+    ✔ passes if the spec task (T-03) edits tests/acceptance/ (106.19642ms)
+    ✔ passes if the test-author (Test-Author: autopilot) writes tests/acceptance/<ID>* of a task that is not a spec task (105.556755ms)
+    ✔ fails if a Test-Author commit touches anything but tests/acceptance/<ID>* (T-1 does not cover T-14) (113.190719ms)
+    ✔ fails with commits without trailers or with missing Task/Req (123.313488ms)
+    ✔ accepts "Req: N/A" only in commits of tooling tasks (T-08) (228.925658ms)
+    ✔ accepts Task/Req in a paragraph before Co-Authored-By (115.596538ms)
+    ✔ history_since excludes the commits before the protocol adoption, but not the later ones (307.39921ms)
+    ✔ an invalid or missing history_since is an error (159.306708ms)
+  ✔ history (1471.416995ms)
+  ▶ commit-msg hook
+    ✔ is executable (18.506764ms)
+    ✔ rejects a commit without trailers (135.324763ms)
+    ✔ rejects an implementation task that edits tests/acceptance/ (142.333249ms)
+    ✔ accepts a commit with valid trailers (142.513659ms)
+    ✔ rejects a Task trailer whose task exists only in the working tree, not in the commit (137.559491ms)
+    ✔ accepts it once spec/TASKS.json is in the same commit (139.390779ms)
+    ✔ does not reject a commit for a problem that exists only in the working tree (140.728307ms)
+  ✔ commit-msg hook (856.713213ms)
+✔ check:spec (7774.645744ms)
+▶ decide core: answer → action (DEC-015)
+  ✔ an answer of the enum with enough confidence proceeds (1.990227ms)
+  ✔ low confidence escalates to the user (0.662978ms)
+  ✔ an answer outside the enum is rejected (and escalates) (0.713112ms)
+  ✔ a decider error or no answer escalates; never falls back to anything else (0.601062ms)
+✔ decide core: answer → action (DEC-015) (4.990065ms)
+▶ decide CLI: runs the adapter, maps its answer and records the decision
+  ✔ proceed: the adapter got the question; the record has question, answer, confidence and action (46.154641ms)
+  ✔ an adapter that fails, hangs or prints garbage escalates (and is recorded) (1122.744295ms)
+✔ decide CLI: runs the adapter, maps its answer and records the decision (1169.100125ms)
+▶ Jev adapter (scripts/agents/decider/jev.sh): translates only
+  ✔ sends one choice question to the TypeSafe API and normalizes its answer (87.191076ms)
+  ✔ no API key, an HTTP error or an answer without the question → exit 1 with the reason (122.250006ms)
+  ✔ asks for the pinned version, never the alias, and returns the model that answered; JEV_MODEL moves it (DEC-025, T-56) (171.504463ms)
+  ✔ every decision record keeps the model that answered (response.model), or null if the decider gives none (T-56) (145.478801ms)
+  ✔ is reached through the port: decide.mjs ask with the Jev adapter (115.432159ms)
+✔ Jev adapter (scripts/agents/decider/jev.sh): translates only (642.312664ms)
+▶ instrument (DEC-026, T-58)
+  ✔ classifies test commands: the verify, npm test and node --test without a pattern or file are the suite; the rest are task runs (16.307274ms)
+  ✔ record: tokens, minutes, test runs (agent, hook, orchestrator), gates, exit codes and tree_sha; flush: evidence/<ID>.json (102.618664ms)
+  ✔ a record without a final event or stream still keeps what is known (an agent that died) (84.514606ms)
+✔ instrument (DEC-026, T-58) (204.765488ms)
+▶ record_evidence.py (DEC-014)
+  ✔ runs the active task's verify, keeps the raw log and writes evidence and status from it, atomically (70.717609ms)
+  ✔ overwrites evidence completely; the implementer's claims (e.g. manual_pending) stay apart and untouched (T-34) (61.538527ms)
+  ✔ one failing test: status implemented, never done, exit 2 (58.661811ms)
+  ✔ an output it cannot count fails and writes nothing to spec/TASKS.json (53.151275ms)
+  ✔ needs exactly one in_progress task (or --task) and a verify (89.013587ms)
+  ✔ counts node:test, vitest and jest summaries, adding up several runs (54.407189ms)
+  ✔ T-85: a colored vitest summary counts the same as a plain one (54.847559ms)
+  ✔ T-85: the verify runs with NO_COLOR=1 and without FORCE_COLOR, whatever the caller has (51.758443ms)
+  ✔ --report-only writes the log and the report to --log-dir and leaves spec/ and artifacts/ alone (118.84248ms)
+  ▶ --batch: one run of the full suite is the evidence of every task of the batch (T-57)
+    ✔ runs the shared verify once and writes the same log, sha256 and commit to each task, with the batch listed (304.956331ms)
+    ✔ refuses tasks whose verify differ, and an unknown task; writes nothing (80.034771ms)
+    ✔ --keep-status (the close of a batch branch, DEC-033): a pass keeps each status; a failure leaves them implemented (T-65) (89.321116ms)
+    ✔ a failing suite leaves every task of the batch implemented, exit 2 (52.458982ms)
+  ✔ --batch: one run of the full suite is the evidence of every task of the batch (T-57) (527.081074ms)
+  ✔ imports only the standard library (DEC-017) (14.41466ms)
+✔ record_evidence.py (DEC-014) (1156.979654ms)
+▶ check:spec on done evidence (DEC-014)
+  ✔ a done task needs a log that exists and matches its sha256 (411.526695ms)
+  ✔ accepts blocked_by evidence_mismatch (172.5275ms)
+✔ check:spec on done evidence (DEC-014) (584.230386ms)
+▶ access_guard: only record_evidence.py writes spec/TASKS.json and artifacts/
+  ✔ denies Edit {"file_path":"spec/TASKS.json"} (14.788313ms)
+  ✔ denies Write {"file_path":"spec/TASKS.json"} (15.328411ms)
+  ✔ denies Write {"file_path":"artifacts/T-08/verify.log"} (15.923702ms)
+  ✔ denies Bash {"command":"sed -i 's/implemented/done/' spec/TASKS.json"} (14.742587ms)
+  ✔ denies Bash {"command":"echo {} > spec/TASKS.json"} (14.512986ms)
+  ✔ denies Bash {"command":"rm -rf artifacts/T-08"} (14.263225ms)
+  ✔ denies Bash {"command":"node -e \"require('fs').writeFileSync('spec/TASKS.json','')\""} (13.237544ms)
+  ✔ still allows reading them (15.24269ms)
+✔ access_guard: only record_evidence.py writes spec/TASKS.json and artifacts/ (118.506998ms)
+▶ the Stop hook (Claude Code adapter of record_evidence)
+  ✔ the implementer runs with a Stop hook that calls record_evidence.py --report-only for its task (50.056478ms)
+  ✔ blocks the close (exit 2, with the log path) when verify fails, and when the hook itself is down (222.747645ms)
+✔ the Stop hook (Claude Code adapter of record_evidence) (272.963813ms)
+▶ verify and verify_integration (DEC-019)
+  ✔ check:spec: verify must be a local command; what counts as integration is the project's pattern (400.808013ms)
+  ✔ record_evidence.py runs verify_integration only with --integration --approved-by, into evidence.integration (156.421165ms)
+  ✔ a coincide verdict removes the unverified mark (48.663465ms)
+✔ verify and verify_integration (DEC-019) (606.138535ms)
+▶ evidence at the first self-consistent commit (DEC-020)
+  ✔ --at runs verify in that commit and records it in verified_at_commit; the task leaves blocked (81.76535ms)
+  ✔ pasa_comando_nuevo is a verdict of its own and does not mark unverified (48.322823ms)
+✔ evidence at the first self-consistent commit (DEC-020) (130.243587ms)
+ℹ tests 502
+ℹ suites 85
+ℹ pass 501
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 913419.16348
+
+> check:repo
+> node scripts/ci/check-repo.mjs
+
+check:repo: ok
+
+> check:spec
+> node scripts/check-spec.mjs
+
+check:spec: ok

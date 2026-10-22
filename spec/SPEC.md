@@ -72,7 +72,7 @@ de cuenta de servicio; (3) el README trae la tabla del benchmark con números re
 - Promoción: un modelo se materializa en la capa siguiente solo si pasan las assertions de sus dependencias.
 - Fecha D: el día de datos que procesa una corrida; por defecto, ayer en America/Santiago.
 - Ticket: credencial de la API de Mercado Público, una por persona, obtenida con Clave Única.
-- BDE: Base de Datos Estadísticos del Banco Central (API SieteRestWS).
+- BDE: Base de Datos Estadísticos del Banco Central (API REST SieteRestWS, autenticada con un token).
 - ND: valor «no disponible» que la BDE devuelve en un día sin dato.
 - Persona natural: proveedor cuyo RUT es menor que 50.000.000 (S-04).
 - Corrida diaria: la ejecución del Workflow que lanza Cloud Scheduler.
@@ -129,8 +129,9 @@ Trazas: objetivo §Criterio de éxito (2) · decisiones: DEC-004, DEC-005 · pru
 ### REQ-003 Tope de gasto · estado: approved_for_impl · prioridad: must
 Cuando el gasto real del mes llega al 50 % o al 90 % del presupuesto (USD 10 por defecto), el sistema deberá avisar por
 correo. Cuando llega al 100 %, la función desvinculadora deberá quitar la cuenta de facturación del proyecto. Toda
-consulta de BigQuery deberá correr bajo la cuota diaria del proyecto (S-07), y las consultas de Dataform y de los
-scripts del repo, con `maximum_bytes_billed` (S-07; los load jobs no facturan bytes).
+consulta de BigQuery deberá correr bajo la cuota diaria del proyecto (S-07); las de Dataform, además, bajo la cuota
+diaria por usuario, que alcanza a su cuenta de servicio (Dataform no tiene `maximumBytesBilled`, T-02); y las de los
+scripts del repo, con `maximum_bytes_billed` (S-07; los load jobs no facturan bytes). (Previamente: «las consultas de Dataform y de los scripts del repo, con `maximum_bytes_billed`», cambiado en LOG 2026-10-22 por el spike T-02.)
 Si el mensaje del presupuesto trae un `costAmount` menor que `budgetAmount`, entonces la función no deberá hacer nada.
 Si el mensaje está malformado, entonces deberá registrar el error sin desvincular. Si el billing ya está desvinculado,
 entonces no deberá fallar (idempotente). La cuenta de servicio de CI no deberá tener roles de billing.
@@ -142,7 +143,7 @@ Ejemplos (aceptación):
 | E3 negativo | mensaje sin `costAmount` o con JSON inválido | registra el error y no llama a la API |
 | E4 borde | `costAmount` ≥ `budgetAmount` y el proyecto ya sin billing | no llama a `updateBillingInfo` y termina sin error |
 | E5 positivo | `terraform test` del bootstrap | presupuesto con umbrales 0.5, 0.9 y 1.0 sobre el gasto real y tema Pub/Sub conectado a la función; la cuenta de servicio de CI no tiene roles `roles/billing.*` |
-| E6 positivo | `terraform test` de `infra/main` y `dataform compile` | la cuota diaria de bytes de query existe y `workflow_settings.yaml` fija `maximumBytesBilled` |
+| E6 positivo | `terraform test` de `infra/main` | existen las cuotas `QueryUsagePerDay` (proyecto) y `QueryUsagePerUserPerDay` (usuario) de `bigquery.googleapis.com` con los valores de S-07 (antes: «y `workflow_settings.yaml` fija `maximumBytesBilled`», cambiado en LOG 2026-10-22) |
 Trazas: objetivo §Criterio de éxito (3) · decisiones: DEC-003 · prueba: tests/acceptance/T-05*
 
 ### REQ-004 Ingesta de Mercado Público a bronze · estado: approved_for_impl · prioridad: must
@@ -176,18 +177,18 @@ Trazas: objetivo §Alcance 2 · decisiones: DEC-004, DEC-006 · prueba: tests/ac
 
 ### REQ-005 Ingesta del Banco Central y de mindicador a bronze · estado: approved_for_impl · prioridad: must
 Cuando el job de indicadores corre para la fecha D, el sistema deberá pedir a la BDE las series de UF, dólar observado e
-IPC (S-08) desde D−10 hasta D (para captar revisiones, usando `updatedAt`) y a mindicador.cl la UF y el dólar de D, y
+IPC (S-08) desde D−10 hasta D (para captar revisiones; `updatedAt` solo existe en `SearchSeries`, T-02) y a mindicador.cl la UF y el dólar de D, y
 escribir las respuestas crudas en bronze (`bcentral/<serie>/…` y `mindicador/<indicador>/…`) con los metadatos de
 REQ-004. Los valores `ND` se guardan tal cual.
-Si la BDE rechaza las credenciales, entonces el job deberá terminar distinto de 0 con un mensaje que no incluya la
-clave. Si mindicador no responde, entonces deberá registrar la ausencia y terminar en 0 (es una fuente secundaria sin
+Si la BDE rechaza el token (la API REST se autentica con un token, no con usuario y clave; T-02), entonces el job
+deberá terminar distinto de 0 con un mensaje que no incluya el token. (Previamente: «rechaza las credenciales … no incluya la clave», cambiado en LOG 2026-10-22 por el spike T-02.) Si mindicador no responde, entonces deberá registrar la ausencia y terminar en 0 (es una fuente secundaria sin
 SLA).
 Ejemplos (aceptación):
 | caso | entrada / contexto | resultado esperado |
 |---|---|---|
 | E1 positivo | BDE simulada con 11 observaciones de UF | una línea JSONL por serie y corrida con las 11 observaciones |
 | E2 borde | el dólar trae `ND` en un sábado | la observación queda con `value: "ND"` en bronze |
-| E3 negativo | BDE responde con credenciales inválidas | sale distinto de 0 y stderr no contiene la clave |
+| E3 negativo | BDE responde con un token inválido | sale distinto de 0 y stderr no contiene el token |
 | E4 negativo | mindicador da timeout | aviso en el registro, sin archivo de mindicador y sale en 0 |
 Trazas: objetivo §Alcance 2 · decisiones: DEC-004, DEC-006 · prueba: tests/acceptance/T-07*
 
@@ -236,7 +237,9 @@ organismo, proveedor —el RUT, que T-14 reemplaza por `proveedor_key` (REQ-014)
 fecha_cambio DESC, ingested_at DESC) = 1`. En modo incremental, el SQL une las filas nuevas con las filas actuales del
 destino (`${self()}`) para las mismas claves antes del `QUALIFY`, así el MERGE escribe siempre la versión ganadora y no
 la última en llegar (el MERGE de `uniqueKey` actualiza toda fila con clave igual). Además, los modelos van con tipos
-convertidos (fechas, montos NUMERIC, moneda) y el código de estado traducido (5 Publicada, 6 Cerrada, 7 Desierta, 8 Adjudicada, 18 Revocada, 19 Suspendida). En `indicadores_diarios`,
+convertidos (fechas, montos NUMERIC, moneda) y el código de estado traducido: licitaciones 5 Publicada, 6 Cerrada, 7 Desierta, 8 Adjudicada, 18 Revocada, 19 Suspendida; órdenes de
+compra 4 Enviada a proveedor, 5 En proceso, 6 Aceptada, 9 Cancelada, 12 Recepción conforme, 13 Pendiente de
+recepcionar, 14 Recepcionada parcialmente, 15 Recepción conforme incompleta (T-02). En `indicadores_diarios`,
 `ND` pasa a `NULL` con `es_nd = TRUE`.
 Si llega una versión más antigua de una clave que ya está en silver, entonces no deberá sobrescribir la más reciente.
 Ejemplos (aceptación):
@@ -268,7 +271,7 @@ Trazas: objetivo §Objetivo («calidad como código») · decisiones: DEC-001 ·
 
 ### REQ-010 Cuarentena con motivo · estado: approved_for_impl · prioridad: must
 Cuando una fila de raw no cumple una regla de fila (RUT con dígito verificador inválido, monto negativo, moneda fuera de
-CLP/USD/UF/UTM/EUR, fecha fuera de 2000-01-01 … D+1 o clave nula), el sistema deberá escribirla en
+CLP/CLF/USD/UTM/EUR (la UF viene como `CLF`, T-02; antes decía UF, cambiado en LOG 2026-10-22), fecha fuera de 2000-01-01 … D+1 o clave nula), el sistema deberá escribirla en
 `quarantine.<entidad>` con `motivos` (ARRAY de códigos de regla), `run_id` y `quarantined_at`, y no deberá pasarla a
 silver.
 Si una fila incumple varias reglas, entonces `motivos` deberá traerlas todas. Si una fila cumple todas, entonces no
@@ -390,9 +393,9 @@ Trazas: objetivo §Criterio de éxito (1)(3) · decisiones: DEC-001 · prueba: t
 | S-04 | un RUT menor que 50.000.000 es de una persona natural | umbral 50.000.000 en `includes/reglas.js` | reversible | aparece un campo explícito de tipo de persona |
 | S-05 | la corrida diaria cabe en la ventana 22:00–07:00 | Scheduler 23:30 America/Santiago, D = ayer | reversible | la corrida tarda más de 7 h |
 | S-06 | 9.000 requests diarios dejan margen sobre el límite de 10.000 y alcanzan para el día a día (~8.500 por día hábil; ~2,03 M OC en 2024, chilecompra.cl) | `MP_DAILY_REQUEST_BUDGET=9000` | reversible | ChileCompra cambia el límite, o el cursor acumula más de 3 días de atraso |
-| S-07 | 50 GiB de query diarios y 10 GiB por consulta bastan | cuota de proyecto 50 GiB/día; `maximumBytesBilled` 10 GiB; el benchmark fija el suyo por query (≤ 20 GiB) | reversible | el benchmark o una corrida chocan con la cuota |
-| S-14 | la API de Mercado Público trae un campo de fecha de última modificación o de cambio de estado por documento | `fecha_cambio` = ese campo; si no existe, `ingested_at`; T-02 lo confirma | requiere spike | T-02 |
-| S-08 | las series de la BDE son UF `F073.UFF.PRE.Z.D`, dólar observado `F073.TCO.PRE.Z.D` e IPC `F074.IPC.VAR.Z.Z.C.M` | esas tres; T-02 las confirma | reversible | T-02 encuentra otros códigos |
+| S-07 | 50 GiB de query diarios y 20 GiB por usuario bastan | cuota de proyecto `QueryUsagePerDay` 50 GiB/día; cuota por usuario `QueryUsagePerUserPerDay` 20 GiB/día (alcanza a la cuenta de servicio de Dataform); los scripts fijan `maximum_bytes_billed` (≤ 20 GiB). La unidad del valor en la API la confirma T-05 (antes: «`maximumBytesBilled` 10 GiB», que Dataform no tiene; LOG 2026-10-22) | reversible | el benchmark o una corrida chocan con la cuota |
+| S-14 | la API de Mercado Público trae un campo de fecha de última modificación por documento | T-02: la OC trae `Fechas.FechaUltimaModificacion` (`fecha_cambio` = ese campo); la licitación no trae ninguno (`fecha_cambio` = `ingested_at` para licitaciones e ítems) | resuelto | — |
+| S-08 | las series de la BDE son UF `F073.UFF.PRE.Z.D`, dólar observado `F073.TCO.PRE.Z.D` e IPC `F074.IPC.VAR.Z.Z.C.M` | esas tres; T-02 no pudo confirmarlas sin token: las confirma `SearchSeries` en el `verify_integration` de T-07 | reversible | `SearchSeries` no las trae |
 | S-09 | BDE y mindicador coinciden hasta el centavo | tolerancia ≤ 0,01 CLP en UF y dólar | reversible | la reconciliación falla sin error real |
 | S-10 | `terraform test` con `mock_provider` prueba `infra/` sin credenciales y lee pruebas fuera del módulo con `-test-directory` (2026-10-22, T-01: lo primero se cumple; lo segundo no, y `scripts/acceptance.sh` copia el archivo a la raíz) | pruebas de infra en `tests/acceptance/T-NN*.tftest.hcl`; si no se puede, `scripts/acceptance.sh` copia el archivo al módulo antes de correrlo | reversible | T-01 lo descarta |
 | S-11 | no hace falta `spec/COVERAGE.json` en este corte | sin regla de cobertura desde aceptación | diferible | un corte futuro la pide |

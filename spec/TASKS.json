@@ -12,7 +12,7 @@
         "DEC-005"
       ],
       "depends_on": [],
-      "status": "in_progress",
+      "status": "verified_auto",
       "blocked_by": null,
       "notes": "2026-10-21: herramientas con mise local en .tools/, sin sudo; verify a través de scripts/env.sh (pedido de José Pedro Lübbert). 2026-10-21: escalada por el orquestador (DEC-005): el decisor (jev) no resolvió la causa del fallo (confidence 0.76 < 0.8 (threshold)); sin informe; bloqueada por Q-04.",
       "kind": "tooling",
@@ -55,6 +55,13 @@
           "by": "Claude (sesión interactiva)",
           "at": "2026-10-22T02:54:42.354Z",
           "reason": "Q-04: T-01 se implementa en sesión, que tiene red para setup.sh (decisión reversible, criterios del usuario)"
+        },
+        {
+          "from": "in_progress",
+          "to": "verified_auto",
+          "by": "record_evidence.py",
+          "at": "2026-10-22T03:35:39+00:00",
+          "reason": "verify con código 0: 513/514 pasan, 0 fallan"
         }
       ],
       "plan_review": {
@@ -76,6 +83,18 @@
         ],
         "opinion_blockers": [],
         "date": "2026-10-22"
+      },
+      "evidence": {
+        "command": "scripts/env.sh bash -c 'npm run lint && npm test && npm run check:repo && npm run check:spec'",
+        "exit_code": 0,
+        "passed": 513,
+        "failed": 0,
+        "total": 514,
+        "log_path": "artifacts/T-01/verify.log",
+        "log_sha256": "3941f3c218cf5862918f2e180049ef0186a81b9f87fa4a64f23516a108c49ff0",
+        "commit": "57695cca7aae6ab3028a63e37b19ae5e673fc8cb",
+        "timestamp": "2026-10-22T03:35:39+00:00",
+        "result": "513/514 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-01/verify.log)"
       }
     },
     {
@@ -89,13 +108,13 @@
         "DEC-003"
       ],
       "depends_on": [],
-      "status": "ready",
+      "status": "verified_auto",
       "blocked_by": null,
-      "notes": "",
+      "notes": "2026-10-22: verify cambiado (antes: test -s docs/spikes/T-02-recursos.md && grep -c '^## ' … && npm run check:spec), porque no imprimía conteos de pruebas y record_evidence.py lo rechazaba; ahora una prueba node:test revisa las 10 secciones, las fuentes, los supuestos y que no haya secretos.",
       "touches": [
         "docs/spikes/"
       ],
-      "verify": "test -s docs/spikes/T-02-recursos.md && grep -c '^## ' docs/spikes/T-02-recursos.md && npm run check:spec",
+      "verify": "scripts/env.sh node --test --test-reporter=spec docs/spikes/T-02-recursos.test.mjs && npm run check:spec",
       "status_log": [
         {
           "from": "specified",
@@ -103,6 +122,20 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:23:36.735Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "Claude (sesión interactiva)",
+          "at": "2026-10-22T03:37:03.583Z",
+          "reason": "T-02 se implementa en sesión (Q-04); verify corregido para que imprima conteos"
+        },
+        {
+          "from": "in_progress",
+          "to": "verified_auto",
+          "by": "record_evidence.py",
+          "at": "2026-10-22T03:37:04+00:00",
+          "reason": "verify con código 0: 4/4 pasan, 0 fallan"
         }
       ],
       "plan_review": {
@@ -124,12 +157,24 @@
         ],
         "opinion_blockers": [],
         "date": "2026-10-22"
+      },
+      "evidence": {
+        "command": "scripts/env.sh node --test --test-reporter=spec docs/spikes/T-02-recursos.test.mjs && npm run check:spec",
+        "exit_code": 0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "log_path": "artifacts/T-02/verify.log",
+        "log_sha256": "fbc1b858016f6d45f336b51eca63fbdfa39e85103ddfd18e7c2c42084020820c",
+        "commit": "cdf21c5b5d25333bd7b2232a6580932b8ae62842",
+        "timestamp": "2026-10-22T03:37:04+00:00",
+        "result": "4/4 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-02/verify.log)"
       }
     },
     {
       "id": "T-03",
       "title": "Infraestructura base en Terraform",
-      "description": "infra/bootstrap (bucket de estado versionado, pool y proveedor WIF restringidos por attribute.repository, cuenta de servicio de CI con los roles para aplicar infra/main y sin roles de billing) e infra/main con backend GCS y los módulos storage (bucket bronze con lifecycle), bigquery (raw, silver, gold, quarantine, pii, bench con expiración de tabla de 30 días, y raw_ci, silver_ci, gold_ci, quarantine_ci), iam (una cuenta de servicio por componente, roles a nivel de recurso según REQ-001 E5 y E6), secrets (los de DEC-004, sin versiones) y APIs. Variables obligatorias: project_id, region (validada: us-central1, us-east1, us-west1), github_repository. Usa los nombres de recursos que confirmó T-02. scripts/it/tf-plan.sh <bootstrap|main> para la integración.",
+      "description": "infra/bootstrap (bucket de estado versionado, pool y proveedor WIF restringidos por attribute.repository, cuenta de servicio de CI con los roles para aplicar infra/main y sin roles de billing) e infra/main con backend GCS y los módulos storage (bucket bronze con lifecycle), bigquery (raw, silver, gold, quarantine, pii, bench con expiración de tabla de 30 días, y raw_ci, silver_ci, gold_ci, quarantine_ci), iam (una cuenta de servicio por componente, roles a nivel de recurso según REQ-001 E5 y E6), secrets (los de DEC-004, sin versiones) y APIs. Variables obligatorias: project_id, region (validada: us-central1, us-east1, us-west1), github_repository. Usa los nombres de recursos que confirmó T-02. scripts/it/tf-plan.sh <bootstrap|main> para la integración. Leer antes docs/spikes/T-02-recursos.md.",
       "reqs": [
         "REQ-001"
       ],
@@ -167,7 +212,7 @@
     {
       "id": "T-04",
       "title": "CI/CD en GitHub Actions con WIF",
-      "description": ".github/workflows/ci.yml (pull_request: job checks con lint, test, check:repo, check:spec y dataform compile; job plan que depende de checks, se autentica con google-github-actions/auth y WIF, corre terraform plan de infra/main y comenta el resumen en el PR; solo si el PR no viene de un fork) y deploy.yml (push a main: apply con environment production; las imágenes y la corrida de Dataform en ci las agrega T-08). id-token: write solo en los jobs que se autentican. Pruebas en scripts/ci/tests/ (pytest + pyyaml) y npm run test:workflows. scripts/it/last-ci-run.sh comprueba con gh que la última corrida de ci.yml en un PR pasó.",
+      "description": ".github/workflows/ci.yml (pull_request: job checks con lint, test, check:repo, check:spec y dataform compile; job plan que depende de checks, se autentica con google-github-actions/auth y WIF, corre terraform plan de infra/main y comenta el resumen en el PR; solo si el PR no viene de un fork) y deploy.yml (push a main: apply con environment production; las imágenes y la corrida de Dataform en ci las agrega T-08). id-token: write solo en los jobs que se autentican. Pruebas en scripts/ci/tests/ (pytest + pyyaml) y npm run test:workflows. scripts/it/last-ci-run.sh comprueba con gh que la última corrida de ci.yml en un PR pasó. Leer antes docs/spikes/T-02-recursos.md.",
       "reqs": [
         "REQ-002"
       ],
@@ -202,7 +247,7 @@
     {
       "id": "T-05",
       "title": "Tope de gasto duro y cuotas",
-      "description": "finops/killswitch/ (Cloud Run function en Python: lee el mensaje del presupuesto, desvincula el billing llamando a la API REST de Cloud Billing con httpx y google-auth (sin cliente de Cloud Billing; R-01) si costAmount ≥ budgetAmount, idempotente; pruebas con cliente simulado y npm run test:finops). En infra/bootstrap: presupuesto (variable budget_usd = 10, umbrales 0.5/0.9/1.0 sobre gasto real, correo de Q-03 como variable), tema Pub/Sub, función con su cuenta de servicio (roles/billing.projectManager solo sobre el proyecto). En infra/main: cuota diaria de bytes de query de BigQuery (S-07). En dataform/workflow_settings.yaml: maximumBytesBilled (S-07). scripts/it/killswitch-drill.sh: simulacro en un proyecto desechable con presupuesto de USD 0,01.",
+      "description": "finops/killswitch/ (Cloud Run function en Python: lee el mensaje del presupuesto, desvincula el billing llamando a la API REST de Cloud Billing con httpx y google-auth (sin cliente de Cloud Billing; R-01) si costAmount ≥ budgetAmount, idempotente; pruebas con cliente simulado y npm run test:finops). En infra/bootstrap: presupuesto (variable budget_usd = 10, umbrales 0.5/0.9/1.0 sobre gasto real, correo de Q-03 como variable), tema Pub/Sub, función con su cuenta de servicio (T-02: la guía oficial le da roles/billing.admin sobre la cuenta de facturación; se prueba primero roles/billing.projectManager sobre el proyecto en el simulacro y, si falla, billing.admin). En infra/main: cuotas QueryUsagePerDay y QueryUsagePerUserPerDay con google_cloud_quotas_quota_preference (S-07; Dataform no tiene maximumBytesBilled, T-02). scripts/it/killswitch-drill.sh: simulacro en un proyecto desechable con presupuesto de USD 0,01. Leer antes docs/spikes/T-02-recursos.md.",
       "reqs": [
         "REQ-003"
       ],
@@ -219,7 +264,6 @@
       "touches": [
         "finops/",
         "infra/",
-        "dataform/workflow_settings.yaml",
         "scripts/it/",
         "package.json",
         "pyproject.toml",
@@ -241,7 +285,7 @@
     {
       "id": "T-06",
       "title": "Ingesta de Mercado Público a bronze",
-      "description": "ingest/src/compras_ingest: cliente mercadopublico (listado diario y detalle de licitaciones y OC con httpx, reintentos con backoff ante 5xx, 429 (Retry-After) y timeout, contados en el presupuesto, 404 como línea de error), bronze (escritura JSONL en GCS por fecha y corrida, DEC-006, y cursor del presupuesto de requests, con los días pendientes antes de D), redacción del ticket en URLs y registros, cli (--date, --from/--to, MP_DAILY_REQUEST_BUDGET). El ticket se lee de Secret Manager en tiempo de ejecución. Pruebas con respx y un cliente GCS en memoria. Usa los endpoints que confirmó T-02. scripts/it/ingest-mp.sh <fecha> corre el job localmente contra la API real y un bucket de pruebas.",
+      "description": "ingest/src/compras_ingest: cliente mercadopublico (listado diario y detalle de licitaciones y OC con httpx, reintentos con backoff ante 5xx, 429 (Retry-After) y timeout, contados en el presupuesto, 404 como línea de error), bronze (escritura JSONL en GCS por fecha y corrida, DEC-006, y cursor del presupuesto de requests, con los días pendientes antes de D), redacción del ticket en URLs y registros, cli (--date, --from/--to, MP_DAILY_REQUEST_BUDGET). El ticket se lee de Secret Manager en tiempo de ejecución. Pruebas con respx y un cliente GCS en memoria. Usa los endpoints que confirmó T-02. scripts/it/ingest-mp.sh <fecha> corre el job localmente contra la API real y un bucket de pruebas. Fechas: la OC trae Fechas.FechaUltimaModificacion; la licitación no trae campo de última modificación (S-14, docs/spikes/T-02-recursos.md). Leer antes docs/spikes/T-02-recursos.md.",
       "reqs": [
         "REQ-004"
       ],
@@ -275,7 +319,7 @@
     {
       "id": "T-07",
       "title": "Ingesta del Banco Central y mindicador a bronze",
-      "description": "Clientes bcentral (SieteRestWS, series de S-08 confirmadas en T-02, rango D−10..D, ND sin tocar) y mindicador (UF y dólar de D; ausencia tolerada) que reutilizan el reintento, la redacción y la escritura a bronze de T-06; subcomando indicadores en el cli. Credenciales de la BDE desde Secret Manager. scripts/it/ingest-indicadores.sh <fecha>.",
+      "description": "Clientes bcentral (SieteRestWS, series de S-08 confirmadas en T-02, rango D−10..D, ND sin tocar) y mindicador (UF y dólar de D; ausencia tolerada) que reutilizan el reintento, la redacción y la escritura a bronze de T-06; subcomando indicadores en el cli. Token de la BDE (la API REST usa token, no usuario y clave; T-02) desde Secret Manager. scripts/it/ingest-indicadores.sh <fecha>. Leer antes docs/spikes/T-02-recursos.md.",
       "reqs": [
         "REQ-005"
       ],
@@ -419,7 +463,7 @@
     {
       "id": "T-11",
       "title": "Orquestación diaria con Scheduler, Workflows y Dataform",
-      "description": "orchestration/daily.yaml (ingesta MP → indicadores con el conector de Cloud Run Jobs que espera, connector_params.timeout 25200; compilación de Dataform desde main con codeCompilationConfig.vars (raw_dataset; policy_tag_rut lo agrega T-14) y workflow invocation con etiquetas silver y gold, consultada hasta terminar; FAILED/CANCELLED levanta excepción); infra/modules/orchestration (repositorio Dataform con remoto GitHub y token en Secret Manager, Workflow, Cloud Scheduler 23:30 America/Santiago con su cuenta de servicio, política de alertas por correo ante ejecuciones fallidas). Pruebas estructurales del YAML (pytest + pyyaml) en npm run test:orchestration. scripts/it/run-workflow.sh lanza una ejecución y espera su estado.",
+      "description": "orchestration/daily.yaml (ingesta MP → indicadores con el conector de Cloud Run Jobs que espera, connector_params.timeout 25200; compilación de Dataform desde main con codeCompilationConfig.vars (raw_dataset; policy_tag_rut lo agrega T-14) y workflow invocation con etiquetas silver y gold, consultada hasta terminar; FAILED/CANCELLED levanta excepción); infra/modules/orchestration (repositorio Dataform con remoto GitHub y token en Secret Manager, Workflow, Cloud Scheduler 23:30 America/Santiago con su cuenta de servicio, política de alertas por correo ante ejecuciones fallidas). Pruebas estructurales del YAML (pytest + pyyaml) en npm run test:orchestration. scripts/it/run-workflow.sh lanza una ejecución y espera su estado. Leer antes docs/spikes/T-02-recursos.md.",
       "reqs": [
         "REQ-007"
       ],
@@ -525,7 +569,7 @@
     {
       "id": "T-14",
       "title": "Policy tags sobre el RUT de personas naturales",
-      "description": "infra/modules/governance: taxonomía compras_publicas con FINE_GRAINED_ACCESS_CONTROL, policy tag dato_personal.rut, bindings de categoryFineGrainedReader solo para var.pii_readers y las cuentas de servicio de Dataform y de CI (con los nombres de recursos que confirmó T-02); output policy_tag_rut pasado a Dataform como variable de compilación en el release config y en la corrida de ci de deploy.yml (la compilación falla sin ella); dataset pii con la tabla sal (generada una vez) legible solo por Dataform; proveedor_key = TO_HEX(SHA256(CONCAT(sal, rut))) y los MERGE y joins de proveedores pasan a usarla; vars.policy_tag_rut en la compilación de orchestration/daily.yaml; Dataform asigna la tag a silver.proveedores.rut_persona_natural y gold.dim_proveedor.rut_persona_natural, separados por la regla de S-04 en includes/reglas.js. scripts/it/policy-tags.sh comprueba el acceso denegado y permitido con una cuenta de servicio de lectura.",
+      "description": "infra/modules/governance: taxonomía compras_publicas con FINE_GRAINED_ACCESS_CONTROL, policy tag dato_personal.rut, bindings de categoryFineGrainedReader solo para var.pii_readers y las cuentas de servicio de Dataform y de CI (con los nombres de recursos que confirmó T-02); output policy_tag_rut pasado a Dataform como variable de compilación en el release config y en la corrida de ci de deploy.yml (la compilación falla sin ella); dataset pii con la tabla sal (generada una vez) legible solo por Dataform; proveedor_key = TO_HEX(SHA256(CONCAT(sal, rut))) y los MERGE y joins de proveedores pasan a usarla; vars.policy_tag_rut en la compilación de orchestration/daily.yaml; Dataform asigna la tag a silver.proveedores.rut_persona_natural y gold.dim_proveedor.rut_persona_natural, separados por la regla de S-04 en includes/reglas.js. scripts/it/policy-tags.sh comprueba el acceso denegado y permitido con una cuenta de servicio de lectura. Leer antes docs/spikes/T-02-recursos.md.",
       "reqs": [
         "REQ-014"
       ],

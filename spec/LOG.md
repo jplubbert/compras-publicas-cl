@@ -137,3 +137,27 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Bloqueos nuevos: T-01 (Q-04).
 - Motivo de parada: no hay tareas in_progress/ready/approved_for_impl con dependencias cerradas (saltadas en esta corrida: T-02).
 - Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.
+
+## 2026-10-22 00:50 · Claude (sesión interactiva)
+- Hecho: T-01 (commit 2696a87) y T-02 (57695cc, cdf21c5) implementados en sesión, siguiendo los planes aprobados por el
+  crítico (plans/T-01.md, plans/T-02.md). En la corrida 2026-10-21_233035 el implementador no podía hacerlos: no tiene
+  red ni web, ni permiso para correr scripts/setup.sh (Q-04, resuelta). Los dos quedan en verified_auto, a la espera de
+  la revisión independiente del orquestador.
+- Interpretaciones (T-01): scripts/env.sh usa el .tools/ del checkout principal cuando corre en un worktree (el
+  autopilot trabaja en worktrees y .tools/ no está en git), y setup.sh preinstala todas las dependencias de R-01 para
+  que ninguna tarea posterior necesite red. Probado offline en un worktree limpio. Proveedores google y google-beta
+  fijados en 8.8.0, la última versión (el plan decía 7.x). S-10 no se cumple: terraform test rechaza directorios de
+  prueba fuera de la raíz, y scripts/acceptance.sh copia el archivo a la raíz. Los scripts de node:test usan
+  --test-reporter=spec (node 22 imprime TAP fuera de una TTY y record_evidence.py no lo lee).
+- Interpretaciones (T-02): su verify no imprimía conteos de pruebas y record_evidence.py lo rechazaba. Se cambió por una
+  prueba node:test de la estructura del informe (docs/spikes/T-02-recursos.test.mjs), con nota en la tarea. Los
+  hallazgos del spike que contradicen la spec se aplicaron a REQ-003 (E6), REQ-005, REQ-008, REQ-010, S-07, S-08 y S-14,
+  y a T-05, T-06 y T-07, conservando el texto anterior. Lo que choca con ADR aceptados (DEC-002, DEC-003 y DEC-004) va en
+  DEC-009, que queda proposed hasta que lo acepte el usuario.
+- Verificado y cómo: `scripts/env.sh bash -c 'npm run lint && npm test && npm run check:repo && npm run check:spec'` → 513/514 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-01/verify.log), commit 57695cc.
+- Verificado y cómo: `scripts/env.sh node --test --test-reporter=spec docs/spikes/T-02-recursos.test.mjs && npm run check:spec` → 4/4 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-02/verify.log), commit cdf21c5.
+- Pendiente manual: aceptar DEC-009 (el usuario). Pasar Enforced-by de DEC-001 y DEC-004 a «cmd: npm run check:repo»,
+  ahora que existe.
+- Pendiente deploy: ninguno
+- Bloqueos nuevos: ninguno
+- Próxima acción autorizada: el orquestador revisa T-01 y T-02 (verified_auto) y sigue con T-03

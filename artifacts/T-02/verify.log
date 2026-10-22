@@ -1,0 +1,17 @@
+✔ the report has exactly the ten sections, in order (1.410275ms)
+✔ every section except Supuestos cites sources (1.578901ms)
+✔ the Supuestos section rules on S-13, S-14 and S-08 (0.231714ms)
+✔ no ticket, token, project number or billing account leaks into the report (0.453611ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 78.031421
+
+> check:spec
+> node scripts/check-spec.mjs
+
+check:spec: ok
