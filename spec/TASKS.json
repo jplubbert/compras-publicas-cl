@@ -1341,33 +1341,26 @@
       ],
       "plan_review": {
         "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
-        "verdict": "REVISAR",
-        "effective": "REVISAR",
-        "round": 1,
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 2,
         "plan": "plans/T-11.md",
-        "plan_sha": "e6c763554ddc7708815d52e7db6b0f03e263662d",
-        "plan_commit": "20a84df",
+        "plan_sha": "d496819aef12c96639fa1aab20467f3f0015aaa5",
+        "plan_commit": "c145ee8",
         "findings": [
           {
-            "id": "iam:workflow-sin-actas-sobre-dataform",
-            "severity": "P1",
-            "evidence_type": "fuente",
-            "evidence": "https://docs.cloud.google.com/dataform/docs/strict-act-as-mode — «Strict act-as mode is enforced for all repositories» y «You should have the Service Account User role granted for the effective service account used in the workflow invocation»; la cuenta efectiva es la de InvocationConfig si está fijada.",
-            "summary": "El paso 1.6 crea la invocación con invocationConfig.serviceAccount = compras-dataform, pero el paso 4 solo le da a compras-workflow roles/dataform.editor y roles/run.viewer. Sin iam.serviceAccounts.actAs sobre compras-dataform, workflowInvocations.create falla con un error de permisos en la primera corrida real. Ninguna prueba local lo detecta y la corrida diaria nunca llega a transformar."
-          },
-          {
-            "id": "iam:service-identity-dataform-no-confirmado",
+            "id": "req-007:e2-policy-tag-rut-parcial",
             "severity": "P2",
             "evidence_type": "opinión",
-            "evidence": "No encontré en la documentación de Terraform que google_project_service_identity acepte dataform.googleapis.com; solo un ejemplo de Pulumi lo usa.",
-            "summary": "Si generateServiceIdentity no acepta Dataform, el apply falla antes de crear el repositorio, y no hay un plan B documentado."
+            "evidence": "El plan pasa solo vars.raw_dataset y deja vars.policy_tag_rut a T-14, como dice la descripción de T-11. E2 de REQ-007 pide las dos variables.",
+            "summary": "E2 queda verificado en parte hasta T-14. Si alguna prueba de aceptación de T-11 (tests/acceptance/T-11*) espera policy_tag_rut, fallará. No pude revisar spec/contracts/ para confirmarlo."
           },
           {
-            "id": "req-007:alerta-status-failed-no-documentado",
+            "id": "e4:etiqueta-status-sin-documentar",
             "severity": "P3",
             "evidence_type": "fuente",
-            "evidence": "https://docs.cloud.google.com/workflows/docs/monitor — lista la etiqueta status de finished_execution_count, pero no sus valores; la métrica está en Beta.",
-            "summary": "El valor \"FAILED\" del filtro no está documentado de forma explícita; si fuera otro, la alerta de E4 nunca dispararía, y solo lo mostraría E5 en la integración."
+            "evidence": "https://docs.cloud.google.com/workflows/docs/monitor: la métrica tiene la etiqueta status, pero la página no lista sus valores ni documenta workflow_id como etiqueta de recurso.",
+            "summary": "El filtro de la alerta depende de dos valores sin documentar. El plan ya lo trata como riesgo y lo comprueba en la integración."
           }
         ],
         "opinion_blockers": [],
