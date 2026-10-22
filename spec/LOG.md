@@ -191,3 +191,37 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 ## 2026-10-22 00:47 · autopilot (scripts/autopilot.sh): pruebas de aceptación de T-03
 - Decisión: escalar T-03 al usuario (DEC-006): el test-author no entregó pruebas válidas: autopilot: the test-author left no result in /home/pepe/Projects/compras-publicas-cl/.autopilot/2026-10-22_003936/T-03-tests-result.json. Queda `blocked` por Q-05, nueva en «Preguntas abiertas» de SPEC.md.
 - Próxima acción autorizada: el usuario responde Q-05; el orquestador no vuelve a tomar T-03 mientras siga blocked.
+
+## 2026-10-22 00:51 · autopilot (scripts/autopilot.sh)
+- Hecho: T-02 revisada por claude: approved → reviewed (commit b999488); T-03 escalada al usuario por sus pruebas de aceptación (el test-author no entregó pruebas válidas: autopilot: the test-author left no result in /home/pepe/Projects/compras-publicas-cl/.autopilot/2026-10-22_003936/T-03-tests-result.json): blocked por Q-05 (commit 3381777); lote autopilot/lote sin cerrar: the batch stays open (blocked: T-03). Corrida 2026-10-22_003936 (12 min, 0 tarea(s) completada(s), 0 fallo(s)); registros en .autopilot/2026-10-22_003936/.
+- Tokens (todos los agentes, campo usage del evento result): T-02 review: entrada 6 · salida 2.101 · caché leída 111.510 · caché escrita 48.909; T-03 tests: entrada 36 · salida 39.322 · caché leída 903.325 · caché escrita 85.751; T-06 tests: entrada 24 · salida 28.638 · caché leída 519.231 · caché escrita 69.426; total de la corrida: entrada 66 · salida 70.061 · caché leída 1.534.066 · caché escrita 204.086.
+- Tokens para el tope (DEC-048; cuentan entrada, salida y caché escrita): en esta corrida 274.213 cuentan para el tope (entrada 66 · salida 70.061 · caché escrita 204.086) y 1.534.066 de caché leída aparte; en 2026-10, 2.206.481 de un tope de 50.000.000 y 18.277.373 de caché leída.
+- Pendiente manual (el usuario la hace al aceptar en lote): ninguna.
+- Pendiente deploy (el usuario corre `merge to main (GitHub Actions applies infra/main); infra/bootstrap is applied by the user`; el orquestador no despliega): ninguna.
+- Investigador (DEC-005; modo web, topes 900 s y US$ 2 por invocación): investigadas: ninguna; reintentadas con la recomendación: ninguna; escaladas al usuario (blocked con su Q-NN): ninguna.
+- Test-author (DEC-006; `scripts/acceptance.sh`): pruebas escritas en rojo: ninguna; pruebas en verde antes de implementar (escaladas): ninguna; pruebas disputadas por el implementador: ninguna.
+- Crítica de planes (DEC-010; crítico claude, topes 1200 s y US$ 3): planes aprobados: ninguna; escaladas al usuario (blocked con su Q-NN): ninguna; objeciones P0/P1 de pura opinión, para el usuario: ninguna.
+- Cobertura desde aceptación (DEC-011 de sdd-base): fuera de la regla (sin spec/COVERAGE.json; la aceptación no corre en local con cobertura); tarea para habilitarla: T-16.
+- Verificado y cómo: sin comandos ejecutados.
+- En curso / roto: árbol de trabajo sucio (ver git status).
+- Bloqueos nuevos: T-03 (Q-05).
+- Motivo de parada: la sesión del test-author en T-06 leyó fuera de spec/ y tests/acceptance/ o el contexto de otro agente (ver .autopilot/2026-10-22_003936/T-06-tests-audit.txt; nada se descarta ni se aplica).
+- Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.
+
+## 2026-10-22 01:05 · Claude (sesión interactiva)
+- Hecho: DEC-009 aceptada por José Pedro Lübbert en sesión; T-03, T-05, T-07 y T-11 la citan. Pedido del usuario:
+  respaldo del estado de Terraform fuera del proyecto, por si al cortar el billing se borran recursos. Se agregaron
+  REQ-016 (approved_for_impl) y T-17 (ready, a su nombre, por su pedido explícito), con S-15 (proyecto de respaldo
+  aparte, fuera del presupuesto y de la desvinculadora); T-15 ahora depende de T-17 y documenta la restauración.
+- Interpretaciones: la corrida 2026-10-22_003936 escaló T-03 (Q-05) y se detuvo en T-06. El test-author no puede
+  escribir su archivo de resultado: su perfil en scripts/autopilot.sh, gestionado por sdd-base, solo le deja escribir
+  en tests/acceptance/<ID>*. Además, la guarda tomó como lectura prohibida un archivo de resultados de herramientas del
+  propio agente. Son fallas de sdd-base, no de este repo. Decisión reversible: AUTOPILOT_TEST_AUTHOR=off hasta que
+  sdd-base las corrija; T-03 vuelve a in_progress y la prueba no aplicada de T-06 se apartó fuera del repo. El
+  implementador puede correr scripts/env.sh y scripts/acceptance.sh (AUTOPILOT_IMPL_ALLOWED_EXTRA). Se confirma el
+  resumen de esa corrida, que el orquestador dejó sin commit por el árbol sucio.
+- Pendiente manual: el usuario crea el proyecto de respaldo (S-15) antes de aplicar el bootstrap. Corregir en sdd-base
+  el perfil del test-author.
+- Pendiente deploy: ninguno
+- Bloqueos nuevos: ninguno
+- Próxima acción autorizada: el orquestador sigue con T-03 (in_progress)

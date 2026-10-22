@@ -35,7 +35,7 @@ El índice lo genera `node scripts/adr.mjs index`; check-adr falla si no está a
 | DEC-006 | Bronze en JSONL crudo por fecha y corrida, deduplicado en silver | accepted | [más abajo](#dec-006-bronze-en-jsonl-crudo-por-fecha-y-corrida-deduplicado-en-silver) |
 | DEC-007 | Benchmark sobre datos sintéticos a escala GB generados en BigQuery | accepted | [más abajo](#dec-007-benchmark-sobre-datos-sintéticos-a-escala-gb-generados-en-bigquery) |
 | DEC-008 | RUT de persona natural en columna propia con policy tag | accepted | [más abajo](#dec-008-rut-de-persona-natural-en-columna-propia-con-policy-tag) |
-| DEC-009 | Ajustes del spike T-02 a DEC-002, DEC-003 y DEC-004 | proposed | [ADR](adr/0009-ajustes-del-spike-t-02-a-dec-002-dec-003-y-dec-004.md) |
+| DEC-009 | Ajustes del spike T-02 a DEC-002, DEC-003 y DEC-004 | accepted | [ADR](adr/0009-ajustes-del-spike-t-02-a-dec-002-dec-003-y-dec-004.md) |
 
 <!-- adr-index:end -->
 

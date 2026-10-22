@@ -223,14 +223,15 @@
       "decisions": [
         "DEC-001",
         "DEC-004",
-        "DEC-005"
+        "DEC-005",
+        "DEC-009"
       ],
       "depends_on": [
         "T-01",
         "T-02"
       ],
-      "status": "blocked",
-      "blocked_by": "Q-05",
+      "status": "in_progress",
+      "blocked_by": null,
       "notes": "2026-10-22: escalada por el orquestador (DEC-005): el test-author no entregó pruebas válidas: autopilot: the test-author left no result in /home/pepe/Projects/compras-publicas-cl/.autopilot/2026-10-22_003936/T-03-tests-result.json; sin informe; bloqueada por Q-05.",
       "touches": [
         "infra/",
@@ -255,6 +256,13 @@
           "by": "escalate",
           "at": "2026-10-22T03:47:04.670Z",
           "reason": "escalada al usuario por Q-05"
+        },
+        {
+          "from": "blocked",
+          "to": "in_progress",
+          "by": "Claude (sesión interactiva)",
+          "at": "2026-10-22T03:52:59.329Z",
+          "reason": "Q-05: el test-author no puede escribir su resultado (falla de sdd-base); se apaga AUTOPILOT_TEST_AUTHOR y T-03 sigue con el implementador"
         }
       ]
     },
@@ -302,7 +310,8 @@
       ],
       "decisions": [
         "DEC-003",
-        "DEC-005"
+        "DEC-005",
+        "DEC-009"
       ],
       "depends_on": [
         "T-03"
@@ -374,7 +383,8 @@
       ],
       "decisions": [
         "DEC-004",
-        "DEC-006"
+        "DEC-006",
+        "DEC-009"
       ],
       "depends_on": [
         "T-06"
@@ -519,7 +529,8 @@
       "decisions": [
         "DEC-002",
         "DEC-004",
-        "DEC-005"
+        "DEC-005",
+        "DEC-009"
       ],
       "depends_on": [
         "T-05",
@@ -657,7 +668,7 @@
     {
       "id": "T-15",
       "title": "README de portafolio",
-      "description": "README.md con las secciones de REQ-015 en orden, docs/arquitectura.svg (o un diagrama Mermaid en el README), la tabla del benchmark más reciente de benchmarks/results/, el procedimiento de revinculación del billing, la carga de secretos, la nota sobre GitLab CI (OIDC id_tokens), «Cómo se construyó» y «Qué se rompió» (desde spec/LOG.md), y la cita a ChileCompra y al Banco Central; scripts/ci/check-readme.mjs (secciones, rutas y comandos citados existentes, nomenclatura de R-07) con pruebas node:test y npm run check:readme. La tabla de números reales y el incidente de calidad real los aporta el usuario tras la integración de T-13 y T-11; si faltan, la sección lo dice y queda en claims.manual_pending.",
+      "description": "README.md con las secciones de REQ-015 en orden, docs/arquitectura.svg (o un diagrama Mermaid en el README), la tabla del benchmark más reciente de benchmarks/results/, el procedimiento de revinculación del billing, la carga de secretos, la nota sobre GitLab CI (OIDC id_tokens), «Cómo se construyó» y «Qué se rompió» (desde spec/LOG.md), y la cita a ChileCompra y al Banco Central; scripts/ci/check-readme.mjs (secciones, rutas y comandos citados existentes, nomenclatura de R-07) con pruebas node:test y npm run check:readme. La tabla de números reales y el incidente de calidad real los aporta el usuario tras la integración de T-13 y T-11; si faltan, la sección lo dice y queda en claims.manual_pending. Incluye el procedimiento de restauración del estado desde el bucket de respaldo (REQ-016).",
       "reqs": [
         "REQ-015"
       ],
@@ -668,7 +679,8 @@
         "T-04",
         "T-11",
         "T-13",
-        "T-14"
+        "T-14",
+        "T-17"
       ],
       "status": "ready",
       "blocked_by": null,
@@ -712,6 +724,45 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:26:18.046Z",
           "reason": "S-11: sin spec/COVERAGE.json en el corte 1; pedido del usuario en sesión (2026-10-21)"
+        }
+      ]
+    },
+    {
+      "id": "T-17",
+      "title": "Respaldo del estado de Terraform fuera del proyecto",
+      "description": "Pedido del usuario (2026-10-22): si la desvinculadora corta el billing, la guía oficial avisa que se pueden borrar recursos, incluido el bucket de estado. infra/bootstrap: variable obligatoria backup_project_id (S-15), proveedor google con alias para ese proyecto, bucket de respaldo versionado en var.region con lifecycle de 365 días, y roles/storage.objectCreator solo para la cuenta de servicio de CI. deploy.yml: después del apply, terraform state pull y subida a infra-main/<marca de tiempo>-<sha>.tfstate (si falla, el job falla). scripts/backup-state.sh bootstrap (sube infra/bootstrap/terraform.tfstate; sin el archivo, sale distinto de 0 nombrándolo), con pruebas node:test que usan un gcloud simulado en PATH. scripts/it/state-backup.sh lista el bucket y prueba la restauración en una copia. Leer antes docs/spikes/T-02-recursos.md.",
+      "reqs": [
+        "REQ-016"
+      ],
+      "decisions": [
+        "DEC-003",
+        "DEC-004",
+        "DEC-009"
+      ],
+      "depends_on": [
+        "T-04",
+        "T-05"
+      ],
+      "status": "ready",
+      "blocked_by": null,
+      "touches": [
+        "infra/bootstrap/",
+        ".github/workflows/deploy.yml",
+        "scripts/backup-state.sh",
+        "scripts/ci/",
+        "scripts/it/",
+        "package.json"
+      ],
+      "verify": "scripts/env.sh bash -c 'npm run test:infra && npm run test:workflows && npm run test:ci && npm run check:spec'",
+      "verify_integration": "scripts/it/state-backup.sh",
+      "notes": "",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T03:52:59.367Z",
+          "reason": "Pedido explícito del usuario en sesión (2026-10-22): respaldo del estado de Terraform fuera del proyecto"
         }
       ]
     }

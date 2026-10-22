@@ -1,8 +1,8 @@
 # DEC-009 Ajustes del spike T-02 a DEC-002, DEC-003 y DEC-004
 
-- Estado: proposed
+- Estado: accepted
 - Fecha: 2026-10-22
-- Aprobador: pendiente: lo acepta José Pedro Lübbert
+- Aprobador: José Pedro Lübbert (aceptado en sesión, 2026-10-22)
 - Módulos: package.json
 - Enforced-by: manual: lo comprueban las pruebas de T-05 (cuotas), T-07 (token de la BDE) y T-11 (repositorio Dataform)
 

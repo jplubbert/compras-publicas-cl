@@ -384,6 +384,27 @@ Ejemplos (aceptación):
 | E4 negativo | el README dice «catalogado en Data Catalog» sin «ex» ni «se apagó» | sale distinto de 0 |
 Trazas: objetivo §Criterio de éxito (1)(3) · decisiones: DEC-001 · prueba: tests/acceptance/T-15*
 
+### REQ-016 Respaldo del estado de Terraform fuera del proyecto · estado: approved_for_impl · prioridad: must
+Cuando `deploy.yml` termina un `terraform apply` de `infra/main` sin error, el sistema deberá copiar el estado
+(`terraform state pull`) a `gs://<bucket de respaldo>/infra-main/<AAAAMMDDThhmmssZ>-<sha del commit>.tfstate`, en un
+bucket de un proyecto GCP aparte (`var.backup_project_id`, S-15), fuera del filtro del presupuesto y de la
+desvinculadora (DEC-003), versionado y en `us-central1`, con lifecycle que borra los objetos de más de 365 días. Cuando el
+usuario aplica `infra/bootstrap`, `scripts/backup-state.sh bootstrap` deberá subir su estado local a
+`bootstrap/<AAAAMMDDThhmmssZ>.tfstate` en el mismo bucket. La cuenta de servicio de CI solo puede crear objetos en ese
+bucket (`roles/storage.objectCreator`), no leerlos ni borrarlos. El README (T-15) documenta cómo restaurar.
+Si la copia falla, entonces el job deberá terminar en error (el apply ya ocurrió, pero el fallo se ve). Si
+`scripts/backup-state.sh` no encuentra el estado local, entonces deberá salir distinto de 0 y nombrar la ruta.
+Ejemplos (aceptación):
+| caso | entrada / contexto | resultado esperado |
+|---|---|---|
+| E1 positivo | `terraform test` del bootstrap con `backup_project_id = "demo-backup"` | bucket de respaldo en ese proyecto, `US-CENTRAL1`, versionado, con una regla de lifecycle de 365 días |
+| E2 negativo | `terraform test` del bootstrap | la cuenta de servicio de CI tiene sobre el bucket de respaldo solo `roles/storage.objectCreator`; ningún rol de lectura ni de borrado |
+| E3 positivo | `.github/workflows/deploy.yml` | después del paso de apply, un paso corre `terraform state pull` y sube el archivo a `infra-main/` con `${{ github.sha }}` en el nombre |
+| E4 positivo | `scripts/backup-state.sh bootstrap` con un `gcloud` simulado y `infra/bootstrap/terraform.tfstate` presente | una sola llamada de copia hacia `gs://<bucket>/bootstrap/<marca de tiempo>.tfstate` |
+| E5 negativo | `scripts/backup-state.sh bootstrap` sin `infra/bootstrap/terraform.tfstate` | sale distinto de 0 y nombra `infra/bootstrap/terraform.tfstate` |
+| E6 positivo | integración: tras un deploy, `gcloud storage ls` del bucket de respaldo | aparece el objeto del commit; restaurarlo con `terraform state push` en una copia de prueba funciona |
+Trazas: objetivo §Criterio de éxito (1) · decisiones: DEC-003, DEC-004, DEC-009 · prueba: tests/acceptance/T-17*
+
 ## Supuestos (no bloqueantes, con valor por defecto)
 | ID | creemos que… | valor por defecto | clase | disparador de revisión |
 |---|---|---|---|---|
@@ -394,6 +415,7 @@ Trazas: objetivo §Criterio de éxito (1)(3) · decisiones: DEC-001 · prueba: t
 | S-05 | la corrida diaria cabe en la ventana 22:00–07:00 | Scheduler 23:30 America/Santiago, D = ayer | reversible | la corrida tarda más de 7 h |
 | S-06 | 9.000 requests diarios dejan margen sobre el límite de 10.000 y alcanzan para el día a día (~8.500 por día hábil; ~2,03 M OC en 2024, chilecompra.cl) | `MP_DAILY_REQUEST_BUDGET=9000` | reversible | ChileCompra cambia el límite, o el cursor acumula más de 3 días de atraso |
 | S-07 | 50 GiB de query diarios y 20 GiB por usuario bastan | cuota de proyecto `QueryUsagePerDay` 50 GiB/día; cuota por usuario `QueryUsagePerUserPerDay` 20 GiB/día (alcanza a la cuenta de servicio de Dataform); los scripts fijan `maximum_bytes_billed` (≤ 20 GiB). La unidad del valor en la API la confirma T-05 (antes: «`maximumBytesBilled` 10 GiB», que Dataform no tiene; LOG 2026-10-22) | reversible | el benchmark o una corrida chocan con la cuota |
+| S-15 | el usuario crea un segundo proyecto GCP para el respaldo del estado, ligado a la misma cuenta de facturación y fuera del filtro del presupuesto | `backup_project_id` es una variable obligatoria del bootstrap; costo cercano a 0 (un bucket con archivos de KB) | reversible | el respaldo se quiere fuera de GCP |
 | S-14 | la API de Mercado Público trae un campo de fecha de última modificación por documento | T-02: la OC trae `Fechas.FechaUltimaModificacion` (`fecha_cambio` = ese campo); la licitación no trae ninguno (`fecha_cambio` = `ingested_at` para licitaciones e ítems) | resuelto | — |
 | S-08 | las series de la BDE son UF `F073.UFF.PRE.Z.D`, dólar observado `F073.TCO.PRE.Z.D` e IPC `F074.IPC.VAR.Z.Z.C.M` | esas tres; T-02 no pudo confirmarlas sin token: las confirma `SearchSeries` en el `verify_integration` de T-07 | reversible | `SearchSeries` no las trae |
 | S-09 | BDE y mindicador coinciden hasta el centavo | tolerancia ≤ 0,01 CLP en UF y dólar | reversible | la reconciliación falla sin error real |
@@ -409,7 +431,7 @@ Trazas: objetivo §Criterio de éxito (1)(3) · decisiones: DEC-001 · prueba: t
 | Q-02 | ¿Ya tienes el ticket de Mercado Público (Clave Única) y el usuario de la BDE? | diferible; 2026-10-21: todavía no, los obtiene el usuario | `verify_integration` de T-06, T-07 | usuario | antes de la primera corrida real |
 | Q-03 | ¿Cuál es el correo de las alertas (presupuesto y Workflow)? | resuelta 2026-10-21: el Gmail del usuario; va en la variable `alert_email` de un `terraform.tfvars` fuera de git (repo público, R-05) | — | usuario | — |
 | Q-04 | ¿Cómo sigue T-01? El orquestador la escaló por la causa de su fallo según el decisor (DEC-015): el decisor (jev) no resolvió la causa del fallo (confidence 0.76 < 0.8 (threshold)) (sin informe). | resuelta 2026-10-22: T-01 y T-02 se implementan en sesión interactiva, que tiene red y web (el implementador del autopilot no tiene ninguna de las dos); decisión reversible según los criterios del usuario | — | Claude (sesión) | — |
-| Q-05 | ¿Cómo sigue T-03? El orquestador la escaló con sus pruebas de aceptación (DEC-006): el test-author no entregó pruebas válidas: autopilot: the test-author left no result in /home/pepe/Projects/compras-publicas-cl/.autopilot/2026-10-22_003936/T-03-tests-result.json (sin informe). | bloqueante | T-03 | usuario | — |
+| Q-05 | ¿Cómo sigue T-03? El orquestador la escaló con sus pruebas de aceptación (DEC-006): el test-author no entregó pruebas válidas: autopilot: the test-author left no result in /home/pepe/Projects/compras-publicas-cl/.autopilot/2026-10-22_003936/T-03-tests-result.json (sin informe). | resuelta 2026-10-22: el perfil del test-author de sdd-base no le deja escribir su archivo de resultado (falla de sdd-base, también en T-06); se apaga AUTOPILOT_TEST_AUTHOR en este repo y T-03 sigue con el implementador | — | Claude (sesión) | — |
 
 ## Plan (corte 1)
 ### Diseño
@@ -448,7 +470,8 @@ Fase 3, valor:
 12. T-12 Capa final gold y promoción (REQ-012) — T-10
 13. T-13 Benchmark antes y después (REQ-013) — T-05, T-12
 14. T-14 Policy tags (REQ-014) — T-03, T-11, T-12
-15. T-15 README de portafolio (REQ-015) — T-04, T-11, T-13, T-14
+15. T-15 README de portafolio (REQ-015) — T-04, T-11, T-13, T-14, T-17
+16. T-17 Respaldo del estado de Terraform fuera del proyecto (REQ-016) — T-04, T-05 (pedido del usuario, 2026-10-22)
 
 ### Riesgos y spikes
 | riesgo | mitigación |
