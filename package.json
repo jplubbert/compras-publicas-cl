@@ -1,0 +1,10 @@
+{
+  "name": "compras-publicas-dataform",
+  "private": true,
+  "dependencies": {
+    "@dataform/core": "3.1.2"
+  },
+  "devDependencies": {
+    "@dataform/cli": "3.1.2"
+  }
+}
