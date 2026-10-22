@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 
 TICKET_SECRET_ID = "mercadopublico-ticket"
+BCENTRAL_TOKEN_SECRET_ID = "bcentral-token"
 
 
 class ConfigError(Exception):
@@ -16,6 +17,15 @@ def ticket_secret_name(env: Mapping[str, str]) -> str:
     if not project:
         raise ConfigError("falta GOOGLE_CLOUD_PROJECT (o MP_TICKET_SECRET)")
     return f"projects/{project}/secrets/{TICKET_SECRET_ID}/versions/latest"
+
+
+def bcentral_token_secret_name(env: Mapping[str, str]) -> str:
+    if env.get("BCENTRAL_TOKEN_SECRET"):
+        return env["BCENTRAL_TOKEN_SECRET"]
+    project = env.get("GOOGLE_CLOUD_PROJECT")
+    if not project:
+        raise ConfigError("falta GOOGLE_CLOUD_PROJECT (o BCENTRAL_TOKEN_SECRET)")
+    return f"projects/{project}/secrets/{BCENTRAL_TOKEN_SECRET_ID}/versions/latest"
 
 
 def read_secret(name: str, client=None) -> str:

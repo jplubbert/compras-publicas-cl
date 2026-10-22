@@ -7,11 +7,11 @@ from collections.abc import Iterable
 from urllib.parse import quote
 
 MASK = "***"
-_TICKET_PARAM = re.compile(r"(?i)(ticket=)[^&\s\"']*")
+_TICKET_PARAM = re.compile(r"(?i)((?:ticket|token)=)[^&\s\"']*")
 
 
 def redact(text: str, secrets: Iterable[str]) -> str:
-    """Replace every secret (raw and URL-encoded) and any `ticket=` query value with `***`."""
+    """Replace every secret (raw and URL-encoded) and any `ticket=` or `token=` query value with `***`."""
     for value in secrets:
         if not value:
             continue

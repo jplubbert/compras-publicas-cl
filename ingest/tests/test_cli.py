@@ -6,7 +6,7 @@ import httpx
 import pytest
 from conftest import TICKET
 
-from compras_ingest.secrets import ConfigError, read_secret, ticket_secret_name
+from compras_ingest.secrets import ConfigError, bcentral_token_secret_name, read_secret, ticket_secret_name
 
 
 @pytest.mark.parametrize(
@@ -101,6 +101,17 @@ def test_ticket_secret_name():
     )
     with pytest.raises(ConfigError, match="GOOGLE_CLOUD_PROJECT"):
         ticket_secret_name({})
+
+
+def test_bcentral_token_secret_name():
+    assert bcentral_token_secret_name({"BCENTRAL_TOKEN_SECRET": "projects/p/secrets/t/versions/2"}) == (
+        "projects/p/secrets/t/versions/2"
+    )
+    assert bcentral_token_secret_name({"GOOGLE_CLOUD_PROJECT": "p"}) == (
+        "projects/p/secrets/bcentral-token/versions/latest"
+    )
+    with pytest.raises(ConfigError, match="GOOGLE_CLOUD_PROJECT"):
+        bcentral_token_secret_name({})
 
 
 class FakeSecretClient:

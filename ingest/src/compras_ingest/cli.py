@@ -1,4 +1,8 @@
-"""Command line: `python -m compras_ingest mercadopublico [--date D | --from D1 --to D2]`."""
+"""Command line.
+
+python -m compras_ingest mercadopublico [--date D | --from D1 --to D2]
+python -m compras_ingest indicadores [--date D]
+"""
 
 import argparse
 import json
@@ -10,18 +14,23 @@ from dataclasses import asdict
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from .bcentral import BancoCentral
 from .bronze import GcsStore
 from .budget import RequestBudget
 from .cursor import CursorPosterior
 from .http import new_client
+from .indicadores import run_indicadores
 from .mercadopublico import MercadoPublico
+from .mindicador import Mindicador
 from .redact import configure_logging, redact
 from .run import run_mercadopublico
-from .secrets import ConfigError, read_secret, ticket_secret_name
+from .secrets import ConfigError, bcentral_token_secret_name, read_secret, ticket_secret_name
 
 log = logging.getLogger("compras_ingest")
 
 DEFAULT_BUDGET = 9000
+# 5 URLs x 4 attempts = 20 requests at most; the cap only guards against a loop.
+INDICADORES_BUDGET = 50
 SANTIAGO = ZoneInfo("America/Santiago")
 
 
@@ -39,6 +48,8 @@ def _parser() -> argparse.ArgumentParser:
     mp.add_argument("--date", type=_iso_date)
     mp.add_argument("--from", dest="date_from", type=_iso_date)
     mp.add_argument("--to", dest="date_to", type=_iso_date)
+    ind = sub.add_parser("indicadores", help="ingest Banco Central series and mindicador.cl indicators into bronze")
+    ind.add_argument("--date", type=_iso_date)
     return parser
 
 
@@ -90,18 +101,36 @@ def main(
     secrets: list[str] = []
     configure_logging(secrets)
     try:
-        targets = _targets(parser, args, now())
         bucket = env.get("BRONZE_BUCKET")
         if not bucket:
             raise ConfigError("falta BRONZE_BUCKET")
-        budget = RequestBudget(_budget(env))
-        ticket = ticket_reader(ticket_secret_name(env))
-        secrets.append(ticket)
-        configure_logging(secrets)
-        store = store or GcsStore(bucket, client=storage_client)
-        client = http or new_client()
-        api = MercadoPublico(client, ticket, budget, sleep)
-        result = run_mercadopublico(targets, api=api, store=store, budget=budget, now=now, secrets=secrets)
+        if args.command == "mercadopublico":
+            targets = _targets(parser, args, now())
+            budget = RequestBudget(_budget(env))
+            ticket = ticket_reader(ticket_secret_name(env))
+            secrets.append(ticket)
+            configure_logging(secrets)
+            store = store or GcsStore(bucket, client=storage_client)
+            client = http or new_client()
+            api = MercadoPublico(client, ticket, budget, sleep)
+            result = run_mercadopublico(targets, api=api, store=store, budget=budget, now=now, secrets=secrets)
+        else:
+            fecha = args.date or (now().astimezone(SANTIAGO).date() - timedelta(days=1))
+            token = ticket_reader(bcentral_token_secret_name(env))
+            secrets.append(token)
+            configure_logging(secrets)
+            store = store or GcsStore(bucket, client=storage_client)
+            budget = RequestBudget(INDICADORES_BUDGET)
+            client = http or new_client()
+            result = run_indicadores(
+                fecha,
+                bde=BancoCentral(client, token, budget, sleep),
+                mind=Mindicador(client, budget, sleep, secrets),
+                store=store,
+                budget=budget,
+                now=now,
+                secrets=secrets,
+            )
     except SystemExit as exc:
         return int(exc.code or 0)
     except (ConfigError, CursorPosterior) as exc:

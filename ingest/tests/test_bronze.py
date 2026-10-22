@@ -26,6 +26,18 @@ def test_prefix_follows_dec_006():
     )
 
 
+def test_prefix_by_source():
+    assert prefix("uf", date(2026, 10, 21), "R", fuente="bcentral") == "bcentral/uf/fecha=2026-10-21/run=R/"
+
+
+def test_writer_uses_its_source_prefix():
+    store = _store()
+    writer = BronzeWriter(store, "R", fuente="mindicador")
+    writer.add("dolar", date(2026, 10, 21), {"x": 1})
+    writer.flush()
+    assert writer.paths == ["mindicador/dolar/fecha=2026-10-21/run=R/part-0000.jsonl"]
+
+
 def test_run_id_format():
     run_id = new_run_id(datetime(2026, 10, 22, 3, 4, 5, tzinfo=UTC))
     assert run_id.startswith("20261022T030405Z-")
@@ -102,6 +114,10 @@ def test_redact_url_and_exception_text():
     assert redact(f"ValueError: bad ticket {SECRET}", [SECRET]) == "ValueError: bad ticket ***"
     assert redact("https://x.test/?ticket=otro-valor&a=1", []) == "https://x.test/?ticket=***&a=1"
     assert redact("a%2Bb", ["a+b"]) == "***"
+    assert (
+        redact("https://si3.bcentral.cl/SieteRestWS/SieteRestWS.ashx?token=abc&function=GetSeries", [])
+        == "https://si3.bcentral.cl/SieteRestWS/SieteRestWS.ashx?token=***&function=GetSeries"
+    )
 
 
 def test_redacting_filter_cleans_message_args_and_exc_text():

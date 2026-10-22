@@ -50,8 +50,8 @@ def new_run_id(now: datetime) -> str:
     return now.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + _secrets.token_hex(4)
 
 
-def prefix(entidad: str, fecha: date, run_id: str) -> str:
-    return f"mercadopublico/{entidad}/fecha={fecha.isoformat()}/run={run_id}/"
+def prefix(entidad: str, fecha: date, run_id: str, fuente: str = "mercadopublico") -> str:
+    return f"{fuente}/{entidad}/fecha={fecha.isoformat()}/run={run_id}/"
 
 
 def record(
@@ -78,12 +78,14 @@ class BronzeWriter:
         store: GcsStore,
         run_id: str,
         *,
+        fuente: str = "mercadopublico",
         secrets: Iterable[str] = (),
         flush_every: int = 500,
         on_flush: Callable[[], None] | None = None,
     ):
         self.store = store
         self.run_id = run_id
+        self.fuente = fuente
         self.secrets = [s for s in secrets if s]
         self.flush_every = flush_every
         self.on_flush = on_flush
@@ -106,7 +108,7 @@ class BronzeWriter:
             if any(s in text for s in self.secrets):
                 raise RuntimeError("secreto en la línea")
             n = self._parts.get(key, 0)
-            path = prefix(key[0], key[1], self.run_id) + f"part-{n:04d}.jsonl"
+            path = prefix(key[0], key[1], self.run_id, self.fuente) + f"part-{n:04d}.jsonl"
             self.store.write(path, text.encode("utf-8"), content_type="application/x-ndjson", if_absent=True)
             self._parts[key] = n + 1
             self.paths.append(path)

@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
@@ -8,10 +8,11 @@ import pytest
 import respx
 from google.api_core.exceptions import NotFound, PreconditionFailed
 
-from compras_ingest import cli
+from compras_ingest import bcentral, cli, mindicador
 from compras_ingest.mercadopublico import BASE_URL, ENDPOINT
 
 TICKET = "TK-PRUEBA-9f3a71"
+TOKEN = "BDE-TOKEN-PRUEBA-7c21e4"
 BUCKET = "bucket-prueba"
 NOW = datetime(2026, 10, 22, 3, 0, 0, tzinfo=UTC)  # yesterday in Santiago: 2026-10-21
 CURSOR_PATH = "mercadopublico/_cursor.json"
@@ -76,7 +77,7 @@ class Env:
             list(argv),
             env=env,
             http=httpx.Client(),
-            ticket_reader=lambda name: TICKET,
+            ticket_reader=lambda name: TOKEN if "bcentral-token" in name else TICKET,
             sleep=self.sleeps.append,
             now=lambda: NOW,
             storage_client=self.storage,
@@ -99,6 +100,27 @@ class Env:
             return route.mock(side_effect=side_effect)
         return route.mock(return_value=detalle_ok(codigo))
 
+    def serie(self, codigo, obs, codigo_bde=0, status=200, descripcion="Success", side_effect=None):
+        route = self.router.get(bcentral.BASE_URL, params__contains={"timeseries": codigo})
+        if side_effect is not None:
+            return route.mock(side_effect=side_effect)
+        body = {
+            "Codigo": codigo_bde,
+            "Descripcion": descripcion,
+            "Series": {"seriesId": codigo, "Obs": obs},
+            "SeriesInfos": [],
+        }
+        return route.mock(return_value=httpx.Response(status, json=body))
+
+    def mindicador(self, nombre, fecha_ddmmaaaa, serie=None, side_effect=None):
+        route = self.router.get(mindicador.BASE_URL + f"{nombre}/{fecha_ddmmaaaa}")
+        if side_effect is not None:
+            return route.mock(side_effect=side_effect)
+        if serie is None:
+            serie = [{"fecha": "2026-10-21T03:00:00.000Z", "valor": 41194.55}]
+        body = {"version": "1.7.0", "autor": "mindicador.cl", "codigo": nombre, "serie": serie}
+        return route.mock(return_value=httpx.Response(200, json=body))
+
     def calls(self) -> list[tuple[str, str, str]]:
         """(entity, 'fecha' | 'codigo', value) of every request, in order."""
         seen = []
@@ -120,6 +142,18 @@ class Env:
     def cursor(self) -> dict | None:
         data = self.storage.objects.get(CURSOR_PATH)
         return None if data is None else json.loads(data)
+
+
+def obs(desde: date, n: int) -> list[dict]:
+    """`n` daily BDE observations from `desde`, in the GetSeries shape (T-02)."""
+    return [
+        {
+            "indexDateString": (desde + timedelta(days=i)).strftime("%d-%m-%Y"),
+            "value": f"{41000 + i}.55",
+            "statusCode": "OK",
+        }
+        for i in range(n)
+    ]
 
 
 def detalle_ok(codigo):
