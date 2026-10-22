@@ -1294,6 +1294,11 @@
           "timestamp": "2026-10-22T20:45:19.501Z",
           "rule": "review_approved_without_findings"
         }
+      },
+      "merged": {
+        "into": "master",
+        "commit": "13cb8dca235e764782a3d9bdc83e53595f465c57",
+        "at": "2026-10-22T20:45:44.550Z"
       }
     },
     {
