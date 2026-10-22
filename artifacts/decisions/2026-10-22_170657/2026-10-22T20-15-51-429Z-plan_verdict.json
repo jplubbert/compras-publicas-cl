@@ -1,0 +1,96 @@
+{
+  "question_id": "plan_verdict",
+  "instructions": "Given this critique of an implementation plan, what is the verdict?",
+  "state": "**Veredicto: APROBAR.** El plan cumple REQ-008 y REQ-011 y respeta DEC-001, DEC-005 y DEC-006. No encontré hallazgos P0 ni P1; hay dos P2 y un P3, que el implementador puede incorporar sin rehacer el plan.\n\n**Hallazgos**\n- **P2: la prueba de E3 en `ci` no ejercita la unión con `${self()}`** (`plans/T-09.md:167`). En la corrida 2, las versiones 5 y 8 de `CI-T09-L1` siguen en `raw_ci` y dentro de la ventana de 3 días. El `QUALIFY` sobre las filas nuevas ya elige la versión 8, así que E3 pasaría aunque faltara la unión con el destino. La mitigación declarada para el riesgo del MERGE no funciona. Arreglo: antes de la corrida 2, recargar `raw_ci.mercadopublico_licitaciones` con `--replace` y dejar solo la versión 5 vieja. Así la 8 vive solo en `silver_ci` y únicamente la unión puede conservar `Adjudicada`.\n- **P2: datos que pueden no llegar a silver** (`plans/T-09.md:225`). La ventana `_ingest_date >= MAX(_ingest_date) − 3 días` descarta sin aviso las corridas que se recargan más tarde. Según S-20 y S-22, esas filas conservan el `_ingest_date` de su corrida original, así que un `load` hecho después de 3 días nunca entra en modo incremental. Arreglo: documentar que esa recarga exige `--full-refresh` (README o ayuda del subcomando `load`), o usar una ventana más larga, por ejemplo 14 días.\n- **P3: RUT sin protección en silver.** `silver.ordenes_compra.rut_proveedor` y `silver.licitacion_items.rut_proveedor_adjudicado` guardan el RUT tal cual. REQ-014 solo pone la policy tag en `proveedores` y `dim_proveedor`. Arreglo: anotar en el plan que T-14 también tiene que reemplazar esas columnas por `proveedor_key`.\n\n**Supuestos riesgosos revisados**\n1. **Dataform y el MERGE por `uniqueKey`:** el MERGE reemplaza las filas con clave igual por las nuevas, sin mirar la versión. Por eso la unión con `${self()}` antes del `QUALIFY` es necesaria, y el plan la incluye.\n2. **`QUALIFY` sin `WHERE`, `GROUP BY` ni `HAVING`:** las fuentes solo exigen una función de ventana. Ninguna fuente confirma el cambio de una restricción antigua, así que la corrida en `ci` lo comprueba de verdad.\n3. **`STRUCT(...) IN (SELECT AS STRUCT ...)` para las claves compuestas:** es una inferencia a partir de la documentación de subconsultas; no encontré un ejemplo literal. Si falla, la alternativa es un `EXISTS` correlacionado.\n4. **Descripciones persistidas en BigQuery:** la sintaxis de `description` y `columns` está documentada. Un hilo de la comunidad reporta tablas incrementales sin descripciones de columnas, y ninguna fuente confirma la persistencia. La comprobación de REQ-011 E4 en `ci` cubre este riesgo, y el plan la incluye.\n5. **`--vars` y `--schema-suffix`:** que `--vars` reemplaza el mapa entero y que el sufijo no se aplica a las declaraciones sale del código instalado. No encontré fuente web, y el plan es conservador en los dos casos.\n\n```json\n{\"verdict\": \"APROBAR\", \"assumptions\": [{\"assumption\": \"Con uniqueKey, Dataform genera un MERGE que reemplaza toda fila con clave igual por la fila nueva de incrementalQuery; por eso la unión con ${self()} antes del QUALIFY es necesaria y suficiente para no retroceder de versión.\", \"practice\": \"La documentación de IncrementalTableConfig dice que ante duplicados solo quedan las filas nuevas del incremental_select_query; en la práctica se deduplica la fuente con QUALIFY ROW_NUMBER() y se agrega la fila actual del destino para comparar versiones.\", \"sources\": [\"https://cloud.google.com/php/docs/reference/cloud-dataform/latest/V1beta1.CompilationResultAction.Relation.IncrementalTableConfig\", \"https://cloud.google.com/dataform/docs/incremental-tables?hl=pt-br\", \"https://oneuptime.com/blog/post/2026-02-17-how-to-fix-bigquery-merge-statement-generating-update-or-delete-with-non-deterministic-match/markdown\"]}, {\"assumption\": \"BigQuery acepta QUALIFY en un SELECT final sin WHERE, GROUP BY ni HAVING (SELECT … FROM candidatas QUALIFY …).\", \"practice\": \"El único requisito documentado es que haya una función de ventana en QUALIFY o en el SELECT; los ejemplos usan QUALIFY solo. No hay fuente oficial que confirme que se levantó una restricción antigua, así que la corrida en ci es la comprobación real.\", \"sources\": [\"https://www.owox.com/blog/articles/bigquery-sql-where-vs-having-vs-qualify.md\", \"https://medium.com/codex/how-to-use-the-qualify-function-in-bigquery-sql-e0979cabb9a6\", \"https://www.issoh.co.jp/tech/details/16662/\"]}, {\"assumption\": \"STRUCT(cols) IN (SELECT AS STRUCT cols FROM nuevas) es válido en BigQuery para filtrar el destino por clave compuesta.\", \"practice\": \"La documentación respalda SELECT AS STRUCT para devolver varias columnas como un STRUCT desde una subconsulta; no encontré un ejemplo literal de IN con STRUCT (es una inferencia). La alternativa portable es un EXISTS correlacionado con AND por columna.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/query-syntax\"]}, {\"assumption\": \"Dataform persiste en BigQuery la description y las columns del config también en tablas incrementales, de modo que INFORMATION_SCHEMA.COLUMN_FIELD_PATHS muestra descripciones no vacías.\", \"practice\": \"Los scripts de ejemplo oficiales declaran description y columns en el config; un hilo de la comunidad reporta tablas incrementales sin descripciones de columnas en BigQuery, sin solución aceptada. Se verifica corriendo y consultando COLUMN_FIELD_PATHS, como hace REQ-011 E4.\", \"sources\": [\"https://docs.cloud.google.com/dataform/docs/reference/sample-scripts\", \"https://community.looker.com/gc/Data-Analytics/Dataform-Documentation-Generation/m-p/735838\", \"https://docs.cloud.google.com/dotnet/docs/reference/Google.Cloud.Dataform.V1Beta1/latest/Google.Cloud.Dataform.V1Beta1.RelationDescriptor.Types.ColumnDescriptor\"]}, {\"assumption\": \"--vars de la CLI reemplaza el mapa vars de workflow_settings.yaml y --schema-suffix no se aplica a las declaraciones.\", \"practice\": \"El plan lo apoya en el código instalado (bundle.js, alterActionName de @dataform/core 3.1.2) y en el script de T-08 que ya depende de eso; no encontré una fuente web, y el plan es conservador en ambos casos (solo depende de raw_dataset y prueba el sufijo en el grafo).\", \"sources\": []}], \"findings\": [{\"id\": \"req-008:e3-no-ejercita-self\", \"severity\": \"P2\", \"evidence_type\": \"archivo\", \"evidence\": \"plans/T-09.md:167 — antes de la corrida 2 solo se agrega la versión 5 vieja sin quitar de raw_ci las versiones 5 y 8 cargadas antes, todas con _ingest_date = D dentro de la ventana de 3 días.\", \"summary\": \"En la corrida incremental, el CTE nuevas sigue conteniendo la versión 8, así que el QUALIFY la elige aunque la unión con ${self()} no exista o esté mal filtrada. E3 se cumple literalmente, pero no comprueba en BigQuery el mecanismo que el riesgo «El MERGE escribe una versión vieja» dice mitigar en el paso 18; la semántica de STRUCT IN y la unión con el destino quedan sin ejecutarse de verdad.\", \"fix\": \"Antes de la corrida 2, recargar raw_ci.mercadopublico_licitaciones con --replace dejando solo la versión estado 5 con ingested_at anterior (o poner las versiones de la corrida 1 en una partición _ingest_date fuera de la ventana), así la versión 8 existe solo en silver_ci y la fila sigue en Adjudicada únicamente si la unión con ${self()} funciona.\"}, {\"id\": \"req-008:ventana-descarta-recargas-viejas\", \"severity\": \"P2\", \"evidence_type\": \"archivo\", \"evidence\": \"plans/T-09.md:225 — la ventana de 3 días sobre MAX(_ingest_date) del destino deja fuera las cargas a particiones viejas; spec/SPEC.md:430 (S-20) dice que _ingest_date viaja en cada línea de bronze con la fecha de la corrida original, y spec/SPEC.md:432 (S-22) que el subcomando load recarga corridas.\", \"summary\": \"Si una corrida de ingesta falla al cargar y se recarga con load más de 3 días después, sus filas caen en una partición vieja de raw y el modo incremental nunca las lleva a silver: se pierden sin aviso hasta un --full-refresh. Contradice que la idempotencia y el reproceso sean propiedad de silver (DEC-006).\", \"fix\": \"Documentar en el plan (y en la ayuda de load o el README de T-15) que una recarga de una corrida con más de LOOKBACK_DIAS de antigüedad exige una corrida con --full-refresh, o ampliar la ventana (p. ej. 14 días) con un costo acotado por la partición.\"}, {\"id\": \"req-014:rut-sin-tag-en-silver\", \"severity\": \"P3\", \"evidence_type\": \"archivo\", \"evidence\": \"spec/SPEC.md:350 — REQ-014 pone la tag solo en silver.proveedores y gold.dim_proveedor, y exige que MERGE y joins usen proveedor_key; el plan agrega rut_proveedor en silver.ordenes_compra y rut_proveedor_adjudicado en silver.licitacion_items.\", \"summary\": \"Silver no es un dataset restringido por IAM (REQ-001), así que el RUT de personas naturales queda legible en dos tablas de silver que REQ-014 no menciona. No rompe T-09, pero T-14 lo tiene que cubrir.\", \"fix\": \"Agregar en Riesgos del plan que T-14 debe reemplazar o etiquetar también esas dos columnas (o exponer proveedor_key en ellas).\"}], \"summary\": \"El plan cubre REQ-008 (6 modelos incrementales con uniqueKey, unión con ${self()} antes del QUALIFY, catálogos de estado de T-02, ND → NULL con es_nd) y REQ-011 (chequeo sobre el grafo compilado con alcance silver/gold/quarantine, sin exigir nada a las declaraciones, en el job checks de CI, con E1–E3 en node:test y E4 en ci), respetando DEC-001 (sources → intermediate), DEC-005 (verify local sin nube, lo de BigQuery en scripts/it) y DEC-006. No encontré P0 ni P1. Los riesgos técnicos (QUALIFY sin WHERE, STRUCT IN, persistencia de descripciones en incrementales) quedan cubiertos por la corrida en ci. Esa corrida debería ajustarse para que E3 realmente dependa de la unión con el destino. Además, la ventana de 3 días descarta sin aviso las recargas de corridas viejas, lo que debería documentarse o mitigarse.\"}\n```",
+  "options": {
+    "APROBAR": "no P0/P1 finding: the implementer may start with this plan",
+    "REVISAR": "the planner must fix P0/P1 findings before implementing",
+    "ESCALAR": "it needs a decision of the user"
+  },
+  "answer": "APROBAR",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule critic_approves_without_p0_p1 (DEC-051)",
+  "decider": "rule",
+  "rule": "critic_approves_without_p0_p1",
+  "facts": {
+    "verdict": "APROBAR",
+    "effective": "APROBAR",
+    "assumptions": [
+      {
+        "assumption": "Con uniqueKey, Dataform genera un MERGE que reemplaza toda fila con clave igual por la fila nueva de incrementalQuery; por eso la unión con ${self()} antes del QUALIFY es necesaria y suficiente para no retroceder de versión.",
+        "practice": "La documentación de IncrementalTableConfig dice que ante duplicados solo quedan las filas nuevas del incremental_select_query; en la práctica se deduplica la fuente con QUALIFY ROW_NUMBER() y se agrega la fila actual del destino para comparar versiones.",
+        "sources": [
+          "https://cloud.google.com/php/docs/reference/cloud-dataform/latest/V1beta1.CompilationResultAction.Relation.IncrementalTableConfig",
+          "https://cloud.google.com/dataform/docs/incremental-tables?hl=pt-br",
+          "https://oneuptime.com/blog/post/2026-02-17-how-to-fix-bigquery-merge-statement-generating-update-or-delete-with-non-deterministic-match/markdown"
+        ]
+      },
+      {
+        "assumption": "BigQuery acepta QUALIFY en un SELECT final sin WHERE, GROUP BY ni HAVING (SELECT … FROM candidatas QUALIFY …).",
+        "practice": "El único requisito documentado es que haya una función de ventana en QUALIFY o en el SELECT; los ejemplos usan QUALIFY solo. No hay fuente oficial que confirme que se levantó una restricción antigua, así que la corrida en ci es la comprobación real.",
+        "sources": [
+          "https://www.owox.com/blog/articles/bigquery-sql-where-vs-having-vs-qualify.md",
+          "https://medium.com/codex/how-to-use-the-qualify-function-in-bigquery-sql-e0979cabb9a6",
+          "https://www.issoh.co.jp/tech/details/16662/"
+        ]
+      },
+      {
+        "assumption": "STRUCT(cols) IN (SELECT AS STRUCT cols FROM nuevas) es válido en BigQuery para filtrar el destino por clave compuesta.",
+        "practice": "La documentación respalda SELECT AS STRUCT para devolver varias columnas como un STRUCT desde una subconsulta; no encontré un ejemplo literal de IN con STRUCT (es una inferencia). La alternativa portable es un EXISTS correlacionado con AND por columna.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/query-syntax"
+        ]
+      },
+      {
+        "assumption": "Dataform persiste en BigQuery la description y las columns del config también en tablas incrementales, de modo que INFORMATION_SCHEMA.COLUMN_FIELD_PATHS muestra descripciones no vacías.",
+        "practice": "Los scripts de ejemplo oficiales declaran description y columns en el config; un hilo de la comunidad reporta tablas incrementales sin descripciones de columnas en BigQuery, sin solución aceptada. Se verifica corriendo y consultando COLUMN_FIELD_PATHS, como hace REQ-011 E4.",
+        "sources": [
+          "https://docs.cloud.google.com/dataform/docs/reference/sample-scripts",
+          "https://community.looker.com/gc/Data-Analytics/Dataform-Documentation-Generation/m-p/735838",
+          "https://docs.cloud.google.com/dotnet/docs/reference/Google.Cloud.Dataform.V1Beta1/latest/Google.Cloud.Dataform.V1Beta1.RelationDescriptor.Types.ColumnDescriptor"
+        ]
+      },
+      {
+        "assumption": "--vars de la CLI reemplaza el mapa vars de workflow_settings.yaml y --schema-suffix no se aplica a las declaraciones.",
+        "practice": "El plan lo apoya en el código instalado (bundle.js, alterActionName de @dataform/core 3.1.2) y en el script de T-08 que ya depende de eso; no encontré una fuente web, y el plan es conservador en ambos casos (solo depende de raw_dataset y prueba el sufijo en el grafo).",
+        "sources": []
+      }
+    ],
+    "findings": [
+      {
+        "id": "req-008:e3-no-ejercita-self",
+        "severity": "P2",
+        "evidence_type": "archivo",
+        "evidence": "plans/T-09.md:167 — antes de la corrida 2 solo se agrega la versión 5 vieja sin quitar de raw_ci las versiones 5 y 8 cargadas antes, todas con _ingest_date = D dentro de la ventana de 3 días.",
+        "summary": "En la corrida incremental, el CTE nuevas sigue conteniendo la versión 8, así que el QUALIFY la elige aunque la unión con ${self()} no exista o esté mal filtrada. E3 se cumple literalmente, pero no comprueba en BigQuery el mecanismo que el riesgo «El MERGE escribe una versión vieja» dice mitigar en el paso 18; la semántica de STRUCT IN y la unión con el destino quedan sin ejecutarse de verdad.",
+        "fix": "Antes de la corrida 2, recargar raw_ci.mercadopublico_licitaciones con --replace dejando solo la versión estado 5 con ingested_at anterior (o poner las versiones de la corrida 1 en una partición _ingest_date fuera de la ventana), así la versión 8 existe solo en silver_ci y la fila sigue en Adjudicada únicamente si la unión con ${self()} funciona."
+      },
+      {
+        "id": "req-008:ventana-descarta-recargas-viejas",
+        "severity": "P2",
+        "evidence_type": "archivo",
+        "evidence": "plans/T-09.md:225 — la ventana de 3 días sobre MAX(_ingest_date) del destino deja fuera las cargas a particiones viejas; spec/SPEC.md:430 (S-20) dice que _ingest_date viaja en cada línea de bronze con la fecha de la corrida original, y spec/SPEC.md:432 (S-22) que el subcomando load recarga corridas.",
+        "summary": "Si una corrida de ingesta falla al cargar y se recarga con load más de 3 días después, sus filas caen en una partición vieja de raw y el modo incremental nunca las lleva a silver: se pierden sin aviso hasta un --full-refresh. Contradice que la idempotencia y el reproceso sean propiedad de silver (DEC-006).",
+        "fix": "Documentar en el plan (y en la ayuda de load o el README de T-15) que una recarga de una corrida con más de LOOKBACK_DIAS de antigüedad exige una corrida con --full-refresh, o ampliar la ventana (p. ej. 14 días) con un costo acotado por la partición."
+      },
+      {
+        "id": "req-014:rut-sin-tag-en-silver",
+        "severity": "P3",
+        "evidence_type": "archivo",
+        "evidence": "spec/SPEC.md:350 — REQ-014 pone la tag solo en silver.proveedores y gold.dim_proveedor, y exige que MERGE y joins usen proveedor_key; el plan agrega rut_proveedor en silver.ordenes_compra y rut_proveedor_adjudicado en silver.licitacion_items.",
+        "summary": "Silver no es un dataset restringido por IAM (REQ-001), así que el RUT de personas naturales queda legible en dos tablas de silver que REQ-014 no menciona. No rompe T-09, pero T-14 lo tiene que cubrir.",
+        "fix": "Agregar en Riesgos del plan que T-14 debe reemplazar o etiquetar también esas dos columnas (o exponer proveedor_key en ellas)."
+      }
+    ],
+    "blocking": [],
+    "opinion_blockers": [],
+    "repeated": [],
+    "summary": "El plan cubre REQ-008 (6 modelos incrementales con uniqueKey, unión con ${self()} antes del QUALIFY, catálogos de estado de T-02, ND → NULL con es_nd) y REQ-011 (chequeo sobre el grafo compilado con alcance silver/gold/quarantine, sin exigir nada a las declaraciones, en el job checks de CI, con E1–E3 en node:test y E4 en ci), respetando DEC-001 (sources → intermediate), DEC-005 (verify local sin nube, lo de BigQuery en scripts/it) y DEC-006. No encontré P0 ni P1. Los riesgos técnicos (QUALIFY sin WHERE, STRUCT IN, persistencia de descripciones en incrementales) quedan cubiertos por la corrida en ci. Esa corrida debería ajustarse para que E3 realmente dependa de la unión con el destino. Además, la ventana de 3 días descarta sin aviso las recargas de corridas viejas, lo que debería documentarse o mitigarse."
+  },
+  "timestamp": "2026-10-22T20:15:51.429Z"
+}

@@ -1,0 +1,127 @@
+{
+  "task": "T-09",
+  "records": [
+    {
+      "task": "T-09",
+      "run": "2026-10-22_170657",
+      "role": "implementer",
+      "attempt": 1,
+      "started": "2026-10-22T20:15:53.000Z",
+      "minutes": 8.5,
+      "tokens": {
+        "input": 82,
+        "output": 40993,
+        "cache_read": 2904676,
+        "cache_write": 99412
+      },
+      "exit_code": 0,
+      "test_runs": {
+        "task": 0,
+        "suite": 4,
+        "agent": {
+          "task": 0,
+          "suite": 2
+        },
+        "hook": {
+          "task": 0,
+          "suite": 1
+        },
+        "orchestrator": {
+          "task": 0,
+          "suite": 1
+        }
+      },
+      "gates": [
+        {
+          "name": "audit",
+          "result": "ok"
+        },
+        {
+          "name": "acceptance_guard",
+          "result": "ok"
+        },
+        {
+          "name": "authority",
+          "result": "ok"
+        },
+        {
+          "name": "scope",
+          "result": "ok"
+        },
+        {
+          "name": "result",
+          "result": "ok"
+        },
+        {
+          "name": "evidence",
+          "result": "ok"
+        },
+        {
+          "name": "check_spec",
+          "result": "ok"
+        }
+      ],
+      "verify_exit_codes": {
+        "hook": 0,
+        "close": 0
+      },
+      "tree_sha": "31faddd038fa874756bd163aa84500375e50148f"
+    },
+    {
+      "task": "T-09",
+      "run": "2026-10-22_170657",
+      "role": "reviewer",
+      "attempt": 1,
+      "started": "2026-10-22T20:24:20.000Z",
+      "minutes": 0.9,
+      "tokens": {
+        "input": 16,
+        "output": 3647,
+        "cache_read": 501331,
+        "cache_write": 69245
+      },
+      "exit_code": 0,
+      "test_runs": {
+        "task": 3,
+        "suite": 1,
+        "agent": {
+          "task": 3,
+          "suite": 1
+        },
+        "hook": {
+          "task": 0,
+          "suite": 0
+        },
+        "orchestrator": {
+          "task": 0,
+          "suite": 0
+        }
+      },
+      "gates": [
+        {
+          "name": "review",
+          "result": "approved"
+        }
+      ],
+      "verify_exit_codes": {
+        "hook": null,
+        "close": null
+      },
+      "tree_sha": "31faddd038fa874756bd163aa84500375e50148f"
+    }
+  ],
+  "totals": {
+    "records": 2,
+    "minutes": 9.4,
+    "tokens": {
+      "input": 98,
+      "output": 44640,
+      "cache_read": 3406007,
+      "cache_write": 168657
+    },
+    "test_runs": {
+      "task": 3,
+      "suite": 5
+    }
+  }
+}
