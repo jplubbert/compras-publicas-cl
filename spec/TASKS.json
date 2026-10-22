@@ -1588,9 +1588,9 @@
         "T-05",
         "T-12"
       ],
-      "status": "ready",
-      "blocked_by": null,
-      "notes": "",
+      "status": "blocked",
+      "blocked_by": "Q-09",
+      "notes": "2026-10-22: escalada por el orquestador (DEC-005): el crítico escaló el plan en la ronda 2; informe en plans/T-13.md; bloqueada por Q-09.",
       "touches": [
         "benchmarks/",
         "scripts/it/",
@@ -1605,6 +1605,13 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:23:37.609Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        },
+        {
+          "from": "ready",
+          "to": "blocked",
+          "by": "escalate",
+          "at": "2026-10-22T21:44:52.263Z",
+          "reason": "escalada al usuario por Q-09"
         }
       ],
       "plan_review": {
