@@ -79,7 +79,7 @@ test('the raw_dataset variable moves the declarations to raw_ci', () => {
 test('the ci schema suffix moves the models to silver_ci and keeps the declarations in raw', () => {
   const g = compile('--schema-suffix=ci');
   const schemas = new Set(g.tables.map((t) => t.target.schema));
-  assert.deepEqual([...schemas], ['silver_ci']);
+  assert.deepEqual([...schemas].sort(), ['quarantine_ci', 'silver_ci']);
   assert.deepEqual(declared(g), RAW.map((n) => `raw.${n}`).sort());
   const lic = g.tables.find((t) => t.target.name === 'licitaciones');
   assert.ok(lic.incrementalQuery.includes(`.silver_ci.licitaciones\``));

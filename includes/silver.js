@@ -34,6 +34,11 @@ function ventanaIncremental(selfRef) {
   return `_ingest_date >= IFNULL((SELECT DATE_SUB(MAX(_ingest_date), INTERVAL ${LOOKBACK_DIAS} DAY) FROM ${selfRef}), DATE '1970-01-01')`;
 }
 
+/** Raw partitions of the last LOOKBACK_DIAS days, for targets that keep only some rows (the quarantine). */
+function ventanaReciente() {
+  return `_ingest_date >= DATE_SUB(CURRENT_DATE(), INTERVAL ${LOOKBACK_DIAS} DAY)`;
+}
+
 /** RUT without dots or spaces, upper-case DV (T-10 validates the DV). */
 function rutSql(expr) {
   return `UPPER(REGEXP_REPLACE(${expr}, r'[^0-9kK-]', ''))`;
@@ -53,6 +58,7 @@ module.exports = {
   LOOKBACK_DIAS,
   estadoSql,
   ventanaIncremental,
+  ventanaReciente,
   rutSql,
   fechaSql,
   numericSql,

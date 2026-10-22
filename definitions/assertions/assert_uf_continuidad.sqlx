@@ -1,0 +1,15 @@
+config {
+  type: "assertion",
+  tags: ["silver"],
+  description: "La UF de la BDE tiene una observación (valor o ND) por día calendario en los últimos 30 días hasta la última observación, o desde la primera si hay menos (REQ-009); cada fila es un día faltante."
+}
+
+WITH obs AS (
+  SELECT DISTINCT fecha FROM ${ref("indicadores_diarios")} WHERE serie = 'bcentral_uf'
+),
+limites AS (
+  SELECT GREATEST(DATE_SUB(MAX(fecha), INTERVAL 29 DAY), MIN(fecha)) AS desde, MAX(fecha) AS hasta FROM obs
+)
+SELECT dia AS fecha_faltante
+FROM limites, UNNEST(GENERATE_DATE_ARRAY(desde, hasta)) AS dia
+WHERE dia NOT IN (SELECT fecha FROM obs)

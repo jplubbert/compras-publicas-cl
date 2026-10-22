@@ -3,6 +3,10 @@ config {
   schema: "silver",
   tags: ["silver"],
   uniqueKey: ["codigo_organismo"],
+  assertions: {
+    uniqueKey: ["codigo_organismo"],
+    nonNull: ["codigo_organismo", "fecha_cambio"]
+  },
   description: "Organismos compradores vistos en las licitaciones y las órdenes de compra de Mercado Público, una fila por código con su versión más reciente (REQ-008).",
   columns: {
     codigo_organismo: "Código del organismo comprador (clave natural)",
@@ -28,6 +32,7 @@ WITH documentos AS (
     ingested_at AS fecha_cambio
   FROM ${ref("mercadopublico_licitaciones")}, UNNEST(JSON_QUERY_ARRAY(payload, '$.Listado')) AS doc
   WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'detalle'
+    AND ${reglas.pasaSql("licitaciones")}
     ${when(incremental(), `AND ${silver.ventanaIncremental(self())}`)}
   UNION ALL
   SELECT
@@ -39,6 +44,7 @@ WITH documentos AS (
     ingested_at AS fecha_cambio
   FROM ${ref("mercadopublico_ordenes_compra")}, UNNEST(JSON_QUERY_ARRAY(payload, '$.Listado')) AS doc
   WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'detalle'
+    AND ${reglas.pasaSql("ordenes_compra")}
     ${when(incremental(), `AND ${silver.ventanaIncremental(self())}`)}
 ),
 nuevas AS (

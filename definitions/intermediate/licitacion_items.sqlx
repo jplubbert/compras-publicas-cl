@@ -3,6 +3,15 @@ config {
   schema: "silver",
   tags: ["silver"],
   uniqueKey: ["codigo_licitacion", "correlativo"],
+  assertions: {
+    uniqueKey: ["codigo_licitacion", "correlativo"],
+    nonNull: ["codigo_licitacion", "correlativo", "fecha_cambio"],
+    rowConditions: [
+      "cantidad IS NULL OR cantidad >= 0",
+      "cantidad_adjudicada IS NULL OR cantidad_adjudicada >= 0",
+      "monto_unitario IS NULL OR monto_unitario >= 0"
+    ]
+  },
   description: "Ítems de las licitaciones de Mercado Público, una fila por código de licitación y correlativo con su versión más reciente (REQ-008).",
   columns: {
     codigo_licitacion: "Código externo de la licitación a la que pertenece el ítem (clave natural, con el correlativo)",
@@ -50,6 +59,7 @@ WITH nuevas AS (
     UNNEST(JSON_QUERY_ARRAY(payload, '$.Listado')) AS doc,
     UNNEST(JSON_QUERY_ARRAY(doc, '$.Items.Listado')) AS item
   WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'detalle'
+    AND ${reglas.pasaSql("licitaciones")}
     ${when(incremental(), `AND ${silver.ventanaIncremental(self())}`)}
 ),
 candidatas AS (

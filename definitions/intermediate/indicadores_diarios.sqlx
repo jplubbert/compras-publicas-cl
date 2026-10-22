@@ -3,6 +3,14 @@ config {
   schema: "silver",
   tags: ["silver"],
   uniqueKey: ["serie", "fecha"],
+  assertions: {
+    uniqueKey: ["serie", "fecha"],
+    nonNull: ["serie", "fecha", "fecha_cambio"],
+    rowConditions: [
+      "es_nd OR valor IS NOT NULL",
+      "valor IS NULL OR valor > 0"
+    ]
+  },
   description: "Observaciones diarias de UF, dólar observado e IPC de la BDE del Banco Central y de mindicador.cl, una fila por serie y fecha con su revisión más reciente; ND pasa a valor nulo con es_nd verdadero (REQ-008).",
   columns: {
     serie: "Serie de origen: nombre de la tabla raw (bcentral_uf, bcentral_dolar, bcentral_ipc, mindicador_uf, mindicador_dolar; clave natural, con la fecha)",

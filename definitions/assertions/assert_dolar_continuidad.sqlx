@@ -1,0 +1,24 @@
+config {
+  type: "assertion",
+  tags: ["silver"],
+  description: "El dólar observado de la BDE no tiene huecos de más de 4 días corridos sin observación (valor o ND) en los últimos 30 días hasta la última observación (REQ-009); cada fila es un hueco."
+}
+
+WITH obs AS (
+  SELECT DISTINCT fecha FROM ${ref("indicadores_diarios")} WHERE serie = 'bcentral_dolar'
+),
+limites AS (
+  SELECT GREATEST(DATE_SUB(MAX(fecha), INTERVAL 29 DAY), MIN(fecha)) AS desde, MAX(fecha) AS hasta FROM obs
+),
+ventana AS (
+  SELECT o.fecha FROM obs o, limites l WHERE o.fecha BETWEEN l.desde AND l.hasta
+),
+pares AS (
+  SELECT fecha, LEAD(fecha) OVER (ORDER BY fecha) AS siguiente FROM ventana
+)
+SELECT
+  fecha AS ultima_observacion,
+  siguiente AS siguiente_observacion,
+  DATE_DIFF(siguiente, fecha, DAY) - 1 AS dias_sin_observaciones
+FROM pares
+WHERE DATE_DIFF(siguiente, fecha, DAY) - 1 > 4

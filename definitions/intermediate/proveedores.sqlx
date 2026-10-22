@@ -3,6 +3,10 @@ config {
   schema: "silver",
   tags: ["silver"],
   uniqueKey: ["rut_proveedor"],
+  assertions: {
+    uniqueKey: ["rut_proveedor"],
+    nonNull: ["rut_proveedor", "fecha_cambio"]
+  },
   description: "Proveedores vistos en las órdenes de compra y en las adjudicaciones de ítems de licitación de Mercado Público, una fila por RUT con su versión más reciente (REQ-008; T-14 cambia la clave por proveedor_key).",
   columns: {
     rut_proveedor: "RUT del proveedor, sin puntos ni espacios y con el dígito verificador en mayúscula (clave natural)",
@@ -32,6 +36,7 @@ WITH documentos AS (
     ingested_at AS fecha_cambio
   FROM ${ref("mercadopublico_ordenes_compra")}, UNNEST(JSON_QUERY_ARRAY(payload, '$.Listado')) AS doc
   WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'detalle'
+    AND ${reglas.pasaSql("ordenes_compra")}
     ${when(incremental(), `AND ${silver.ventanaIncremental(self())}`)}
   UNION ALL
   SELECT
@@ -46,6 +51,7 @@ WITH documentos AS (
     UNNEST(JSON_QUERY_ARRAY(payload, '$.Listado')) AS doc,
     UNNEST(JSON_QUERY_ARRAY(doc, '$.Items.Listado')) AS item
   WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'detalle'
+    AND ${reglas.pasaSql("licitaciones")}
     ${when(incremental(), `AND ${silver.ventanaIncremental(self())}`)}
 ),
 nuevas AS (
