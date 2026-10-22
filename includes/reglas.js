@@ -1,5 +1,6 @@
-// Row rules of the quarantine (REQ-010): one source for the JS version (local tests) and the SQL version (silver and
-// quarantine use the same predicate). Self-contained: no require of other includes.
+// Row rules of the quarantine (REQ-010) and the natural-person rule of S-04: one source for the JS version (local
+// tests) and the SQL version (silver, quarantine and gold use the same predicate). Self-contained: no require of other
+// includes.
 
 // Fixed order of the reasons, in JS and in SQL.
 const CODIGOS = ["clave_nula", "rut_dv_invalido", "monto_negativo", "moneda_desconocida", "fecha_fuera_de_rango"];
@@ -10,6 +11,9 @@ const FECHA_MINIMA = "2000-01-01";
 
 // Tolerance of the UF and dollar reconciliation in CLP (S-09); used as NUMERIC '0.01'.
 const TOLERANCIA_RECONCILIACION = "0.01";
+
+// A RUT whose body is below this number belongs to a natural person (S-04, DEC-008).
+const UMBRAL_PERSONA_NATURAL = 50000000;
 
 // JSON fields of the document that each rule reads. FechaCierre is left out of the range rule: it is a future date in
 // a published tender.
@@ -50,6 +54,13 @@ function rutValido(rut) {
   if (!/^[0-9]{1,9}-[0-9K]$/.test(n)) return false;
   const [cuerpo, dv] = n.split("-");
   return dv === dvRut(cuerpo);
+}
+
+/** S-04: the RUT body is below UMBRAL_PERSONA_NATURAL; a non-numeric body counts as a person (the protected side). */
+function esPersonaNatural(rut) {
+  const cuerpo = normalizarRut(rut).split("-")[0];
+  if (!/^[0-9]+$/.test(cuerpo)) return true;
+  return Number(cuerpo) < UMBRAL_PERSONA_NATURAL;
 }
 
 function sumarDia(fecha) {
@@ -104,6 +115,11 @@ function motivosSql(entidad, { doc = "doc", fechaD = "fecha" } = {}) {
   return `ARRAY(SELECT m FROM UNNEST([${ifs.join(", ")}]) AS m WITH OFFSET o WHERE m IS NOT NULL ORDER BY o)`;
 }
 
+/** SQL version of esPersonaNatural over an already normalized RUT. */
+function esPersonaNaturalSql(rutNormalizado) {
+  return `IFNULL(SAFE_CAST(SPLIT(${rutNormalizado}, '-')[SAFE_OFFSET(0)] AS INT64) < ${UMBRAL_PERSONA_NATURAL}, TRUE)`;
+}
+
 /** The single predicate of a valid document: silver keeps it, the quarantine keeps its negation. */
 function pasaSql(entidad, opts) {
   return `ARRAY_LENGTH(${motivosSql(entidad, opts)}) = 0`;
@@ -114,12 +130,15 @@ module.exports = {
   MONEDAS,
   FECHA_MINIMA,
   TOLERANCIA_RECONCILIACION,
+  UMBRAL_PERSONA_NATURAL,
   ENTIDADES,
   normalizarRut,
   dvRut,
   rutValido,
+  esPersonaNatural,
   motivos,
   rutValidoSql,
   motivosSql,
+  esPersonaNaturalSql,
   pasaSql,
 };

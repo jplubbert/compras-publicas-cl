@@ -30,7 +30,28 @@ const ROW_CONDITIONS = {
   compradores: [],
   proveedores: [],
   indicadores_diarios: ['es_nd OR valor IS NOT NULL', 'valor IS NULL OR valor > 0'],
+  dim_proveedor: ['(rut_empresa IS NULL) != (rut_persona_natural IS NULL)'],
+  mart_organismo_mes: [
+    'n_licitaciones > 0',
+    'tasa_desiertas BETWEEN 0 AND 1',
+    'tasa_revocadas BETWEEN 0 AND 1',
+    'monto_adjudicado_uf IS NULL OR monto_adjudicado_uf >= 0',
+  ],
 };
+
+// Gold models are plain tables, without uniqueKey in the graph.
+const CLAVES_GOLD = {
+  dim_comprador: ['codigo_organismo'],
+  dim_proveedor: ['proveedor_key'],
+  mart_organismo_mes: ['codigo_organismo', 'mes'],
+};
+
+// The facts require a partition filter, so their assertions are their own (assert_<fact>) and not the built-in ones.
+const NON_NULL_HECHOS = {
+  fct_licitaciones: ['codigo_licitacion', 'fecha_documento'],
+  fct_ordenes_compra: ['codigo_oc', 'fecha_documento', 'proveedor_key'],
+};
+const esHecho = (t) => t.bigquery?.requirePartitionFilter === true;
 
 const hija = (t, sufijo) =>
   assertions.find(
@@ -45,15 +66,29 @@ test('the project compiles without errors and has the 6 silver models', () => {
   assert.equal(modelos.filter((t) => t.target.schema === 'silver').length, 6);
 });
 
-for (const t of modelos) {
+for (const t of modelos.filter((m) => esHecho(m))) {
   const id = `${t.target.schema}.${t.target.name}`;
-  test(`REQ-009 E1: ${id} has uniqueKey and non-null key assertions tagged silver`, () => {
+  test(`REQ-009 E1: ${id} has its own assertion with the partition filter, tagged gold`, () => {
+    assert.ok(!hija(t, '_assertions_uniqueKey_0') && !hija(t, '_assertions_rowConditions'), `${id}: built-in assertions`);
+    const a = assertions.find((x) => x.target.name === `assert_${t.target.name}`);
+    assert.ok(a, `${id}: assert_${t.target.name}`);
+    assert.ok(a.tags.includes('gold'), a.target.name);
+    assert.ok(a.dependencyTargets.some((d) => d.schema === t.target.schema && d.name === t.target.name), a.target.name);
+    assert.ok(a.query.includes("fecha_documento >= DATE '2000-01-01'"), a.query);
+    assert.ok(a.query.includes('HAVING COUNT(*) > 1'), a.query);
+    for (const c of NON_NULL_HECHOS[t.target.name]) assert.ok(a.query.includes(`${c} IS NULL`), `${id}: ${c}`);
+  });
+}
+
+for (const t of modelos.filter((m) => !esHecho(m))) {
+  const id = `${t.target.schema}.${t.target.name}`;
+  test(`REQ-009 E1: ${id} has uniqueKey and non-null key assertions tagged ${t.target.schema}`, () => {
     const unique = hija(t, '_assertions_uniqueKey_0');
     const filas = hija(t, '_assertions_rowConditions');
     assert.ok(unique, `${id}: uniqueKey assertion`);
     assert.ok(filas, `${id}: rowConditions assertion`);
-    for (const a of [unique, filas]) assert.ok(a.tags.includes('silver'), a.target.name);
-    for (const c of t.uniqueKey) assert.ok(filas.query.includes(`${c} IS NOT NULL`), `${id}: ${c}`);
+    for (const a of [unique, filas]) assert.ok(a.tags.includes(t.target.schema), a.target.name);
+    for (const c of t.uniqueKey ?? CLAVES_GOLD[t.target.name]) assert.ok(filas.query.includes(`${c} IS NOT NULL`), `${id}: ${c}`);
   });
 
   test(`REQ-009 E1: ${id} checks its domain row conditions`, () => {
