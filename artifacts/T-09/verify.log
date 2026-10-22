@@ -1,0 +1,55 @@
+
+> test:dataform
+> scripts/env.sh bash -c '[ -d dataform/node_modules ] || npm ci --prefix dataform --silent' && scripts/env.sh node --test --test-reporter=spec "dataform/tests/*.test.mjs"
+
+✔ a graph whose models and columns all have descriptions passes (31.034136ms)
+✔ REQ-011 E2: a column without description fails naming the model and the column (29.993087ms)
+✔ a model without description fails naming it (30.757105ms)
+✔ a model that declares no columns fails (28.51184ms)
+✔ REQ-011 E3: a raw declaration without column descriptions is not checked (29.528543ms)
+✔ a model in silver_ci with schemaSuffix ci is checked (28.8999ms)
+✔ an operation with output in silver is checked (28.409088ms)
+✔ a model outside silver, gold and quarantine is not checked (29.278012ms)
+✔ a graph with compilation errors fails (31.193927ms)
+✔ an unknown argument exits 2 (30.598417ms)
+✔ a project without the Dataform binary exits 2 naming it (29.440307ms)
+✔ REQ-011 E1: the repository passes check:descriptions (520.815397ms)
+✔ the Dataform project compiles offline and declares the raw source in us-central1 (460.515912ms)
+✔ REQ-008 E1: silver.licitaciones is incremental by codigo_licitacion and merges with its own rows before QUALIFY (0.88227ms)
+✔ REQ-011: every column of the final SELECT of silver.licitaciones is a declared column (0.215115ms)
+✔ REQ-008 E1: silver.ordenes_compra is incremental by codigo_oc and merges with its own rows before QUALIFY (0.117521ms)
+✔ REQ-011: every column of the final SELECT of silver.ordenes_compra is a declared column (0.072927ms)
+✔ REQ-008 E1: silver.licitacion_items is incremental by codigo_licitacion + correlativo and merges with its own rows before QUALIFY (0.115587ms)
+✔ REQ-011: every column of the final SELECT of silver.licitacion_items is a declared column (0.064822ms)
+✔ REQ-008 E1: silver.compradores is incremental by codigo_organismo and merges with its own rows before QUALIFY (0.104306ms)
+✔ REQ-011: every column of the final SELECT of silver.compradores is a declared column (0.106771ms)
+✔ REQ-008 E1: silver.proveedores is incremental by rut_proveedor and merges with its own rows before QUALIFY (0.418988ms)
+✔ REQ-011: every column of the final SELECT of silver.proveedores is a declared column (0.273214ms)
+✔ REQ-008 E1: silver.indicadores_diarios is incremental by serie + fecha and merges with its own rows before QUALIFY (0.113614ms)
+✔ REQ-011: every column of the final SELECT of silver.indicadores_diarios is a declared column (0.083427ms)
+✔ the 7 raw tables are declared in raw by default (0.107032ms)
+✔ the raw_dataset variable moves the declarations to raw_ci (485.679153ms)
+✔ the ci schema suffix moves the models to silver_ci and keeps the declarations in raw (457.337653ms)
+✔ REQ-008: the tender state catalog translates the 6 codes of T-02 (0.206008ms)
+✔ REQ-008: the purchase order state catalog translates the 8 codes of T-02 (0.112481ms)
+✔ REQ-008: tender and purchase order models translate the state with their catalog (0.059903ms)
+✔ REQ-008: indicadores_diarios turns ND into a NULL valor with es_nd (0.231546ms)
+✔ the incremental window reads raw partitions from 3 days before the newest one in the target (0.103104ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1469.604493
+
+> check:descriptions
+> node scripts/ci/check-descriptions.mjs
+
+check:descriptions: ok (6 modelos)
+
+> check:spec
+> node scripts/check-spec.mjs
+
+check:spec: ok

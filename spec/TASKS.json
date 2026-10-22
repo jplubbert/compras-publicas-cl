@@ -1017,9 +1017,9 @@
       "depends_on": [
         "T-08"
       ],
-      "status": "ready",
+      "status": "verified_auto",
       "blocked_by": null,
-      "notes": "",
+      "notes": "Supuesto del plan corregido: con @dataform/cli 3.1.2, --vars se mezcla con el mapa vars de workflow_settings.yaml (no lo reemplaza): `dataform compile --vars=otra=x` mantiene raw_dataset=raw. No cambia el diseño (los modelos siguen dependiendo solo de raw_dataset); el comentario de workflow_settings.yaml no afirma el reemplazo. La prueba REQ-011 E1 acepta cualquier número de modelos (\\d+) para que T-10 no tenga que cambiarla; el verify imprime 'ok (6 modelos)'. RUT vacío ('' tras limpiar) no se convierte en NULL en rutSql (forma exacta del plan); lo valida T-10.",
       "touches": [
         "dataform/",
         "scripts/ci/",
@@ -1036,6 +1036,20 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:23:37.290Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "apply-result",
+          "at": "2026-10-22T20:24:14.071Z",
+          "reason": "resultado del implementador de T-09 vía autopilot (claude)"
+        },
+        {
+          "from": "in_progress",
+          "to": "verified_auto",
+          "by": "record_evidence.py",
+          "at": "2026-10-22T20:24:17+00:00",
+          "reason": "verify con código 0: 33/33 pasan, 0 fallan"
         }
       ],
       "plan_review": {
@@ -1071,6 +1085,21 @@
         ],
         "opinion_blockers": [],
         "date": "2026-10-22"
+      },
+      "claims": {
+        "manual_pending": "Correr GCP_PROJECT_ID=… GCP_REGION=us-central1 scripts/env.sh scripts/it/dataform-ci.sh tras un deploy.yml verde: debe imprimir 'dataform-ci: ok' (REQ-008 E2, E3, E4 y REQ-011 E4 en silver_ci). Además, correr bash -n scripts/it/dataform-ci.sh y npm run test:workflows (pytest de test_workflows.py cambiado): la guarda de acceso negó bash -n y el protocolo no permite correr test:workflows en esta sesión; ruff check y ruff format --check del archivo sí pasaron."
+      },
+      "evidence": {
+        "command": "scripts/env.sh bash -c 'npm run test:dataform && npm run check:descriptions && npm run check:spec'",
+        "exit_code": 0,
+        "passed": 33,
+        "failed": 0,
+        "total": 33,
+        "log_path": "artifacts/T-09/verify.log",
+        "log_sha256": "0c9609e7b3ff63b10360d2d0b8ce8a0572f1f6a67b814de63adc4ff8b88426b5",
+        "commit": "0cedff3291ee9609907cf5c1fa849341f7d2b1f1",
+        "timestamp": "2026-10-22T20:24:17+00:00",
+        "result": "33/33 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-09/verify.log)"
       }
     },
     {
