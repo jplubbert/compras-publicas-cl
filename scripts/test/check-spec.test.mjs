@@ -71,6 +71,27 @@ describe('state changes only through the scripts (DEC-028, T-60)', () => {
     expect(check()).toMatchObject({ code: 0 });
   });
 
+  it('T-103: accepts the user review of set-user-review; rejects it in a commit with an autopilot trailer', () => {
+    since();
+    expect(tasksCmd('set-user-review', 'T-02', '--by', 'Pepe', '--reason', 'la apruebo').status).toBe(0);
+    commit('T-02: user review\n\nTask: none\nReq: none');
+    expect(check()).toMatchObject({ code: 0 });
+    git('reset', '-q', '--hard', 'HEAD~1');
+    expect(tasksCmd('set-user-review', 'T-02', '--by', 'Pepe', '--reason', 'la apruebo').status).toBe(0);
+    commit('T-02: review\n\nTask: none\nReq: none\nCo-Authored-By: autopilot <noreply@local>');
+    expect(check()).toMatchObject({ code: 1, out: expect.stringContaining('T-02: a user review (decider "user") in a commit with an autopilot trailer') });
+  });
+
+  it('T-103: a user review must name a person as reviewer and decision.by, approved', () => {
+    expect(tasksCmd('set-user-review', 'T-02', '--by', 'Pepe', '--reason', 'ok').status).toBe(0);
+    editTasks((ts) => { task(ts, 'T-02').review.decision.by = 'autopilot'; });
+    expect(check()).toMatchObject({ code: 1, out: expect.stringContaining('T-02: review.decision.by must name the person who reviewed it') });
+    editTasks((ts) => { Object.assign(task(ts, 'T-02').review, { decision: { decider: 'user', by: 'Pepe' }, reviewer: 'Otro', verdict: 'rejected' }); });
+    const r = check();
+    expect(r.out).toContain('review.reviewer must be the user who reviewed it (Pepe)');
+    expect(r.out).toContain('a user review (set-user-review) is approved');
+  });
+
   it('the commit-msg hook checks the staged change too', () => {
     since();
     editTasks((ts) => { task(ts, 'T-04').status = 'blocked'; task(ts, 'T-04').blocked_by = 'Q-01'; });

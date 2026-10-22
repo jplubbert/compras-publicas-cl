@@ -119,6 +119,43 @@ describe('write-protected paths: tests/acceptance/ for the implementer (DEC-027,
   });
 });
 
+describe('the run records in the worktree: .autopilot/ is denied (T-97)', () => {
+  const run = () => join(root, '.autopilot', '2026-10-22_003744');
+  beforeEach(() => {
+    mkdirSync(run(), { recursive: true }); writeFileSync(join(run(), 'T-84-result-1.json'), '{}\n');
+    mkdirSync(join(root, 'docs'), { recursive: true }); writeFileSync(join(root, 'docs', '.autopilot-notes'), 'x\n');
+  });
+  for (const [name, tool, args] of [
+    ['T-97 Bash ls of a run directory by absolute path', 'Bash', () => ({ command: `ls ${run()}/` })],
+    ['T-97 Bash ls by relative path', 'Bash', () => ({ command: 'ls .autopilot/' })],
+    ['T-97 Bash ls of .autopilot itself', 'Bash', () => ({ command: 'ls -la .autopilot' })],
+    ['T-97 Bash cat of a result', 'Bash', () => ({ command: 'cat .autopilot/2026-10-22_003744/T-84-result-1.json' })],
+    ['T-97 Bash with a cwd inside it', 'Bash', () => ({ command: 'ls', cwd: '.autopilot' })],
+    ['T-97 Read of a result', 'Read', () => ({ file_path: join(run(), 'T-84-result-1.json') })],
+    ['T-97 Grep under it', 'Grep', () => ({ pattern: 'x', path: '.autopilot' })],
+    ['T-97 Glob under it', 'Glob', () => ({ pattern: '.autopilot/**/*.json' })],
+    ['T-97 Write into it', 'Write', () => ({ file_path: join(root, '.autopilot/new.json') })],
+    ['T-97 Edit of a result', 'Edit', () => ({ file_path: join(run(), 'T-84-result-1.json') })],
+  ]) {
+    it(`denies ${name}, saying they are the run records`, () => {
+      expect(accessGuard(tool, args(), ctx())).toMatchObject({ decision: 'deny', reason: expect.stringContaining('records of the autopilot run') });
+    });
+  }
+  it('T-97 allows a path that only contains ".autopilot" elsewhere, and an allowed directory inside .autopilot/', () => {
+    expect(guard('Read', { file_path: join(root, 'docs/.autopilot-notes') })).toBe('allow');
+    expect(guard('Bash', { command: 'cat docs/.autopilot-notes' })).toBe('allow');
+    expect(guard('Read', { file_path: join(root, '.autopilotrc') })).toBe('allow');
+    expect(guard('Write', { file_path: join(run(), 'r.json') }, { allow: [result, run()] })).toBe('allow');
+    expect(guard('Read', { file_path: join(root, '.autopilot/other.json') }, { allow: [result, run()] })).toBe('deny');
+  });
+  it('T-97 the hook denies it with exit 2', () => {
+    const r = spawnSync('node', [HOOK, '--root', root], {
+      input: JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'ls .autopilot/2026-10-22_003744/' }, cwd: root }), encoding: 'utf8', env: { ...process.env, HOME: home } });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain('records of the autopilot run');
+  });
+});
+
 describe('no skipping the commit hook: by the real options of the command, not by its text (DEC-027, T-74)', () => {
   it('denies git commit with -n or --no-verify (also in a cluster like -nm), git push --no-verify and git -c core.hooksPath', () => {
     for (const command of ['git commit -n -m x', 'git commit -nm x', 'git commit -am x --no-verify', 'git commit --no-verify',

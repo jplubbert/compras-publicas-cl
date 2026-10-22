@@ -141,6 +141,46 @@ describe('check-adr (DEC-035, T-68)', () => {
     expect(check()).toMatchObject({ status: 0 }); // DEC-005 and DEC-006, migrated without options, stay exempt
   });
 
+  const setEstado = (f, from, to) => { writeFileSync(f, readFileSync(f, 'utf8').replace(`- Estado: ${from}`, `- Estado: ${to}`)); spawnSync('node', [ADR, '--root', root, 'index']); };
+
+  it('an ADR born accepted passes once superseded by one born proposed and accepted, also through a chain (DEC-036, T-102)', () => {
+    const old = newAdr(real);
+    setEstado(old, 'proposed', 'accepted');
+    commit('born accepted');
+    const mid = newAdr(real);
+    commit('proposed');
+    setEstado(mid, 'proposed', 'accepted');
+    setEstado(old, 'accepted', 'superseded by 0009');
+    commit('replace');
+    expect(check()).toMatchObject({ status: 0 });
+    const last = newAdr(real);
+    commit('proposed');
+    setEstado(last, 'proposed', 'accepted');
+    setEstado(mid, 'accepted', 'superseded by 0010');
+    commit('replace again');
+    expect(check()).toMatchObject({ status: 0 });
+  });
+
+  it('an ADR born accepted and still accepted stays flagged (DEC-036, T-102)', () => {
+    const f = newAdr(real);
+    setEstado(f, 'proposed', 'accepted');
+    commit('born accepted');
+    expect(check()).toMatchObject({ status: 1, stderr: expect.stringContaining('DEC-008: a new ADR is born proposed (DEC-036)') });
+  });
+
+  it('an ADR born accepted and superseded by another also born accepted stays flagged (DEC-036, T-102)', () => {
+    const old = newAdr(real);
+    setEstado(old, 'proposed', 'accepted');
+    commit('born accepted');
+    const next = newAdr(real);
+    setEstado(next, 'proposed', 'accepted');
+    setEstado(old, 'accepted', 'superseded by 0009');
+    commit('replace, born accepted too');
+    const r = check();
+    expect(r).toMatchObject({ status: 1, stderr: expect.stringContaining('DEC-008: a new ADR is born proposed (DEC-036)') });
+    expect(r.stderr).toContain('DEC-009: a new ADR is born proposed (DEC-036)');
+  });
+
   it('adr accept refuses, without asking the decider, an ADR with fewer than two such options (DEC-036, T-71)', () => {
     newAdr([{ name: 'A', pro: 'rápida.', con: 'cara.' }]);
     commit('proposed');
@@ -162,7 +202,7 @@ describe('check-adr (DEC-035, T-68)', () => {
     }
   });
 
-  it('the real repository passes', () => {
+  it('the real repository passes (T-102: DEC-049 and DEC-050, born accepted, are superseded by DEC-052 and DEC-053)', () => {
     const r = spawnSync('node', [CHECK], { encoding: 'utf8' });
     expect(r.stderr).toBe('');
     expect(r.status).toBe(0);

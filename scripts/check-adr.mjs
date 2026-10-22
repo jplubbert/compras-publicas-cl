@@ -97,16 +97,29 @@ export function immutabilityErrors(root) {
 
 /** DEC-036 (T-71): an ADR added after the migration (the first commit with ADRs) is born proposed, and it is accepted
  * only with at least two options with their pros and cons recorded. The migrated ADRs are exempt (their debt is in
- * research/adr-auditoria.md). */
+ * research/adr-auditoria.md). One born accepted is no longer flagged once it is superseded by an ADR born proposed and
+ * accepted, or superseded in turn by one that meets the same (T-102): history is not rewritten. */
 export function newAdrErrors(root) {
   const errors = [];
   if (tryGit(root, ['rev-parse', '--verify', '-q', 'HEAD']) === null) return errors;
   const first = (tryGit(root, ['log', '--diff-filter=A', '--format=%H', '--', ADR_DIR]) ?? '').split('\n').filter(Boolean).at(-1);
-  for (const d of loadDecisions(root).filter((x) => x.kind === 'adr')) {
+  const adrs = loadDecisions(root).filter((x) => x.kind === 'adr');
+  const byNum = new Map(adrs.map((d) => [d.num, d]));
+  const birth = (d) => {
     const born = (tryGit(root, ['log', '--diff-filter=A', '--format=%H', '--', d.file]) ?? '').split('\n').filter(Boolean).at(-1);
+    return { born, text: born ? tryGit(root, ['show', `${born}:${d.file}`]) : d.text };
+  };
+  const bornProposed = (d) => { const { born, text } = birth(d); return born !== first && !!text && parseAdr(text).status === 'proposed'; };
+  const replacedProperly = (d, seen = new Set([d.num])) => {
+    const m = /^superseded by (?:DEC-)?(\d+)$/.exec(d.statusLine ?? '');
+    const s = m && byNum.get(Number(m[1]));
+    if (!s || seen.has(s.num) || !bornProposed(s)) return false;
+    return s.status === 'accepted' || (s.status === 'superseded' && replacedProperly(s, seen.add(s.num)));
+  };
+  for (const d of adrs) {
+    const { born, text: bornText } = birth(d);
     if (born && born === first) continue;   // migrated (DEC-035)
-    const bornText = born ? tryGit(root, ['show', `${born}:${d.file}`]) : d.text;
-    if (bornText && parseAdr(bornText).status === 'accepted') errors.push(`${d.id}: a new ADR is born proposed (DEC-036); it was ${born ? `committed in ${born.slice(0, 7)}` : 'created'} as accepted`);
+    if (bornText && parseAdr(bornText).status === 'accepted' && !(d.status === 'superseded' && replacedProperly(d))) errors.push(`${d.id}: a new ADR is born proposed (DEC-036); it was ${born ? `committed in ${born.slice(0, 7)}` : 'created'} as accepted`);
     if (d.status === 'accepted' && realOptions(d.text) < 2) errors.push(`${d.id}: accepted with fewer than two options with their pros and cons (DEC-036)`);
   }
   return errors;

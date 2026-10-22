@@ -95,6 +95,35 @@ export function reviewErrors(t) {
 }
 
 /**
+ * T-103: problems of a review the user recorded in person (set-user-review: decision {decider: "user", by}); [] if the
+ * review is not the user's or is well formed. A person approves it, named both as reviewer and in decision.by.
+ */
+export function userReviewErrors(t) {
+  const r = t.review;
+  if (r?.decision?.decider !== 'user') return [];
+  const by = r.decision.by;
+  const errors = [];
+  if (!nonEmpty(by) || AGENT_BY.test(by)) errors.push(`review.decision.by must name the person who reviewed it, got ${JSON.stringify(by)} (T-103)`);
+  else if (r.reviewer !== by) errors.push(`review.reviewer must be the user who reviewed it (${by}), got ${JSON.stringify(r.reviewer)}`);
+  if (r.verdict !== 'approved') errors.push(`a user review (set-user-review) is approved, got ${JSON.stringify(r.verdict)}`);
+  return errors;
+}
+
+/** Trailers of the orchestrator's commits (its own and the test-author's). */
+export const AUTOPILOT_TRAILER = /^(Co-Authored-By:[ \t]*autopilot\b|Test-Author:[ \t]*autopilot[ \t]*$)/im;
+/**
+ * T-103: a user review (decider "user") that a commit with an autopilot trailer introduces or changes between two
+ * versions of spec/TASKS.json: the orchestrator never records the user's review. → error lines
+ */
+export function autopilotUserReviewErrors(before, after, message) {
+  if (!AUTOPILOT_TRAILER.test(message ?? '')) return [];
+  const prev = new Map((before?.tasks ?? []).map((t) => [t.id, t]));
+  return (after?.tasks ?? [])
+    .filter((t) => t.review?.decision?.decider === 'user' && JSON.stringify(prev.get(t.id)?.review) !== JSON.stringify(t.review))
+    .map((t) => `${t.id}: a user review (decider "user") in a commit with an autopilot trailer: only a session at the user's request records it (T-103)`);
+}
+
+/**
  * Problems of a task's `plan_review` (DEC-010 point 7: the critic's verdict on plans/<ID>.md, written by the
  * orchestrator; the implementer starts only with effective APROBAR on an unchanged plan); [] if absent, null or well formed.
  */
@@ -442,6 +471,7 @@ function checkTasks(root, ids, errors) {
 
     for (const e of acceptanceReviewErrors(t)) errors.push(`${where}: ${e}`);
     for (const e of reviewErrors(t)) errors.push(`${where}: ${e}`);
+    for (const e of userReviewErrors(t)) errors.push(`${where}: ${e}`);
     for (const e of planReviewErrors(t)) errors.push(`${where}: ${e}`);
     for (const e of implApprovalErrors(t)) errors.push(`${where}: ${e}`);
     for (const e of statusLogErrors(t)) errors.push(`${where}: ${e}`);
@@ -571,6 +601,9 @@ function checkHistory(root, tasks, ids, errors) {
     const message = git(root, ['show', '-s', '--format=%B', sha]);
     const files = git(root, ['diff-tree', '--no-commit-id', '--name-only', '-r', '--root', sha]).split('\n').filter(Boolean);
     checkCommit(`commit ${sha.slice(0, 7)}`, message, files, tasks, ids, errors);
+    if (files.includes('spec/TASKS.json') && AUTOPILOT_TRAILER.test(message)) {
+      for (const e of autopilotUserReviewErrors(tasksAt(root, `${sha}^`), tasksAt(root, sha), message)) errors.push(`commit ${sha.slice(0, 7)}: ${e}`);
+    }
   }
 }
 
@@ -611,6 +644,11 @@ function checkPendingCommit(root, msgFile, tasks, ids, errors) {
     .join('\n');
   const files = git(root, ['diff', '--cached', '--name-only']).split('\n').filter(Boolean);
   checkCommit('pending commit', message, files, tasks, ids, errors);
+  if (files.includes('spec/TASKS.json') && AUTOPILOT_TRAILER.test(message)) {
+    let staged = null;
+    try { staged = JSON.parse(readText(root, 'spec/TASKS.json')); } catch { /* reported by checkTasks */ }
+    for (const e of autopilotUserReviewErrors(tasksAt(root, 'HEAD'), staged, message)) errors.push(`pending commit: ${e}`);
+  }
 }
 
 export function run({ root, commitMsg }) {

@@ -2927,6 +2927,22 @@ run_task() { # $1 = ID, $2 = attempt; returns 0 if the task moved forward, 1 if 
     return 1
   fi
   gate result ok
+  # T-117 (DEC-014): test results in the log were dropped by check-result, not a reason to reject; warn about them
+  local dropped
+  dropped=$(node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const d=r.log_discarded??[],t=r.log_trimmed??[];
+    const q=(a)=>a.map((l)=>JSON.stringify(l.trim())).join("; ");
+    if(d.length)console.log(`log: ${d.length} line(s) with test results discarded (DEC-014, T-117): ${q(d)}`);
+    if(t.length)console.log(`log: ${t.length} line(s) trimmed of test results (DEC-014, T-117): ${q(t)}`)' "$checked")
+  if [ -n "$dropped" ]; then
+    # the Spanish summary goes to spec/LOG.md, where no dropped line may land: it gives the counts and cites the file
+    local line dfile=$RUN_DIR/$id-log-discarded-$attempt.txt nd nt
+    printf '%s\n' "$dropped" >"$dfile"
+    nd=$(json_field "$checked" log_discarded | node -e 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).length)')
+    nt=$(json_field "$checked" log_trimmed | node -e 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).length)')
+    while IFS= read -r line; do log "$id: $line"; done <<<"$dropped"
+    summary "$id: del log del implementador se descartaron $nd línea(s) y se recortaron $nt con resultados de pruebas (DEC-014, T-117; ver .autopilot/$RUN_ID/${dfile##*/})" \
+      "$id: $(paste -sd ' ' <<<"$dropped")"
+  fi
   # DEC-029: a block the implementer declares: nothing is applied or integrated (its commits stay on its branch); the
   # orchestrator escalates it with a Q-NN and the decider's classification, and never relaunches it
   if [ "$(json_field "$checked" block)" != null ]; then
