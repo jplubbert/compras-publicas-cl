@@ -1,0 +1,62 @@
+config {
+  type: "incremental",
+  schema: "silver",
+  tags: ["silver"],
+  uniqueKey: ["codigo_licitacion", "correlativo"],
+  description: "Ítems de las licitaciones de Mercado Público, una fila por código de licitación y correlativo con su versión más reciente (REQ-008).",
+  columns: {
+    codigo_licitacion: "Código externo de la licitación a la que pertenece el ítem (clave natural, con el correlativo)",
+    correlativo: "Número correlativo del ítem dentro de la licitación (clave natural, con el código)",
+    codigo_producto: "Código del producto según el catálogo de ChileCompra",
+    nombre_producto: "Nombre del producto según el catálogo de ChileCompra",
+    descripcion: "Descripción del ítem escrita por el comprador",
+    unidad_medida: "Unidad de medida de la cantidad pedida",
+    cantidad: "Cantidad pedida del ítem",
+    rut_proveedor_adjudicado: "RUT del proveedor adjudicado, sin puntos ni espacios y con el dígito verificador en mayúscula; nulo si no hay adjudicación",
+    cantidad_adjudicada: "Cantidad adjudicada del ítem",
+    monto_unitario: "Monto unitario adjudicado en la moneda de la licitación",
+    run_id: "Identificador de la corrida de ingesta que trajo esta versión",
+    _ingest_date: "Fecha UTC de inicio de la corrida que trajo esta versión (partición de raw)",
+    ingested_at: "Momento UTC en que se recibió la respuesta de esta versión",
+    fecha_cambio: "Momento del cambio que ordena las versiones; para ítems es ingested_at (S-14)"
+  }
+}
+
+js {
+  const columnas = [
+    "codigo_licitacion", "correlativo", "codigo_producto", "nombre_producto", "descripcion", "unidad_medida", "cantidad",
+    "rut_proveedor_adjudicado", "cantidad_adjudicada", "monto_unitario", "run_id", "_ingest_date", "ingested_at",
+    "fecha_cambio"
+  ];
+}
+
+WITH nuevas AS (
+  SELECT
+    JSON_VALUE(doc, '$.CodigoExterno') AS codigo_licitacion,
+    SAFE_CAST(JSON_VALUE(item, '$.Correlativo') AS INT64) AS correlativo,
+    JSON_VALUE(item, '$.CodigoProducto') AS codigo_producto,
+    JSON_VALUE(item, '$.NombreProducto') AS nombre_producto,
+    JSON_VALUE(item, '$.Descripcion') AS descripcion,
+    JSON_VALUE(item, '$.UnidadMedida') AS unidad_medida,
+    ${silver.numericSql("JSON_VALUE(item, '$.Cantidad')")} AS cantidad,
+    ${silver.rutSql("JSON_VALUE(item, '$.Adjudicacion.RutProveedor')")} AS rut_proveedor_adjudicado,
+    ${silver.numericSql("JSON_VALUE(item, '$.Adjudicacion.Cantidad')")} AS cantidad_adjudicada,
+    ${silver.numericSql("JSON_VALUE(item, '$.Adjudicacion.MontoUnitario')")} AS monto_unitario,
+    run_id,
+    _ingest_date,
+    ingested_at,
+    ingested_at AS fecha_cambio
+  FROM ${ref("mercadopublico_licitaciones")},
+    UNNEST(JSON_QUERY_ARRAY(payload, '$.Listado')) AS doc,
+    UNNEST(JSON_QUERY_ARRAY(doc, '$.Items.Listado')) AS item
+  WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'detalle'
+    ${when(incremental(), `AND ${silver.ventanaIncremental(self())}`)}
+),
+candidatas AS (
+  SELECT ${columnas.join(", ")} FROM nuevas
+  ${when(incremental(), `UNION ALL
+  SELECT ${columnas.join(", ")} FROM ${self()}
+  WHERE STRUCT(codigo_licitacion, correlativo) IN (SELECT AS STRUCT codigo_licitacion, correlativo FROM nuevas)`)}
+)
+SELECT ${columnas.join(", ")} FROM candidatas
+QUALIFY ROW_NUMBER() OVER (PARTITION BY codigo_licitacion, correlativo ORDER BY fecha_cambio DESC, ingested_at DESC) = 1

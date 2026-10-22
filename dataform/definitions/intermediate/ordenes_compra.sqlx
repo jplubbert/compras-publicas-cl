@@ -1,0 +1,70 @@
+config {
+  type: "incremental",
+  schema: "silver",
+  tags: ["silver"],
+  uniqueKey: ["codigo_oc"],
+  description: "Órdenes de compra de Mercado Público, una fila por código con su versión más reciente (REQ-008).",
+  columns: {
+    codigo_oc: "Código de la orden de compra (clave natural)",
+    nombre: "Nombre de la orden de compra",
+    codigo_estado: "Código numérico del estado de la orden de compra según la API",
+    estado: "Estado de la orden de compra traducido del código (Enviada a proveedor, En proceso, Aceptada, Cancelada, Recepción conforme, Pendiente de recepcionar, Recepcionada parcialmente, Recepción conforme incompleta); nulo si el código no está en el catálogo",
+    codigo_licitacion: "Código de la licitación de origen, si la hay",
+    codigo_organismo: "Código del organismo comprador",
+    nombre_organismo: "Nombre del organismo comprador",
+    rut_proveedor: "RUT de la sucursal del proveedor, sin puntos ni espacios y con el dígito verificador en mayúscula",
+    nombre_proveedor: "Nombre del proveedor",
+    moneda: "Código de la moneda de la orden, en mayúsculas",
+    total_neto: "Monto total neto de la orden en su moneda",
+    total: "Monto total de la orden en su moneda, con impuestos",
+    fecha_creacion: "Fecha de creación de la orden (hora de Chile)",
+    fecha_envio: "Fecha de envío de la orden al proveedor (hora de Chile)",
+    fecha_aceptacion: "Fecha de aceptación de la orden por el proveedor (hora de Chile)",
+    run_id: "Identificador de la corrida de ingesta que trajo esta versión",
+    _ingest_date: "Fecha UTC de inicio de la corrida que trajo esta versión (partición de raw)",
+    ingested_at: "Momento UTC en que se recibió la respuesta de esta versión",
+    fecha_cambio: "Momento de la última modificación de la orden según la API (hora de Chile); ingested_at si no viene (S-14)"
+  }
+}
+
+js {
+  const columnas = [
+    "codigo_oc", "nombre", "codigo_estado", "estado", "codigo_licitacion", "codigo_organismo", "nombre_organismo",
+    "rut_proveedor", "nombre_proveedor", "moneda", "total_neto", "total", "fecha_creacion", "fecha_envio",
+    "fecha_aceptacion", "run_id", "_ingest_date", "ingested_at", "fecha_cambio"
+  ];
+}
+
+WITH nuevas AS (
+  SELECT
+    JSON_VALUE(doc, '$.Codigo') AS codigo_oc,
+    JSON_VALUE(doc, '$.Nombre') AS nombre,
+    SAFE_CAST(JSON_VALUE(doc, '$.CodigoEstado') AS INT64) AS codigo_estado,
+    ${silver.estadoSql("SAFE_CAST(JSON_VALUE(doc, '$.CodigoEstado') AS INT64)", silver.ESTADOS_OC)} AS estado,
+    JSON_VALUE(doc, '$.CodigoLicitacion') AS codigo_licitacion,
+    JSON_VALUE(doc, '$.Comprador.CodigoOrganismo') AS codigo_organismo,
+    JSON_VALUE(doc, '$.Comprador.NombreOrganismo') AS nombre_organismo,
+    ${silver.rutSql("JSON_VALUE(doc, '$.Proveedor.RutSucursal')")} AS rut_proveedor,
+    JSON_VALUE(doc, '$.Proveedor.Nombre') AS nombre_proveedor,
+    UPPER(TRIM(JSON_VALUE(doc, '$.TipoMoneda'))) AS moneda,
+    ${silver.numericSql("JSON_VALUE(doc, '$.TotalNeto')")} AS total_neto,
+    ${silver.numericSql("JSON_VALUE(doc, '$.Total')")} AS total,
+    ${silver.fechaSql("JSON_VALUE(doc, '$.Fechas.FechaCreacion')")} AS fecha_creacion,
+    ${silver.fechaSql("JSON_VALUE(doc, '$.Fechas.FechaEnvio')")} AS fecha_envio,
+    ${silver.fechaSql("JSON_VALUE(doc, '$.Fechas.FechaAceptacion')")} AS fecha_aceptacion,
+    run_id,
+    _ingest_date,
+    ingested_at,
+    IFNULL(TIMESTAMP(SAFE_CAST(JSON_VALUE(doc, '$.Fechas.FechaUltimaModificacion') AS DATETIME), 'America/Santiago'), ingested_at) AS fecha_cambio
+  FROM ${ref("mercadopublico_ordenes_compra")}, UNNEST(JSON_QUERY_ARRAY(payload, '$.Listado')) AS doc
+  WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'detalle'
+    ${when(incremental(), `AND ${silver.ventanaIncremental(self())}`)}
+),
+candidatas AS (
+  SELECT ${columnas.join(", ")} FROM nuevas
+  ${when(incremental(), `UNION ALL
+  SELECT ${columnas.join(", ")} FROM ${self()}
+  WHERE codigo_oc IN (SELECT codigo_oc FROM nuevas)`)}
+)
+SELECT ${columnas.join(", ")} FROM candidatas
+QUALIFY ROW_NUMBER() OVER (PARTITION BY codigo_oc ORDER BY fecha_cambio DESC, ingested_at DESC) = 1

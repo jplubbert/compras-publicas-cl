@@ -34,6 +34,8 @@ jobs:
         run: scripts/env.sh npm run check:repo
       - name: Check spec
         run: scripts/env.sh npm run check:spec
+      - name: Check descriptions
+        run: scripts/env.sh npm run check:descriptions
       - name: Dataform compile
         run: scripts/env.sh bash -c 'cd dataform && node_modules/.bin/dataform compile'
 

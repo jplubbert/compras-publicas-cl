@@ -1,0 +1,61 @@
+config {
+  type: "incremental",
+  schema: "silver",
+  tags: ["silver"],
+  uniqueKey: ["rut_proveedor"],
+  description: "Proveedores vistos en las órdenes de compra y en las adjudicaciones de ítems de licitación de Mercado Público, una fila por RUT con su versión más reciente (REQ-008; T-14 cambia la clave por proveedor_key).",
+  columns: {
+    rut_proveedor: "RUT del proveedor, sin puntos ni espacios y con el dígito verificador en mayúscula (clave natural)",
+    nombre_proveedor: "Nombre del proveedor en su versión más reciente",
+    codigo_proveedor: "Código del proveedor en Mercado Público; nulo si la versión viene de una adjudicación de ítem",
+    run_id: "Identificador de la corrida de ingesta que trajo esta versión",
+    _ingest_date: "Fecha UTC de inicio de la corrida que trajo esta versión (partición de raw)",
+    ingested_at: "Momento UTC en que se recibió la respuesta de esta versión",
+    fecha_cambio: "Momento del cambio que ordena las versiones; para proveedores es ingested_at"
+  }
+}
+
+js {
+  const columnas = [
+    "rut_proveedor", "nombre_proveedor", "codigo_proveedor", "run_id", "_ingest_date", "ingested_at", "fecha_cambio"
+  ];
+}
+
+WITH documentos AS (
+  SELECT
+    ${silver.rutSql("JSON_VALUE(doc, '$.Proveedor.RutSucursal')")} AS rut_proveedor,
+    JSON_VALUE(doc, '$.Proveedor.Nombre') AS nombre_proveedor,
+    JSON_VALUE(doc, '$.Proveedor.Codigo') AS codigo_proveedor,
+    run_id,
+    _ingest_date,
+    ingested_at,
+    ingested_at AS fecha_cambio
+  FROM ${ref("mercadopublico_ordenes_compra")}, UNNEST(JSON_QUERY_ARRAY(payload, '$.Listado')) AS doc
+  WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'detalle'
+    ${when(incremental(), `AND ${silver.ventanaIncremental(self())}`)}
+  UNION ALL
+  SELECT
+    ${silver.rutSql("JSON_VALUE(item, '$.Adjudicacion.RutProveedor')")} AS rut_proveedor,
+    JSON_VALUE(item, '$.Adjudicacion.NombreProveedor') AS nombre_proveedor,
+    CAST(NULL AS STRING) AS codigo_proveedor,
+    run_id,
+    _ingest_date,
+    ingested_at,
+    ingested_at AS fecha_cambio
+  FROM ${ref("mercadopublico_licitaciones")},
+    UNNEST(JSON_QUERY_ARRAY(payload, '$.Listado')) AS doc,
+    UNNEST(JSON_QUERY_ARRAY(doc, '$.Items.Listado')) AS item
+  WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'detalle'
+    ${when(incremental(), `AND ${silver.ventanaIncremental(self())}`)}
+),
+nuevas AS (
+  SELECT ${columnas.join(", ")} FROM documentos WHERE rut_proveedor IS NOT NULL
+),
+candidatas AS (
+  SELECT ${columnas.join(", ")} FROM nuevas
+  ${when(incremental(), `UNION ALL
+  SELECT ${columnas.join(", ")} FROM ${self()}
+  WHERE rut_proveedor IN (SELECT rut_proveedor FROM nuevas)`)}
+)
+SELECT ${columnas.join(", ")} FROM candidatas
+QUALIFY ROW_NUMBER() OVER (PARTITION BY rut_proveedor ORDER BY fecha_cambio DESC, ingested_at DESC) = 1

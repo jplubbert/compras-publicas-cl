@@ -1,0 +1,77 @@
+config {
+  type: "incremental",
+  schema: "silver",
+  tags: ["silver"],
+  uniqueKey: ["serie", "fecha"],
+  description: "Observaciones diarias de UF, dólar observado e IPC de la BDE del Banco Central y de mindicador.cl, una fila por serie y fecha con su revisión más reciente; ND pasa a valor nulo con es_nd verdadero (REQ-008).",
+  columns: {
+    serie: "Serie de origen: nombre de la tabla raw (bcentral_uf, bcentral_dolar, bcentral_ipc, mindicador_uf, mindicador_dolar; clave natural, con la fecha)",
+    fuente: "Fuente del dato: bcentral o mindicador",
+    indicador: "Indicador económico: uf, dolar o ipc",
+    codigo_serie: "Código de la serie en la BDE del Banco Central; nulo para mindicador",
+    fecha: "Fecha de la observación (clave natural, con la serie)",
+    valor: "Valor del indicador en la fecha; nulo si la fuente no lo publicó (ND)",
+    es_nd: "Verdadero si la fuente marcó la observación como no disponible (ND)",
+    run_id: "Identificador de la corrida de ingesta que trajo esta revisión",
+    _ingest_date: "Fecha UTC de inicio de la corrida que trajo esta revisión (partición de raw)",
+    ingested_at: "Momento UTC en que se recibió la respuesta de esta revisión",
+    fecha_cambio: "Momento del cambio que ordena las revisiones; es ingested_at, así gana la revisión más nueva"
+  }
+}
+
+js {
+  const columnas = [
+    "serie", "fuente", "indicador", "codigo_serie", "fecha", "valor", "es_nd", "run_id", "_ingest_date", "ingested_at",
+    "fecha_cambio"
+  ];
+  const ventana = () => (incremental() ? `AND ${silver.ventanaIncremental(self())}` : "");
+
+  // BDE GetSeries: one row per observation; a day without data comes as statusCode ND and value ND or NaN (T-02).
+  const nd = `IFNULL(JSON_VALUE(obs, '$.statusCode') = 'ND' OR JSON_VALUE(obs, '$.value') IN ('ND', 'NaN'), FALSE)`;
+  const bcentral = (indicador) => `
+  SELECT
+    'bcentral_${indicador}' AS serie,
+    'bcentral' AS fuente,
+    '${indicador}' AS indicador,
+    codigo AS codigo_serie,
+    PARSE_DATE('%d-%m-%Y', JSON_VALUE(obs, '$.indexDateString')) AS fecha,
+    IF(${nd}, NULL, SAFE_CAST(JSON_VALUE(obs, '$.value') AS NUMERIC)) AS valor,
+    ${nd} AS es_nd,
+    run_id,
+    _ingest_date,
+    ingested_at,
+    ingested_at AS fecha_cambio
+  FROM ${ref(`bcentral_${indicador}`)}, UNNEST(JSON_QUERY_ARRAY(payload, '$.Series.Obs')) AS obs
+  WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'GetSeries' AND JSON_VALUE(payload, '$.Codigo') = '0'
+    ${ventana()}`;
+
+  // mindicador: one row per element of serie, dated in Chile time.
+  const mindicador = (indicador) => `
+  SELECT
+    'mindicador_${indicador}' AS serie,
+    'mindicador' AS fuente,
+    '${indicador}' AS indicador,
+    CAST(NULL AS STRING) AS codigo_serie,
+    DATE(TIMESTAMP(JSON_VALUE(obs, '$.fecha')), 'America/Santiago') AS fecha,
+    SAFE_CAST(JSON_VALUE(obs, '$.valor') AS NUMERIC) AS valor,
+    FALSE AS es_nd,
+    run_id,
+    _ingest_date,
+    ingested_at,
+    ingested_at AS fecha_cambio
+  FROM ${ref(`mindicador_${indicador}`)}, UNNEST(JSON_QUERY_ARRAY(payload, '$.serie')) AS obs
+  WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'indicador'
+    ${ventana()}`;
+}
+
+WITH nuevas AS (
+  ${[bcentral("uf"), bcentral("dolar"), bcentral("ipc"), mindicador("uf"), mindicador("dolar")].join("\n  UNION ALL")}
+),
+candidatas AS (
+  SELECT ${columnas.join(", ")} FROM nuevas
+  ${when(incremental(), `UNION ALL
+  SELECT ${columnas.join(", ")} FROM ${self()}
+  WHERE STRUCT(serie, fecha) IN (SELECT AS STRUCT serie, fecha FROM nuevas)`)}
+)
+SELECT ${columnas.join(", ")} FROM candidatas
+QUALIFY ROW_NUMBER() OVER (PARTITION BY serie, fecha ORDER BY fecha_cambio DESC, ingested_at DESC) = 1
