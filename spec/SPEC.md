@@ -405,6 +405,7 @@ Trazas: objetivo §Criterio de éxito (1)(3) · decisiones: DEC-001 · prueba: t
 | Q-01 | ¿El proyecto GCP va en una cuenta nueva (crédito de USD 300 por 90 días) o en una existente? | resuelta 2026-10-21: cuenta nueva (respuesta del usuario) | — | usuario | — |
 | Q-02 | ¿Ya tienes el ticket de Mercado Público (Clave Única) y el usuario de la BDE? | diferible; 2026-10-21: todavía no, los obtiene el usuario | `verify_integration` de T-06, T-07 | usuario | antes de la primera corrida real |
 | Q-03 | ¿Cuál es el correo de las alertas (presupuesto y Workflow)? | resuelta 2026-10-21: el Gmail del usuario; va en la variable `alert_email` de un `terraform.tfvars` fuera de git (repo público, R-05) | — | usuario | — |
+| Q-04 | ¿Cómo sigue T-01? El orquestador la escaló por la causa de su fallo según el decisor (DEC-015): el decisor (jev) no resolvió la causa del fallo (confidence 0.76 < 0.8 (threshold)) (sin informe). | bloqueante | T-01 | usuario | — |
 
 ## Plan (corte 1)
 ### Diseño

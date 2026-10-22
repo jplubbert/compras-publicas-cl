@@ -87,3 +87,7 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Hallazgos: [env:mise-system-dir-no-documentada] P2 (fuente: https://mise.jdx.dev/configuration.html — documenta MISE_SYSTEM_CONFIG_DIR y MISE_SYSTEM_CONFIG_FILE para la configuración de sistema en /etc/mise; no documenta MISE_SYSTEM_DIR.): Los pasos 2 y 3.3 exportan MISE_SYSTEM_DIR para que mise no lea /etc/mise/config.toml. Si mise no reconoce esa variable, una configuración de sistema podría seguir aplicándose. El daño queda acotado: MISE_LOCKED=1 exige las versiones y URLs de mise.lock, y la prueba 9a exige rutas bajo .tools/. Corrección: Exportar MISE_SYSTEM_CONFIG_DIR (o MISE_SYSTEM_CONFIG_FILE) con una ruta inexistente dentro de .tools/, en lugar de o además de MISE_SYSTEM_DIR. Comprobar con `scripts/env.sh .tools/bin/mise config` que no lista ningún archivo fuera del repo..
 - Objeciones P0/P1 de pura opinión (no bloquean; para el usuario): ninguna.
 - Próxima acción autorizada: el orquestador lanza al implementador sobre T-01 con el plan aprobado.
+
+## 2026-10-21 23:42 · autopilot (scripts/autopilot.sh): causa del fallo de T-01
+- Decisión: escalar T-01 al usuario (DEC-015): el decisor (jev) no resolvió la causa del fallo (confidence 0.76 < 0.8 (threshold)). Queda `blocked` por Q-04, nueva en «Preguntas abiertas» de SPEC.md.
+- Próxima acción autorizada: el usuario responde Q-04; el orquestador no vuelve a tomar T-01 mientras siga blocked.
