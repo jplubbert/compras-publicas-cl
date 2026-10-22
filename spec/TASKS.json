@@ -454,8 +454,8 @@
         "total": 25,
         "log_path": "artifacts/batch-T-04/verify.log",
         "log_sha256": "f4515115ae57bd9db74f7b295db29b69deb7d9af722fade81207296f4cbb03fe",
-        "commit": "6ad3f2c46a93fa6158e17d59aa940a760ce77254",
-        "timestamp": "2026-10-22T16:11:44+00:00",
+        "commit": "fd86da56c331bb0ad704cca463dc3452380c6617",
+        "timestamp": "2026-10-22T19:02:16+00:00",
         "result": "25/25 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-04/verify.log)",
         "batch": [
           "T-04"
@@ -572,9 +572,9 @@
         "failed": 0,
         "total": 28,
         "log_path": "artifacts/batch-T-05/verify.log",
-        "log_sha256": "4bf773785bee9f070e54d72ba70072957aa8a2efebce11ab6e0ff4e69fe1d3cf",
-        "commit": "6ad3f2c46a93fa6158e17d59aa940a760ce77254",
-        "timestamp": "2026-10-22T16:11:52+00:00",
+        "log_sha256": "b466e66c82206d06fc2c43e7bb14ccd98a1ac06235f0f15fa216586a28cc2d4d",
+        "commit": "fd86da56c331bb0ad704cca463dc3452380c6617",
+        "timestamp": "2026-10-22T19:02:24+00:00",
         "result": "28/28 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-05/verify.log)",
         "batch": [
           "T-05"
@@ -717,16 +717,17 @@
       "evidence": {
         "command": "scripts/env.sh bash -c 'npm run test:ingest && npm run check:spec'",
         "exit_code": 0,
-        "passed": 61,
+        "passed": 85,
         "failed": 0,
-        "total": 61,
-        "log_path": "artifacts/batch-T-06/verify.log",
-        "log_sha256": "67a1298ea4ae85c5f25cf3d763c5c4725fde3acd29138f2984aae8ea4f9758d4",
-        "commit": "6ad3f2c46a93fa6158e17d59aa940a760ce77254",
-        "timestamp": "2026-10-22T16:11:54+00:00",
-        "result": "61/61 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-06/verify.log)",
+        "total": 85,
+        "log_path": "artifacts/batch-T-06_T-07/verify.log",
+        "log_sha256": "0e402d43243580d9262ac6b444eac911d7deba063cfd4b039a8121f440effe34",
+        "commit": "fd86da56c331bb0ad704cca463dc3452380c6617",
+        "timestamp": "2026-10-22T19:02:26+00:00",
+        "result": "85/85 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-06_T-07/verify.log)",
         "batch": [
-          "T-06"
+          "T-06",
+          "T-07"
         ]
       },
       "review": {
@@ -848,11 +849,15 @@
         "passed": 85,
         "failed": 0,
         "total": 85,
-        "log_path": "artifacts/T-07/verify.log",
+        "log_path": "artifacts/batch-T-06_T-07/verify.log",
         "log_sha256": "0e402d43243580d9262ac6b444eac911d7deba063cfd4b039a8121f440effe34",
-        "commit": "580ff284b7788360619019603a9a50c3e87a8253",
-        "timestamp": "2026-10-22T19:01:38+00:00",
-        "result": "85/85 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-07/verify.log)"
+        "commit": "fd86da56c331bb0ad704cca463dc3452380c6617",
+        "timestamp": "2026-10-22T19:02:26+00:00",
+        "result": "85/85 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-06_T-07/verify.log)",
+        "batch": [
+          "T-06",
+          "T-07"
+        ]
       },
       "review": {
         "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
@@ -1269,9 +1274,9 @@
         "failed": 0,
         "total": 74,
         "log_path": "artifacts/batch-T-17/verify.log",
-        "log_sha256": "5a03080ee7e9ca943c8462180903d326eb8c4079a62b356427c3e3be462c633c",
-        "commit": "6ad3f2c46a93fa6158e17d59aa940a760ce77254",
-        "timestamp": "2026-10-22T16:12:03+00:00",
+        "log_sha256": "cf58d1ba651b785420b8d1d93eaba3a293500adbd381b5b07117406cbc74e809",
+        "commit": "fd86da56c331bb0ad704cca463dc3452380c6617",
+        "timestamp": "2026-10-22T19:02:35+00:00",
         "result": "74/74 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-17/verify.log)",
         "batch": [
           "T-17"
