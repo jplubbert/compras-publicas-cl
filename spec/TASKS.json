@@ -229,9 +229,9 @@
         "T-01",
         "T-02"
       ],
-      "status": "ready",
-      "blocked_by": null,
-      "notes": "",
+      "status": "blocked",
+      "blocked_by": "Q-05",
+      "notes": "2026-10-22: escalada por el orquestador (DEC-005): el test-author no entregó pruebas válidas: autopilot: the test-author left no result in /home/pepe/Projects/compras-publicas-cl/.autopilot/2026-10-22_003936/T-03-tests-result.json; sin informe; bloqueada por Q-05.",
       "touches": [
         "infra/",
         "scripts/ci/",
@@ -248,6 +248,13 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:23:36.813Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        },
+        {
+          "from": "ready",
+          "to": "blocked",
+          "by": "escalate",
+          "at": "2026-10-22T03:47:04.670Z",
+          "reason": "escalada al usuario por Q-05"
         }
       ]
     },

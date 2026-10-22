@@ -187,3 +187,7 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Hecho: revisión independiente de T-02 con contexto limpio (solo diff + REQ/DEC de la tarea). Veredicto: **approved** → estado `reviewed`. Hallazgos: sin hallazgos bloqueantes.
 - Verificado y cómo: veredicto completo en TASKS.json (`review` de T-02); salida íntegra en .autopilot/2026-10-22_003936/T-02-review-output.txt.
 - Próxima acción autorizada: continúa el autopilot; el usuario decide accepted después de la corrida.
+
+## 2026-10-22 00:47 · autopilot (scripts/autopilot.sh): pruebas de aceptación de T-03
+- Decisión: escalar T-03 al usuario (DEC-006): el test-author no entregó pruebas válidas: autopilot: the test-author left no result in /home/pepe/Projects/compras-publicas-cl/.autopilot/2026-10-22_003936/T-03-tests-result.json. Queda `blocked` por Q-05, nueva en «Preguntas abiertas» de SPEC.md.
+- Próxima acción autorizada: el usuario responde Q-05; el orquestador no vuelve a tomar T-03 mientras siga blocked.
