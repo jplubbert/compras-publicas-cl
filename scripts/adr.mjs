@@ -12,6 +12,10 @@
 //       DEC-036: asks the decider (port decide, adr_accept: accept | reject) about a proposed ADR. Over the threshold
 //       (AUTOPILOT_DECIDE_THRESHOLD_ADR_ACCEPT, 0.8) it becomes accepted or rejected, with the decider and its record
 //       (artifacts/decisions/adr/) as Aprobador; under it, or on an error, it stays proposed and exits 1 (the user).
+//   node scripts/adr.mjs [--root DIR] accept NNNN --by <name> [--reason "<quote>"]
+//       T-91: the user accepted it by name in session: the decider is not asked; same conditions (proposed, at least
+//       two options with pros and cons); Aprobador "<name>, <date> (aprobación nominal en sesión[: «<quote>»])".
+//       An agent uses --by only with the name of the user who approved it in session (DEC-032), never its own.
 //   node scripts/adr.mjs [--root DIR] select --task T-NN [--recent N] [--files]
 //       DEC-036: the decisions in force an agent of the task gets: the ones it cites, the N (AUTOPILOT_ADR_RECENT, 5)
 //       most recent accepted ADRs and the accepted ADRs whose Módulos cross its touches; JSON [{id, kind, file, why}],
@@ -191,13 +195,27 @@ function newAdr(root, title) {
   return file;
 }
 
-function accept(root, nnnn, { decider, threshold }) {
+/** Writes the new Estado and Aprobador of an ADR and regenerates the index of DECISIONS.md. */
+function decide(root, d, status, who) {
+  const text = readFileSync(join(root, d.file), 'utf8')
+    .replace(/^- Estado:.*$/m, `- Estado: ${status}`)
+    .replace(/^- Aprobador:.*$/m, `- Aprobador: ${who}`);
+  writeFileSync(join(root, d.file), text);
+  const path = join(root, DECISIONS_FILE);
+  if (existsSync(path)) writeFileSync(path, withIndex(root, readFileSync(path, 'utf8')));
+}
+
+function accept(root, nnnn, { decider, threshold, by, reason }) {
   const d = loadDecisions(root).find((x) => x.kind === 'adr' && x.file.split('/').pop().startsWith(`${nnnn}-`));
   if (!d) throw new Error(`no ADR ${nnnn} in ${ADR_DIR}`);
   if (d.status !== 'proposed') throw new Error(`${nnnn} is ${d.status}: only a proposed ADR is accepted (an accepted one is superseded, DEC-035)`);
   if (realOptions(d.text) < 2) {   // T-71: not even asked; check-adr would reject it as accepted
     console.error(`adr: ${nnnn} needs at least two options with their pros and cons before it is accepted (DEC-036); it stays proposed`);
     return 1;
+  }
+  if (by !== undefined) {   // T-91: the user accepted it by name in session; the decider is not asked
+    decide(root, d, 'accepted', `${by}, ${today()} (aprobación nominal en sesión${reason ? `: «${reason}»` : ''})`);
+    return 0;
   }
   const dir = mkdtempSync(join(tmpdir(), 'adr-accept-'));
   const q = join(dir, 'q.json');
@@ -224,19 +242,14 @@ function accept(root, nnnn, { decider, threshold }) {
   const model = JSON.parse(readFileSync(out.record, 'utf8')).model;
   const name = decider.split('/').pop().replace(/\.sh$/, '');
   const who = `${name === 'jev' ? 'Jev' : `decisor ${name}`}${model ? ` (${model})` : ''}, ${today()} (registro ${record}, confianza ${out.confidence})`;
-  const text = readFileSync(join(root, d.file), 'utf8')
-    .replace(/^- Estado:.*$/m, `- Estado: ${out.answer === 'accept' ? 'accepted' : 'rejected'}`)
-    .replace(/^- Aprobador:.*$/m, `- Aprobador: ${who}`);
-  writeFileSync(join(root, d.file), text);
-  const path = join(root, DECISIONS_FILE);
-  if (existsSync(path)) writeFileSync(path, withIndex(root, readFileSync(path, 'utf8')));
+  decide(root, d, out.answer === 'accept' ? 'accepted' : 'rejected', who);
   return 0;
 }
 
 function main(argv) {
   const opt = (k) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : undefined);
   const root = resolve(opt('--root') ?? join(dirname(fileURLToPath(import.meta.url)), '..'));
-  const VALUED = ['--root', '--ids', '--decider', '--threshold', '--task', '--recent'];
+  const VALUED = ['--root', '--ids', '--decider', '--threshold', '--task', '--recent', '--by', '--reason'];
   const cmd = argv.find((a, i) => !a.startsWith('--') && !VALUED.includes(argv[i - 1]));
   const args = argv.filter((a, i) => !a.startsWith('--') && !VALUED.includes(argv[i - 1])).slice(1);
   if (cmd === 'new') {
@@ -246,8 +259,11 @@ function main(argv) {
   }
   if (cmd === 'accept') {
     if (!/^\d{4}$/.test(args[0] ?? '')) { console.error('adr: accept needs the ADR number (NNNN)'); return 2; }
+    const by = argv.includes('--by') ? (opt('--by') ?? '').trim() : undefined;
+    if (by === '' || by?.startsWith('--')) { console.error('adr: --by needs the name of the user who approved it'); return 2; }
     const decider = opt('--decider') ?? join(root, `scripts/agents/decider/${process.env.AUTOPILOT_DECIDER ?? 'jev'}.sh`);
-    return accept(root, args[0], { decider, threshold: Number(opt('--threshold') ?? process.env.AUTOPILOT_DECIDE_THRESHOLD_ADR_ACCEPT ?? 0.8) });
+    return accept(root, args[0], { decider, by, reason: opt('--reason'),
+      threshold: Number(opt('--threshold') ?? process.env.AUTOPILOT_DECIDE_THRESHOLD_ADR_ACCEPT ?? 0.8) });
   }
   if (cmd === 'select') {
     const sel = select(root, opt('--task'), Number(opt('--recent') ?? process.env.AUTOPILOT_ADR_RECENT ?? 5));
@@ -272,7 +288,7 @@ function main(argv) {
     writeFileSync(path, fresh);
     return 0;
   }
-  console.error('usage: adr.mjs [--root DIR] migrate --ids DEC-NNN,… | index [--check] | new "<title>" | accept NNNN | select --task T-NN');
+  console.error('usage: adr.mjs [--root DIR] migrate --ids DEC-NNN,… | index [--check] | new "<title>" | accept NNNN [--by <user> [--reason "<quote>"]] | select --task T-NN');
   return 2;
 }
 

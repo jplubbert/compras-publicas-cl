@@ -249,6 +249,8 @@ export function setBlock(root, id, block, { classification = null, confidence = 
 }
 /** DEC-028 point 3: the integration as a fact (not a status): the branch it went into and the implementer's commit. */
 export function setMerged(root, id, into, commit, date = new Date()) {
+  // T-98: never into the batch or a task branch (an interrupted run left HEAD on one and the next took it as the target)
+  if (/^autopilot\//.test(into ?? '')) throw new Error(`${id}: refusing merged into ${into}: an autopilot/* branch is not a merge target (T-98)`);
   const data = readTasks(root);
   findTask(data, id).merged = { into, commit, at: date.toISOString() };
   writeTasks(root, data);

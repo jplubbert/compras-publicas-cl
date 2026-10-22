@@ -319,6 +319,8 @@ AUTOPILOT_BATCH_BRANCH=${AUTOPILOT_BATCH_BRANCH:-autopilot/lote}
 # Queue policy (DEC-023): "on" (default) or "off"; above this many tasks in verified_auto a run only reviews.
 AUTOPILOT_QUEUE_POLICY=${AUTOPILOT_QUEUE_POLICY:-on}
 AUTOPILOT_QUEUE_REVIEW_ONLY_ABOVE=${AUTOPILOT_QUEUE_REVIEW_ONLY_ABOVE:-4}
+# Tasks in verified_auto that no run reviews nor counts in its queue (T-93): IDs separated by spaces or commas.
+AUTOPILOT_REVIEW_SKIP=${AUTOPILOT_REVIEW_SKIP:-}
 AUTOPILOT_REVIEW_EXPECTED_SECONDS=${AUTOPILOT_REVIEW_EXPECTED_SECONDS:-1200}     # a review, without history in .autopilot/
 AUTOPILOT_REVIEW_ONLY_BUDGET_SECONDS=${AUTOPILOT_REVIEW_ONLY_BUDGET_SECONDS:-28800} # --review-only, without --budget-seconds
 # No start gate (DEC-022): with the plan gate on, the orchestrator takes a specified task to the critic and, with APROBAR,
@@ -447,6 +449,13 @@ agents_line() { # "implementer claude, reviewer claude, …"
 }
 
 
+pending_ids() { # verified_auto tasks awaiting review, oldest first, without those in AUTOPILOT_REVIEW_SKIP (T-93)
+  tasks pending-reviews | node -e '
+    const skip = new Set(process.argv[1].split(/[\s,]+/).filter(Boolean));
+    console.log(JSON.parse(require("fs").readFileSync(0, "utf8")).filter((id) => !skip.has(id)).join(" "));
+  ' "$AUTOPILOT_REVIEW_SKIP"
+}
+
 # ---------- --check: is there work? (before the exit trap: it never notifies nor writes result.json) ----------
 check_work() { # prints the reason; returns 0 = work, 3 = nothing to do, 2 = cannot run
   agents_check || { echo "cannot run: $AGENT_WHY"; return 2; }
@@ -456,7 +465,7 @@ check_work() { # prints the reason; returns 0 = work, 3 = nothing to do, 2 = can
     echo "cannot run: another run is in progress (.autopilot/lock)"; return 2
   fi
   local pending pick
-  pending=$(tasks pending-reviews 2>/dev/null | node -e 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).join(" "))' 2>/dev/null) \
+  pending=$(pending_ids 2>/dev/null) \
     && pick=$(tasks pick 2>/dev/null) || { echo "cannot run: spec/TASKS.json could not be read"; return 2; }
   if [ "$pick" != null ]; then
     echo "work: task $(node -e 'console.log(JSON.parse(process.argv[1]).id)' "$pick") is eligible${pending:+; pending reviews: $pending}"
@@ -544,9 +553,12 @@ SENSITIVE_WAIT=()    # specified tasks in a sensitive zone: they wait for the us
 declare -A COVERAGE_NOTE=()  # unreached lines for the implementer's relaunch prompt (consumed when the task moves on)
 declare -A BLOCK_NOTE=()     # a block returned to the implementer once (DEC-031), for its relaunch prompt
 declare -A RESEARCH_NOTE=()  # report path and advice for the implementer's relaunch prompt (consumed by that launch)
-NOTIFIED=0        # 1 = the ntfy notice of the stop was already attempted
+declare -A RESULT_NOTE=()    # validation errors of a rejected result, for the result-only relaunch (T-84; consumed by it)
+NOTIFIED=0       # 1 = the ntfy notice of the stop was already attempted
 DONE_IDS=()       # tasks implemented in this run (result.json)
 RESULT_WRITTEN=0  # 1 = result.json already written
+INTERRUPTED_BRANCH=""  # T-98: the task branch a signal cut, once the checkout went back to the batch branch
+STASHED=""            # T-98: the named stash with the agent's uncommitted work at the signal
 INTERVENTION=0    # set by stop_outcome: 1 = the stop needs the user (notice priority, result.json)
 NEXT_EN=""        # set by stop_outcome: next action (English)
 
@@ -665,7 +677,8 @@ write_result() { # $1 = exit code, $2 = stop reason, $3 = intervention (0|1), $4
   RESULT_WRITTEN=1
   local status=${RUN_STATUS:-${5:-ok}} branch
   branch=$(git symbolic-ref --short -q HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "")
-  [ "$status" = ok ] || save_partial "$RUN_DIR"
+  [ -z "$INTERRUPTED_BRANCH" ] || branch=$INTERRUPTED_BRANCH   # where its commits are (T-98)
+  [ "$status" = ok ] || [ -n "$INTERRUPTED_BRANCH" ] || save_partial "$RUN_DIR"   # recover_checkout saved it before the stash
   local failed="" id
   for id in "${!FAILS[@]}"; do failed+="$id "; done
   node --input-type=module -e '
@@ -674,7 +687,7 @@ write_result() { # $1 = exit code, $2 = stop reason, $3 = intervention (0|1), $4
       rejected, deploy, wait, pushed, pushRejected, demoDeployed, demoRefused, accApproved, accRefused,
       researched, researchRetried, researchEscalated, testsAuthored, testDisputes, testsNotRed, cost, monthCost, monthCap,
       plansApproved, plansEscalated, coverageFailed, missingReq, coverageCreated, implGranted, sensitiveWait,
-      mode, queue, reviewExpected, status, branch, orphans, reviewBlocked, agentBlocked, batch] = process.argv.slice(1);
+      mode, queue, reviewExpected, status, branch, orphans, reviewBlocked, agentBlocked, batch, checkout, stash] = process.argv.slice(1);
     const { sumUsage } = await import(lib);
     let records = [];
     try { records = fs.readFileSync(tokens, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)); } catch {}
@@ -693,6 +706,7 @@ write_result() { # $1 = exit code, $2 = stop reason, $3 = intervention (0|1), $4
       approved_for_impl: ids(implGranted), sensitive_wait: ids(sensitiveWait),
       mode, queue: Number(queue), review_expected_seconds: Number(reviewExpected), orphans_reaped: ids(orphans), review_blocked: ids(reviewBlocked), agent_blocked: ids(agentBlocked), batch: JSON.parse(batch || "null"),
       intervention: intervention === "1", next_action: next,
+      recovered: checkout ? { checkout, stash: stash || null } : null,
       tokens: (() => { const u = sumUsage(records); return { ...u, counted: u.input + u.output + u.cache_write, invocations: records.length }; })(),
       month_tokens: JSON.parse(monthCost || "null"), monthly_budget_tokens: monthCap ? Number(monthCap) : null,
       duration_seconds: Math.round(Date.now() / 1000) - Number(start),
@@ -706,7 +720,8 @@ write_result() { # $1 = exit code, $2 = stop reason, $3 = intervention (0|1), $4
     "${TESTS_AUTHORED[*]:-}" "${TEST_DISPUTES[*]:-}" "${TESTS_NOT_RED[*]:-}" \
     "" "$(month_tokens)" "$AUTOPILOT_MONTHLY_BUDGET_TOKENS" "${PLANS_APPROVED[*]:-}" "${PLANS_ESCALATED[*]:-}" \
     "${COVERAGE_FAILED[*]:-}" "${MISSING_REQ[*]:-}" "${COVERAGE_CREATED[*]:-}" "${IMPL_GRANTED[*]:-}" "${SENSITIVE_WAIT[*]:-}" \
-    "$MODE" "$QUEUE" "$REVIEW_EXPECTED" "$status" "$branch" "${ORPHANS[*]:-}" "${REVIEW_BLOCKED[*]:-}" "${AGENT_BLOCKED[*]:-}" "$BATCH_JSON" </dev/null || { log "warning: could not write $RUN_DIR/result.json"; return 0; }
+    "$MODE" "$QUEUE" "$REVIEW_EXPECTED" "$status" "$branch" "${ORPHANS[*]:-}" "${REVIEW_BLOCKED[*]:-}" "${AGENT_BLOCKED[*]:-}" "$BATCH_JSON" \
+    "$(h=$(git symbolic-ref --short -q HEAD 2>/dev/null); [ -n "$INTERRUPTED_BRANCH" ] && [ "$h" != "$INTERRUPTED_BRANCH" ] && echo "$h")" "$STASHED" </dev/null || { log "warning: could not write $RUN_DIR/result.json"; return 0; }
   echo "result: $RUN_DIR/result.json"
 }
 on_exit() { # $1 = exit code; if the run crashes before the normal notice, notify anyway (and leave result.json)
@@ -732,7 +747,30 @@ on_signal() { # $1 = signal: the run ends sigterm, or stalled if the heartbeat c
     log "stop: signal $1 received (DEC-024)"
     stop_reason "señal $1 recibida (DEC-024)" "signal $1 received (DEC-024)"
   fi
+  recover_checkout "$1" || true
   exit 143
+}
+recover_checkout() { # $1 = signal (T-98): a run cut on a task branch of its own puts the agent's uncommitted work in a
+                     # named stash and checks out the batch branch (the base branch without a batch), so the next run
+                     # neither starts on a task branch nor takes it as the batch target; partial.patch keeps the diff
+  [ "$DRY_RUN" = 0 ] && [ -n "${RUN_DIR:-}" ] && [ -d "$RUN_DIR" ] || return 0
+  local branch back
+  branch=$(git symbolic-ref --short -q HEAD 2>/dev/null) || return 0
+  [[ "$branch" == "autopilot/$RUN_ID/"* ]] || return 0
+  back=${BASE_BRANCH:-}
+  [ "$AUTOPILOT_BATCH" = off ] || back=$AUTOPILOT_BATCH_BRANCH
+  [ -n "$back" ] && git show-ref -q --verify "refs/heads/$back" || return 0
+  save_partial "$RUN_DIR"
+  if git status --porcelain | grep -q .; then
+    local msg="autopilot $RUN_ID: uncommitted work on $branch at signal $1 (T-98)"
+    git stash push -q -u -m "$msg" || return 0
+    STASHED=$msg
+  fi
+  INTERRUPTED_BRANCH=$branch   # from here partial.patch is saved: write_result does not redo it on a clean tree
+  git checkout -q "$back" || return 0
+  log "stop: back on $back; the commits stay on $branch${STASHED:+; uncommitted work in the stash \"$STASHED\"} (T-98)"
+  STOP_REASON="$STOP_REASON; el checkout vuelve a $back y los commits quedan en $branch${STASHED:+ (lo no confirmado, en el stash «$STASHED»)} (T-98)"
+  STOP_REASON_EN="$STOP_REASON_EN; back on $back, commits on $branch${STASHED:+, uncommitted work in stash \"$STASHED\"} (T-98)"
 }
 trap 'on_exit $?' EXIT
 trap 'on_signal TERM' TERM
@@ -1012,6 +1050,7 @@ impl_prompt() { # $1 = ID, $2 = result file; the implementer's prompt (it goes o
   [ -n "${ACCEPTANCE_NOTE[$1]:-}" ] && prompt="$prompt ${ACCEPTANCE_NOTE[$1]}"
   [ -n "${RESEARCH_NOTE[$1]:-}" ] && prompt="$prompt ${RESEARCH_NOTE[$1]}"
   [ -n "${BLOCK_NOTE[$1]:-}" ] && prompt="$prompt ${BLOCK_NOTE[$1]}"
+  [ -n "${RESULT_NOTE[$1]:-}" ] && prompt="$prompt ${RESULT_NOTE[$1]}"
   local adrs; adrs=$(adr_note "$1"); [ -n "$adrs" ] && prompt="$prompt $adrs"
   if coverage_in_rule; then
     prompt="$prompt Coverage (DEC-011): every line you add or change must be executed by an acceptance test (tests/acceptance/) that cites a REQ; before applying a verified_auto or done result the orchestrator checks it with \`node scripts/check-coverage.mjs --since <the commit before you>\` and does not apply it otherwise. Write no code a REQ does not ask for. If a line you need is reached by no such test, propose status blocked with \"missing_requirement\": {\"lines\", \"reason\"} instead of keeping it uncovered."
@@ -1658,6 +1697,12 @@ research_failure_context() { # $1 = ID; the run's failed attempts: final message
     fi
     echo "### Validation of its result"
     { head -c 3000 "$RUN_DIR/$id-result-$n.err" 2>/dev/null || echo "(none)"; } | sed '$a\'
+    if [ -e "$RUN_DIR/$id-result-$n-retry.err" ]; then   # T-84: the result rewritten once after a format rejection
+      echo "### The result it rewrote once after that validation (JSON)"
+      { head -c 6000 "$RUN_DIR/$id-result-$n-retry.json" 2>/dev/null || echo "(none)"; } | sed '$a\'
+      echo "### Validation of the rewritten result"
+      { head -c 3000 "$RUN_DIR/$id-result-$n-retry.err"; } | sed '$a\'
+    fi
     echo "### Diff of the attempt"
     if [ -n "$range" ] && [ "${range%..*}" != "${range#*..}" ]; then
       { git diff --stat --patch "${range%..*}" "${range#*..}" || true; } | head -c 60000
@@ -2652,6 +2697,68 @@ instrument_review() { # $1 = ID, $2 = started (epoch), $3 = gate result (the ver
     --exit "${REVIEW_RC:-0}" --verify "$(task_verify "$1")" </dev/null || log "warning: could not record the instrumentation of $1's review"
 }
 
+# T-84: a result rejected by check-result's deterministic format rules has no ambiguous cause, so it is not asked to
+# the decider: the implementer is relaunched once, on the same branch, to rewrite only its result. A second rejection
+# fails as before (classify_failure). $1 = ID, $2 = attempt, $3 = rejected result, $4 = its errors, $5 = where the new
+# result goes. 0 = relaunched clean (the new result, if any, is in $5); 1 = the relaunch committed or changed something
+# (summary set; a failure); 2 = stop (stop reason set; the branch is left as the main launch would leave it).
+retry_result() {
+  local id=$1 attempt=$2 stem=$1-impl-$2-result head adir rc=0 errors
+  budget_allows implementer "$id" || return 2
+  head=$(git_head)
+  adir=$(agent_dir)
+  errors=$({ grep -E '^\s*✗' "$4" || true; } | sed 's/^\s*✗ *//' | paste -sd ';' | sed 's/;/; /g' | head -c 2000)
+  RESULT_NOTE[$id]="Result rejected (T-84): the orchestrator rejected the result file of your previous session for its format: ${errors:-see the errors below}. Your commits are already on branch $TASK_BRANCH: do not change files and do not commit. Rewrite only the result, as one JSON object, to $adir/$id-result-$attempt.json, keeping what it says and fixing those errors. Rejected result: $(head -c 4000 "$3" | tr '\n' ' ')"
+  export AUTOPILOT_RESULT=$adir/$id-result-$attempt.json
+  impl_prompt "$id" "$AUTOPILOT_RESULT" >"$RUN_DIR/$stem-prompt.md"
+  unset "RESULT_NOTE[$id]"
+  log "$id: result rejected for its format; relaunching the implementer once to rewrite only the result (T-84)"
+  set +e
+  # shellcheck disable=SC2046
+  eval timeout -s INT -k 30 "$(remaining)" "$(agent_command implementer "$adir" "$id")" <"$RUN_DIR/$stem-prompt.md" \
+    2>"$RUN_DIR/$stem.err" \
+    | agent_normalize implementer \
+    | node "$ROOT/scripts/lib/autopilot-stream.mjs" --label "$id" \
+        --raw "$RUN_DIR/$stem.jsonl" --result "$RUN_DIR/$stem.json" --tokens "$TOKENS" \
+    | tee -a "$LIVE"
+  rc=${PIPESTATUS[0]}
+  set -e
+  charge implementer "$id" "$RUN_DIR/$stem.json"
+  if agent_failure_stop "$RUN_DIR/$stem.json" implementer "$id"; then
+    rm -rf "$adir"; unset AUTOPILOT_RESULT
+    if git status --porcelain | grep -q .; then save_partial "$RUN_DIR"
+    else abandon_branch "$id"; fi
+    return 2
+  fi
+  if [ -e "$AUTOPILOT_RESULT" ]; then mv "$AUTOPILOT_RESULT" "$5"; fi
+  rm -rf "$adir"
+  unset AUTOPILOT_RESULT
+  log "result relaunch on $id finished (code $rc); HEAD $head → $(git_head)"
+  if git status --porcelain | grep -q .; then
+    stop_reason "árbol de trabajo sucio tras el relanzamiento del resultado en $id (nada se descarta; queda en la rama $TASK_BRANCH; revisar a mano)" \
+      "dirty working tree after the result relaunch on $id (nothing is discarded; left on branch $TASK_BRANCH; check by hand)"; ABNORMAL=1
+    return 2
+  fi
+  if [ "$(git rev-parse --abbrev-ref HEAD)" != "$TASK_BRANCH" ]; then
+    stop_reason "el implementador cambió de rama en $id al reescribir su resultado (esperada $TASK_BRANCH; revisar a mano)" \
+      "the implementer switched branches on $id while rewriting its result (expected $TASK_BRANCH; check by hand)"; ABNORMAL=1
+    return 2
+  fi
+  if ! audit_session implementer "$RUN_DIR/$stem.jsonl" "$RUN_DIR/$stem-audit.txt"; then
+    gate audit fail
+    abandon_branch "$id"
+    stop_reason "la sesión del implementador en $id accedió al contexto de otro agente al reescribir su resultado (ver .autopilot/$RUN_ID/$stem-audit.txt); no se integra ni se aplica nada" \
+      "the implementer's session on $id reached another agent's context while rewriting its result (see $RUN_DIR/$stem-audit.txt); nothing integrated or applied"; ABNORMAL=1
+    return 2
+  fi
+  if [ "$(git_head)" != "$head" ]; then
+    summary "$id: al reescribir su resultado el implementador hizo commits ($head..$(git_head)); no se aplica nada" \
+      "$id: while rewriting its result the implementer made commits ($head..$(git_head)); nothing is applied"
+    return 1
+  fi
+  return 0
+}
+
 run_task() { # $1 = ID, $2 = attempt; returns 0 if the task moved forward, 1 if it failed, 2 if it must stop,
              # 3 if it ended unchanged, 4 if it waits for a deploy, 5 if it waits for the user's approval,
              # 6 if it failed and retrying is pointless (its commits leave spec/ or touches),
@@ -2782,11 +2889,23 @@ run_task() { # $1 = ID, $2 = attempt; returns 0 if the task moved forward, 1 if 
       return 9
     fi
   fi
-  local crc=0
-  tasks check-result "$id" "$result" >"$checked" 2>"$RUN_DIR/$id-result-$attempt.err" || crc=$?
+  local crc=0 rerr=$RUN_DIR/$id-result-$attempt.err
+  tasks check-result "$id" "$result" >"$checked" 2>"$rerr" || crc=$?
+  # T-84: a result that exists but breaks a format rule is relaunched once to rewrite only it (never after a timeout)
+  if [ "$crc" -eq 1 ] && [ -s "$result" ] && [ "$rc" -ne 124 ]; then
+    gate result retry
+    log "$id: $(head -c 2000 "$rerr" | paste -sd ' ')"
+    local rrc=0 retried=$RUN_DIR/$id-result-$attempt-retry.json
+    retry_result "$id" "$attempt" "$result" "$rerr" "$retried" || rrc=$?
+    [ "$rrc" -eq 2 ] && return 2
+    if [ "$rrc" -ne 0 ]; then gate result invalid; abandon_branch "$id"; return 1; fi
+    result=$retried rerr=$RUN_DIR/$id-result-$attempt-retry.err crc=0
+    tasks check-result "$id" "$result" >"$checked" 2>"$rerr" || crc=$?
+    [ "$crc" -eq 0 ] && log "$id: the rewritten result is valid (T-84)"
+  fi
   if [ "$crc" -eq 3 ]; then
     gate result reserved
-    cat "$RUN_DIR/$id-result-$attempt.err" >&2
+    cat "$rerr" >&2
     abandon_branch "$id"
     stop_reason "el implementador propuso un estado reservado en $id (violación de autoridad; revisar a mano)" \
       "the implementer proposed a reserved status on $id (authority violation; check by hand)"; ABNORMAL=1
@@ -2794,12 +2913,15 @@ run_task() { # $1 = ID, $2 = attempt; returns 0 if the task moved forward, 1 if 
   fi
   if [ "$crc" -ne 0 ]; then
     gate result invalid
-    log "$id: $(head -c 2000 "$RUN_DIR/$id-result-$attempt.err" | paste -sd ' ')"
+    log "$id: $(head -c 2000 "$rerr" | paste -sd ' ')"
     if [ "$rc" -eq 124 ]; then
       summary "$id: el implementador agotó el tiempo sin resultado válido" "$id: the implementer ran out of time without a valid result"
+    elif [ "$result" = "${retried:-}" ] && [ -e "$result" ]; then
+      summary "$id: resultado del implementador inválido también tras reescribirlo una vez (T-84; ver .autopilot/$RUN_ID/${rerr##*/})" \
+        "$id: implementer result still invalid after rewriting it once (T-84; see $rerr)"
     else
-      summary "$id: resultado del implementador ausente o inválido (código $rc; ver .autopilot/$RUN_ID/$id-result-$attempt.err)" \
-        "$id: implementer result missing or invalid (code $rc; see .autopilot/$RUN_ID/$id-result-$attempt.err)"
+      summary "$id: resultado del implementador ausente o inválido (código $rc; ver .autopilot/$RUN_ID/${rerr##*/})" \
+        "$id: implementer result missing or invalid (code $rc; see .autopilot/$RUN_ID/${rerr##*/})"
     fi
     abandon_branch "$id"
     return 1
@@ -2929,7 +3051,9 @@ run_task() { # $1 = ID, $2 = attempt; returns 0 if the task moved forward, 1 if 
     summary "$id: baja la línea base de cobertura de spec/COVERAGE.json ($lowered)" "$id: the coverage baseline goes down ($lowered)"
   fi
   # DEC-028 point 3: integrated next; with a batch branch, merged is written only when the user merges it (DEC-033)
-  [ "$AUTOPILOT_BATCH" = off ] && tasks set-merged "$id" --into "$BASE_BRANCH" --commit "$(git rev-parse "$head_impl")"
+  if [ "$AUTOPILOT_BATCH" = off ] && [[ "$BASE_BRANCH" != autopilot/* ]]; then   # never into an autopilot/* branch (T-98)
+    tasks set-merged "$id" --into "$BASE_BRANCH" --commit "$(git rev-parse "$head_impl")"
+  fi
   local sha
   sha=$(commit_spec "$id: apply implementer result ($status)" "$id" "$(task_req "$id")") || {
     abandon_branch "$id"
@@ -3055,7 +3179,6 @@ LOG
   return 0
 }
 
-pending_ids() { tasks pending-reviews | node -e 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).join(" "))'; }
 review_pending() { # $1 = at most this many reviews in the run (0 = no limit); reviews the verified_auto tasks not yet
                    # reviewed in this run, oldest first; 1 = stop
   local id limit=${1:-0} left
@@ -3151,9 +3274,19 @@ heartbeat_start() { # a background process: $RUN_DIR/heartbeat every AUTOPILOT_H
   (
     exec 9>&-   # never keeps the run's lock
     trap - EXIT TERM INT HUP
+    local tick now
+    tick=$(date +%s)
     while kill -0 "$orch" 2>/dev/null; do
-      printf '{"pid":%s,"at":"%s","run":"%s"}\n' "$orch" "$(date -Iseconds)" "$RUN_ID" >"$RUN_DIR/heartbeat.tmp" \
+      printf '{"pid":%s,"heartbeat_pid":%s,"at":"%s","run":"%s"}\n' "$orch" "$BASHPID" "$(date -Iseconds)" "$RUN_ID" >"$RUN_DIR/heartbeat.tmp" \
         && mv "$RUN_DIR/heartbeat.tmp" "$RUN_DIR/heartbeat"
+      # T-98: a wall-clock gap with no heartbeats longer than the stall limit is the machine asleep, not a silent agent:
+      # it goes to live.log (which restarts the inactivity deadline) instead of cutting the agent
+      now=$(date +%s)
+      if [ $(( now - tick - AUTOPILOT_HEARTBEAT_SECONDS )) -gt "$AUTOPILOT_STALL_SECONDS" ] && [ -e "$LIVE" ]; then
+        printf '%s autopilot: clock gap: no heartbeat for %ss (the machine was suspended?): the inactivity deadline restarts (T-98)\n' \
+          "$(date '+%H:%M:%S')" "$(( now - tick ))" >>"$LIVE"
+      fi
+      tick=$now
       agents=$(agent_pids "$orch")
       if [ -n "$agents" ] && [ -e "$LIVE" ] && [ $(( $(date +%s) - $(stat -c %Y "$LIVE") )) -ge "$AUTOPILOT_STALL_SECONDS" ]; then
         : >"$RUN_DIR/stalled"
@@ -3212,7 +3345,17 @@ batch_open() { # after the preconditions: the run goes on the batch branch (open
   [ "$AUTOPILOT_BATCH" = off ] && return 0
   local b=$AUTOPILOT_BATCH_BRANCH old_tip old_base ids id
   BATCH_TARGET=$START_BRANCH
-  if [ "$START_BRANCH" = "$b" ]; then BATCH_TARGET=$(git config --get autopilot.batchtarget || echo master); git checkout -q "$BATCH_TARGET"; fi
+  # T-98: an autopilot/* branch (the batch, or a task branch an interrupted run left checked out) is never the target:
+  # the recorded one (or master) is, and the open batch goes on
+  if [[ "$START_BRANCH" == autopilot/* ]]; then
+    BATCH_TARGET=$(git config --get autopilot.batchtarget || echo master)
+    if [[ "$BATCH_TARGET" == autopilot/* ]]; then
+      log "batch (DEC-033, T-98): autopilot.batchtarget was $BATCH_TARGET, not a target: it goes back to master"
+      BATCH_TARGET=master; git config autopilot.batchtarget master
+    fi
+    [ "$START_BRANCH" = "$b" ] || log "batch (DEC-033, T-98): the run started on $START_BRANCH, not a target: going on from $BATCH_TARGET"
+    git checkout -q "$BATCH_TARGET"
+  fi
   if git show-ref -q --verify "refs/heads/$b" && ! git merge-base --is-ancestor "refs/heads/$b" HEAD; then
     git checkout -q "$b"
     git merge-base --is-ancestor "$BATCH_TARGET" HEAD \
@@ -3232,6 +3375,8 @@ batch_open() { # after the preconditions: the run goes on the batch branch (open
   if [ -n "$old_tip" ] && [ -n "$old_base" ]; then
     ids=$(BATCH_BASE=$old_base; git log --format=%B "$old_base..$old_tip" | sed -n 's/^Task:[[:space:]]*//p' | tr ',' '\n' \
       | sed 's/[[:space:]]//g' | grep -E '^T-[0-9]+$' | sort -u | paste -sd ' ' || true)
+    # T-98: merged only if the old batch tip really is in the target (it is an ancestor, so HEAD is the target)
+    git merge-base --is-ancestor "$old_tip" "$BATCH_TARGET" || ids=""
     for id in $ids; do
       [ "$(node -e 'console.log(require(process.argv[1]).tasks.find(t=>t.id===process.argv[2])?.merged?.into?"y":"")' "$ROOT/spec/TASKS.json" "$id")" = y ] && continue
       tasks set-merged "$id" --into "$BATCH_TARGET" --commit "$old_tip"
@@ -3294,10 +3439,16 @@ command -v timeout >/dev/null || die "coreutils timeout is missing"
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "not a git repository"
 mkdir -p "$ROOT/.autopilot" && printf '*\n' >"$ROOT/.autopilot/.gitignore"   # logs outside git
 exec 9>"$ROOT/.autopilot/lock"
-flock -n 9 || die "another autopilot run is in progress (.autopilot/lock)"
+LOCK_HELD=1
+if ! flock -n 9; then
+  # T-87: a dry run launches and writes nothing, so a busy lock (e.g. a verify run inside a run) is only a warning
+  [ "$DRY_RUN" = 1 ] || die "another autopilot run is in progress (.autopilot/lock)"
+  LOCK_HELD=0
+  echo "autopilot: warning: another autopilot run is in progress (.autopilot/lock); the dry run goes on (a real run would stop here)" >&2
+fi
 mkdir -p "$RUN_DIR"   # from here on every exit leaves result.json (DEC-024)
 [ "$DRY_RUN" = 1 ] || heartbeat_start
-reap_orphans
+[ "$LOCK_HELD" = 0 ] || reap_orphans   # without the lock the other run's directory is not an orphan
 if git status --porcelain | grep -q .; then
   [ "$DRY_RUN" = 1 ] || die "dirty working tree; commit or stash the changes before the autopilot run"
   echo "autopilot: warning: dirty working tree (a real run would stop here)" >&2

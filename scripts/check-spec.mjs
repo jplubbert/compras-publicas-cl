@@ -500,17 +500,23 @@ function checkTasks(root, ids, errors) {
 
 /** Validates the trailers and files of a commit (from history or being prepared). */
 function checkCommit(label, message, files, tasks, ids, errors) {
-  const { task, req } = parseTrailers(message);
-  if (task.length !== 1) {
-    errors.push(`${label}: must have exactly one "Task:" trailer (T-NN or none)`);
-  } else if (task[0] !== 'none' && tasks && !tasks.has(task[0])) {
-    errors.push(`${label}: Task ${task[0]} does not exist in spec/TASKS.json`);
+  const parsed = parseTrailers(message);
+  const req = parsed.req;
+  // DEC-049: "Task:" takes one or more T-NN separated by commas (several "Task:" lines count as one list); none goes alone.
+  const task = [...new Set(parsed.task)];
+  const cited = task.filter((id) => id !== 'none');
+  if (task.length === 0) {
+    errors.push(`${label}: missing the "Task:" trailer (T-NN, … or none)`);
+  } else if (task.includes('none') && task.length > 1) {
+    errors.push(`${label}: "Task: none" goes alone, not in a list (${task.join(', ')})`);
+  } else if (tasks) {
+    for (const id of cited) if (!tasks.has(id)) errors.push(`${label}: Task ${id} does not exist in spec/TASKS.json`);
   }
-  const taskKind = task.length === 1 ? tasks?.get(task[0])?.kind : undefined;
+  const allTooling = cited.length > 0 && cited.length === task.length && cited.every((id) => tasks?.get(id)?.kind === 'tooling');
   if (req.length === 0) {
     errors.push(`${label}: missing the "Req:" trailer (REQ-NNN, … or none)`);
   } else if (req.length === 1 && req[0].toUpperCase() === 'N/A') {
-    if (taskKind !== 'tooling') errors.push(`${label}: "Req: N/A" is only allowed for tasks with kind "tooling"`);
+    if (!allTooling) errors.push(`${label}: "Req: N/A" is only allowed for tasks with kind "tooling"`);
   } else if (!(req.length === 1 && req[0] === 'none')) {
     for (const r of req) if (!ids.req.has(r)) errors.push(`${label}: Req ${r} does not exist in spec/SPEC.md`);
   }
@@ -522,10 +528,14 @@ function checkCommit(label, message, files, tasks, ids, errors) {
     const byTestAuthor = TEST_AUTHOR_TRAILER.test(message) && t && files.every((f) => isTaskAcceptanceFile(f, t.id));
     if (TEST_AUTHOR_TRAILER.test(message) && t && !byTestAuthor) {
       errors.push(`${label}: a Test-Author commit may only touch tests/acceptance/${t.id}* (${files.filter((f) => !isTaskAcceptanceFile(f, t.id)).join(', ')})`);
-    } else if (t?.kind !== 'spec' && !byTestAuthor) {
-      errors.push(
-        `${label}: modifies ${PROTECTED_DIR} (${touched.join(', ')}) with Task ${task[0] ?? '?'}, which is not a spec task`,
-      );
+    } else if (!byTestAuthor) {
+      // With a list, every cited task has to be a spec task.
+      const notSpec = task.length === 0 ? ['?'] : task.filter((id) => tasks?.get(id)?.kind !== 'spec');
+      if (notSpec.length > 0) {
+        errors.push(
+          `${label}: modifies ${PROTECTED_DIR} (${touched.join(', ')}) with Task ${notSpec.join(', ')}, which is not a spec task`,
+        );
+      }
     }
   }
 }

@@ -158,6 +158,74 @@ describe('autopilot-stream auditStream (DEC-008)', () => {
   });
 });
 
+describe('auditSession: no false positives from command text or the session\'s own tool-results (T-94)', () => {
+  const use = (name, input) => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name, input }] } });
+  const init = JSON.stringify({ type: 'system', subtype: 'init', session_id: 'own-sid' });
+  const opts = { forbid: ['/home/u/.claude'] };
+  const breaches = (...lines) => auditSession([init, ...lines].join('\n'), opts).breaches;
+
+  it('the text of a commit message or of a heredoc is not a path', () => {
+    expect(breaches(
+      use('Bash', { command: 'git -C /repo commit -q -m "autopilot: --dry-run goes on with .autopilot/lock busy\n\nTask: T-87"' }),
+      use('Bash', { command: "git commit -am 'mentions .autopilot/live.log'" }),
+      use('Bash', { command: 'git commit --message=".autopilot/x" && git tag -m \'~/.claude too\' v1' }),
+      use('Bash', { command: "git commit -F - <<'EOF'\nfix the .autopilot/lock check\nEOF" }),
+      use('Bash', { command: 'cat > notes.md <<EOF\nsee .autopilot/2026/x.jsonl\nEOF' }),
+    )).toEqual([]);
+  });
+
+  it('a real path in a command is still a breach, also next to a message or a heredoc', () => {
+    expect(breaches(
+      use('Bash', { command: 'cat .autopilot/2026-10-21_1/T-03-impl-1.jsonl' }),
+      use('Bash', { command: 'git commit -m "ok" && ls .autopilot/' }),
+      use('Bash', { command: 'git commit -m "$(cat .autopilot/live.log)"' }),
+      use('Bash', { command: 'cat > .autopilot/x <<EOF\nhi\nEOF' }),
+    )).toEqual(['Bash: .autopilot/2026-10-21_1/T-03-impl-1.jsonl', 'Bash: .autopilot/', 'Bash: .autopilot/live.log', 'Bash: .autopilot/x']);
+  });
+
+  it('the body of a heredoc that goes to an interpreter runs, so it still counts', () => {
+    expect(breaches(
+      use('Bash', { command: "bash <<'EOF'\ncat .autopilot/a.jsonl\nEOF" }),
+      use('Bash', { command: 'python3 - <<EOF\nopen(".autopilot/b.jsonl").read()\nEOF' }),
+      use('Bash', { command: "cat <<'EOF' | sh\nls .autopilot/c\nEOF" }),
+      use('Bash', { command: 'X=1 node <<EOF\nrequire("fs").readFileSync("/home/u/.claude/d")\nEOF' }),
+      use('Bash', { command: "cat > s.md <<'EOF'\n.autopilot/e is only text\nEOF" }),
+    )).toEqual(['Bash: .autopilot/a.jsonl', 'Bash: .autopilot/b.jsonl', 'Bash: .autopilot/c', 'Bash: /home/u/.claude/d']);
+  });
+
+  it("reading the session's own tool-results is not a breach; another session's is", () => {
+    expect(breaches(
+      use('Read', { file_path: '/home/u/.claude/projects/p/own-sid/tool-results/b1.txt' }),
+      use('Read', { file_path: '/home/u/.claude/projects/p/other-sid/tool-results/b1.txt' }),
+      use('Read', { file_path: '/home/u/.claude/projects/p/own-sid/../other-sid/tool-results/b1.txt' }),
+      use('Read', { file_path: '/home/u/.claude/projects/p/own-sid/memory.md' }),
+      use('Read', { file_path: '/repo/.autopilot/r/.claude/projects/p/own-sid/tool-results/b1.txt' }),
+    )).toEqual([
+      'Read: /home/u/.claude/projects/p/other-sid/tool-results/b1.txt',
+      'Read: /home/u/.claude/projects/p/own-sid/../other-sid/tool-results/b1.txt',
+      'Read: /home/u/.claude/projects/p/own-sid/memory.md',
+      'Read: /repo/.autopilot/r/.claude/projects/p/own-sid/tool-results/b1.txt',
+    ]);
+    // without an init event there is no own session: every tool-results path stays a breach
+    expect(auditSession(use('Read', { file_path: '/home/u/.claude/projects/p/own-sid/tool-results/b1.txt' }), opts).breaches)
+      .toEqual(['Read: /home/u/.claude/projects/p/own-sid/tool-results/b1.txt']);
+  });
+
+  it("with readsUnder, reading the session's own tool-results is not a read outside; another session's and src/ are (T-100)", () => {
+    const scoped = { ...opts, readsUnder: ['spec/', 'tests/acceptance/'], root: '/repo' };
+    expect(auditSession([init,
+      use('Read', { file_path: '/home/u/.claude/projects/p/own-sid/tool-results/b1.txt' }),
+      use('Read', { file_path: '/home/u/.claude/projects/p/other-sid/tool-results/b1.txt' }),
+      use('Read', { file_path: '/repo/src/x.js' }),
+      use('Read', { file_path: '/repo/spec/SPEC.md' }),
+    ].join('\n'), scoped).breaches).toEqual([
+      'Read: /home/u/.claude/projects/p/other-sid/tool-results/b1.txt',
+      'Read outside spec/, tests/acceptance/: /home/u/.claude/projects/p/other-sid/tool-results/b1.txt',
+      'Read outside spec/, tests/acceptance/: /repo/src/x.js',
+    ]);
+  });
+});
+
 describe('auditSession: an attempt the guard denied is logged, not a breach (DEC-018)', () => {
   const use = (id, name, input) => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', id, name, input }] } });
   const result = (id, content, isError) => JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, content, is_error: isError }] } });

@@ -14,10 +14,30 @@
 //
 // The adapter (scripts/agents/decider/<name>.sh) reads {id, state, instructions, options: {name: description}} on stdin
 // and prints {answer, confidence, probabilities?} or exits non-zero with the reason on stderr. It only translates.
+//
+// User criteria (DEC-050): if ${AUTOPILOT_USER_CRITERIA:-${XDG_CONFIG_HOME:-~/.config}/autopilot/criterios-usuario.md}
+// exists and is not empty, its content is appended to the instructions of every question before the adapter runs, and
+// the record keeps its sha256 (user_criteria_sha256, null without the file). Without the file the question goes as is.
+// Only the decider uses this file; no agent launched by the orchestrator writes it.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+export function userCriteriaPath(env = process.env) {
+  if (env.AUTOPILOT_USER_CRITERIA) return env.AUTOPILOT_USER_CRITERIA;
+  return join(env.XDG_CONFIG_HOME || join(homedir(), '.config'), 'autopilot', 'criterios-usuario.md');
+}
+
+// → { question, sha256 }: the question with the criteria appended to its instructions, or unchanged (sha256 null).
+export function withUserCriteria(question, criteria) {
+  if (typeof criteria !== 'string' || !criteria.trim()) return { question, sha256: null };
+  const sha256 = createHash('sha256').update(criteria).digest('hex');
+  const instructions = `${question.instructions ?? ''}\n\nThe user's decision criteria (decide as the user would):\n${criteria.trim()}`;
+  return { question: { ...question, instructions }, sha256 };
+}
 
 export function mapAnswer({ options, threshold }, result) {
   const names = Object.keys(options ?? {});
@@ -44,7 +64,10 @@ function ask(args) {
     return 2;
   }
   const question = JSON.parse(readFileSync(questionFile, 'utf8'));
-  const r = spawnSync('bash', [decider], { input: JSON.stringify(question), encoding: 'utf8', timeout: timeout * 1000 });
+  const criteriaFile = userCriteriaPath();
+  const criteria = existsSync(criteriaFile) ? readFileSync(criteriaFile, 'utf8') : null;
+  const { question: sent, sha256: criteriaSha } = withUserCriteria(question, criteria);
+  const r = spawnSync('bash', [decider], { input: JSON.stringify(sent), encoding: 'utf8', timeout: timeout * 1000 });
   let result;
   if (r.error) result = { error: r.error.code === 'ETIMEDOUT' ? `no answer within ${timeout} s` : r.error.message };
   else if (r.status !== 0) result = { error: (r.stderr || `exit ${r.status}`).trim().slice(0, 500) };
@@ -56,7 +79,7 @@ function ask(args) {
   const record = {
     question_id: question.id, instructions: question.instructions, state: question.state, options: question.options,
     answer: result?.answer ?? null, confidence: result?.confidence ?? null, probabilities: result?.probabilities ?? null,
-    model: result?.model ?? null,
+    model: result?.model ?? null, user_criteria_sha256: criteriaSha,
     threshold, action: mapped.action, reason: mapped.reason, ...(mapped.rejected ? { rejected: true } : {}),
     decider: resolve(decider), timestamp,
   };

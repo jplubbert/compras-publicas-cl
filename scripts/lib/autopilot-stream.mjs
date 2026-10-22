@@ -139,9 +139,30 @@ export function formatLine(line) {
 
 /** Path-like fields of each tool's input; for Bash, the tokens of its command. Grep's pattern is not a path. */
 const PATH_FIELDS = ['file_path', 'path', 'notebook_path', 'pattern'];
+/**
+ * A Bash command without the text that is not a path (T-94): heredoc bodies (the line that opens one stays: its
+ * redirection is a path) and the messages of git commit/tag/merge/notes (-m, --message), unless a message runs a
+ * command substitution, which can read a file. The body of a heredoc that goes to an interpreter is a script that
+ * runs, so it stays.
+ */
+const INTERPRETER = /^(?:.*\/)?(?:ba|z|da|k)?sh$|^(?:.*\/)?(?:python[\d.]*|node|deno|bun|tsx|ts-node|perl|ruby|php|lua|awk|gawk|jq|osascript)$/;
+const runsInterpreter = (line) => line.split(/\|\|?|&&|;|\$\(|`/).some((seg) => {
+  const words = seg.trim().split(/\s+/).filter((w) => !/^\w+=/.test(w) && !['env', 'sudo', 'exec', 'command', 'time', 'nohup'].includes(w));
+  return INTERPRETER.test(words[0] ?? '');
+});
+export function withoutText(command) {
+  let c = command.replace(/([^\n]*)<<-?[ \t]*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\2([^\n]*)\n[\s\S]*?\n[ \t]*\3(?=\n|$)/g,
+    (all, before, _q, tag, after) => (runsInterpreter(`${before} ${after}`) ? all : `${before}<<${tag}${after}`));
+  if (/\bgit\b[^|;&]*\b(commit|tag|merge|notes)\b/.test(c)) {
+    c = c.replace(/(^|\s)(?:-[A-Za-z]*m|--message)(?:=|\s+)("(?:[^"\\]|\\.)*"|'[^']*'|[^\s"']+)/g,
+      (all, pre, msg) => (/\$\(|`/.test(msg) ? all : pre));
+  }
+  return c;
+}
+
 function pathsOf(name, input) {
   if (!input || typeof input !== 'object') return [];
-  if (typeof input.command === 'string') return input.command.split(/[\s'"=;|&<>()]+/).filter(Boolean);
+  if (typeof input.command === 'string') return withoutText(input.command).split(/[\s'"=;|&<>()]+/).filter(Boolean);
   return PATH_FIELDS.filter((k) => !(name === 'Grep' && k === 'pattern')).map((k) => input[k]).filter((v) => typeof v === 'string');
 }
 
@@ -171,16 +192,22 @@ export function auditSession(text, { forbid = [], readsUnder = [], root = '' } =
   const outsideReads = (name, input) => {
     if (readsUnder.length === 0 || !READ_TOOLS.includes(name)) return null;
     const target = String(input?.file_path ?? input?.path ?? input?.notebook_path ?? (name === 'Glob' ? input?.pattern : '') ?? '');
+    if (own(target)) return null;   // its own tool-results, as in bad() (T-100)
     const rel = (base && target.startsWith(`${base}/`) ? target.slice(base.length + 1) : target).replace(/^\.\//, '');
     const inside = readsUnder.some((p) => rel === p.replace(/\/$/, '') || rel.startsWith(p.endsWith('/') ? p : `${p}/`));
     return inside ? null : `${name} outside ${readsUnder.join(', ')}: ${target || '(the whole repository)'}`;
   };
-  const bad = (p) => /(^|\/)\.autopilot(\/|$)/.test(p) || dirs.some((d) => p === d || p.startsWith(`${d}/`));
+  // The session's own tool-results (T-94, T-100 for readsUnder): where Claude Code keeps a long output of this same session for it to read,
+  // ~/.claude/projects/<project>/<session id>/tool-results/. Never with "..", never inside .autopilot/.
+  let ownResults = null;
+  const own = (p) => ownResults !== null && ownResults.test(p) && !p.split('/').includes('..') && !/(^|\/)\.autopilot(\/|$)/.test(p);
+  const bad = (p) => !own(p) && (/(^|\/)\.autopilot(\/|$)/.test(p) || dirs.some((d) => p === d || p.startsWith(`${d}/`)));
   const flagged = [];   // [{ id, line }]
   const denials = new Set();
   for (const line of text.split('\n')) {
     let ev;
     try { ev = JSON.parse(line); } catch { continue; }
+    if (ev?.type === 'system' && ev.subtype === 'init' && /^[\w-]+$/.test(ev.session_id ?? '')) ownResults = new RegExp(`(^|/)\\.claude/projects/[^/]+/${ev.session_id}/tool-results/`);
     for (const c of ev?.message?.content ?? []) {
       if (ev.type === 'assistant' && c?.type === 'tool_use') {
         for (const p of pathsOf(c.name, c.input)) if (bad(p)) flagged.push({ id: c.id, line: `${c.name}: ${p}` });
