@@ -8,7 +8,8 @@
 //           agent may read and run but never write: tests/acceptance/ for an implementer, DEC-027), env (to resolve
 //           $VARIABLES), realpath (optional) }
 //
-// Denied: anything under a deny path and anything outside the worktree and the
+// Denied: anything under a deny path, anything under the worktree's .autopilot/ (the run's records, T-97), and anything
+// outside the worktree and the
 // allowed directories (/dev/null and the standard streams aside). Paths come from the tool's arguments (file_path, path,
 // notebook_path, cwd; Glob's pattern, but not Grep's, which is a regular expression) and, for Bash, from every word of
 // the command that looks like a path (also inside $(…), after "=" of an option, and after redirections). ~, $HOME,
@@ -225,6 +226,11 @@ export function accessGuard(tool, args = {}, ctx = {}) {
     }
     const ro = WRITE_TOOLS.includes(tool) && readOnly.find((d) => under(real, join(root, d.replace(/\/$/, ''))));
     if (ro) return { decision: 'deny', reason: roMessage(ro), paths };
+    // T-97: the run's records live in the worktree but are not the agent's; an explicitly allowed directory inside wins
+    const runs = join(root, '.autopilot');
+    if ((under(lexical, runs) || under(real, runs)) && !allowed.slice(1).some((d) => under(d, runs) && under(real, d))) {
+      return { decision: 'deny', reason: `${real} is under ${runs}/, the records of the autopilot run: no agent reads or writes them`, paths };
+    }
     if (DEVICES.includes(lexical)) continue;
     if (!allowed.some((d) => under(real, d))) {
       return { decision: 'deny', reason: `${real} is outside the worktree ${root}${allowed.length > 1 ? ' and the allowed directories' : ''}`, paths };

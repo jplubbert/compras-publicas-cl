@@ -559,6 +559,44 @@ describe('autopilot-tasks escalate', () => {
   });
 });
 
+describe('autopilot-tasks set-user-review (T-103)', () => {
+  const spec = () => readFileSync(join(root, 'spec/SPEC.md'), 'utf8');
+  const checkSpec = () => spawnSync('node', [join(REPO, 'scripts/check-spec.mjs'), '--root', root], { encoding: 'utf8' }).stdout;
+  const noVerdict = (id) => run('escalate', id, '--reason', 'revisión sin veredicto: el decisor (jev) no resolvió el veredicto de la revisión', '--after', 'porque su revisión no dio veredicto (DEC-030)');
+
+  it('T-103: from verified_auto it goes to reviewed with the user named as reviewer and decision {decider: user, by}', () => {
+    const r = run('set-user-review', 'T-02', '--by', 'José Pedro Lübbert', '--reason', 'la revisé y la apruebo');
+    expect(r).toMatchObject({ code: 0, out: 'reviewed\n' });
+    const t = task(readTasks(), 'T-02');
+    expect(t.review).toMatchObject({ reviewer: 'José Pedro Lübbert', verdict: 'approved', findings: [], notes: 'la revisé y la apruebo',
+      decision: { decider: 'user', by: 'José Pedro Lübbert' } });
+    expect(t.review.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(t.status_log.at(-1)).toMatchObject({ from: 'verified_auto', to: 'reviewed', by: 'José Pedro Lübbert', reason: 'revisión del usuario: la revisé y la apruebo' });
+    expect(checkSpec()).toBe('check:spec: ok\n');
+  });
+
+  it('T-103: from blocked by a review without a verdict (DEC-030) it goes to reviewed and its Q-NN is answered', () => {
+    expect(JSON.parse(noVerdict('T-02').out)).toEqual({ question: 'Q-03', task: null });
+    const r = run('set-user-review', 'T-02', '--by', 'Pepe', '--reason', '«la apruebo»');
+    expect(r).toMatchObject({ code: 0, out: 'reviewed\n' });
+    expect(task(readTasks(), 'T-02')).toMatchObject({ status: 'reviewed', blocked_by: null, review: { reviewer: 'Pepe', decision: { decider: 'user', by: 'Pepe' } } });
+    const row = spec().split('\n').find((l) => l.startsWith('| Q-03 |'));
+    expect(row).toMatch(/^\| Q-03 \| Respondida \d{4}-\d{2}-\d{2} por Pepe: aprobó la revisión de T-02 en persona \(set-user-review\): ««la apruebo»»\. \(Pregunta: ¿Cómo sigue T-02\? El orquestador la escaló porque su revisión no dio veredicto \(DEC-030\): .*\) \| bloqueante \| nada \| usuario \| — \|$/);
+    expect(checkSpec()).toBe('check:spec: ok\n');
+  });
+
+  it('T-103: another block, another status, no --by, an agent or no --reason are rejected and change nothing', () => {
+    run('escalate', 'T-04', '--reason', 'el investigador recomienda escalar');
+    const before = readFileSync(join(root, 'spec/TASKS.json'), 'utf8');
+    expect(run('set-user-review', 'T-04', '--by', 'Pepe', '--reason', 'ok')).toMatchObject({ code: 1, err: expect.stringContaining('not by a review without a verdict (DEC-030)') });
+    expect(run('set-user-review', 'T-01', '--by', 'Pepe', '--reason', 'ok')).toMatchObject({ code: 1, err: expect.stringContaining('T-01 is in_progress') });
+    expect(run('set-user-review', 'T-02', '--reason', 'ok')).toMatchObject({ code: 1, err: expect.stringContaining('needs --by NAME') });
+    expect(run('set-user-review', 'T-02', '--by', 'autopilot', '--reason', 'ok')).toMatchObject({ code: 1, err: expect.stringContaining('only a person reviews here') });
+    expect(run('set-user-review', 'T-02', '--by', 'Pepe')).toMatchObject({ code: 1, err: expect.stringContaining('needs --reason') });
+    expect(readFileSync(join(root, 'spec/TASKS.json'), 'utf8')).toBe(before);
+  });
+});
+
 describe('plan and critic checks (DEC-010)', () => {
   const plan = (extra = '', id = 'T-04') => `# Plan de ${id}\n## Objetivo\no\n## Pasos\n1. p\n## Archivos\n- a\n## Supuestos\n- s\n## Riesgos\n- r\n## Verificación\n- v\n${extra}`;
   const src = [1, 2, 3].map((n) => ({ assumption: `a${n}`, practice: 'p', sources: [`https://example.com/${n}`] }));
@@ -736,7 +774,7 @@ describe('autopilot-tasks check-result / apply-result', () => {
 
   it('normalizes a valid result: outcome finished by default, claims kept as declared', () => {
     expect(JSON.parse(errOf(ok).out)).toEqual({
-      outcome: 'finished', blocked_by: null, claims: ok.claims, log: ok.log, notes: null, assumptions: [],
+      outcome: 'finished', blocked_by: null, claims: ok.claims, log: ok.log, log_discarded: [], log_trimmed: [], notes: null, assumptions: [],
       deploy: null, deploy_pending: false, test_dispute: null, block: null, missing_requirement: null,
     });
     expect(JSON.parse(errOf({ outcome: 'unfinished', log: '- Sigue.' }).out).outcome).toBe('unfinished');
@@ -825,13 +863,51 @@ describe('autopilot-tasks check-result / apply-result', () => {
     }
   });
 
-  it('"log" states no test results (T-35): no "Verificado" line and no counts; the orchestrator writes them from the evidence', () => {
-    for (const log of ['- Verificado y cómo: `npm test` → ok.', '- Hecho: x; npm test → 25 pasan.', '- Hecho: 3 tests passed.', '- Hecho: 12/12 en verde.', '- Hecho: 1 falla.']) {
-      expect(errOf({ ...ok, log })).toMatchObject({ code: 1, err: expect.stringContaining('"log" must not state test results') });
+  it('"log" states no test results (T-35, T-117): "Verificado" lines and counts are dropped, never kept; a log left empty is rejected', () => {
+    const checked = (log) => JSON.parse(errOf({ ...ok, log }).out);
+    for (const log of ['- Verificado y cómo: `npm test` → ok.', '- Hecho: 3 tests passed.', '- Hecho: 12/12 en verde.', '- Hecho: 1 falla.']) {
+      expect(checked(`${log}\n- Próxima acción autorizada: revisar.`)).toMatchObject({ log: '- Próxima acción autorizada: revisar.', log_discarded: [log], log_trimmed: [] });
+      expect(errOf({ ...ok, log })).toMatchObject({ code: 1, err: expect.stringContaining('"log" is left empty once its test results are dropped') });
     }
     for (const log of ['- Hecho: REQ-002 E3 y T-04 (2026-10-21).', '- Hecho: dos archivos nuevos.\n- Próxima acción autorizada: revisar.']) {
-      expect(errOf({ ...ok, log }).code).toBe(0);
+      expect(checked(log)).toMatchObject({ log, log_discarded: [], log_trimmed: [] });
     }
+  });
+
+  it('T-117: a "- Verificado: … 12/12" line is discarded and listed; the rest of the result is applied', () => {
+    const log = '- Hecho: parser nuevo.\n- Verificado: `npm test` → 12/12.\n- Próxima acción autorizada: revisar.';
+    const r = errOf({ ...ok, log, notes: 'Interpretación: x.' });
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.out)).toMatchObject({
+      log: '- Hecho: parser nuevo.\n- Próxima acción autorizada: revisar.', log_discarded: ['- Verificado: `npm test` → 12/12.'], log_trimmed: [], notes: 'Interpretación: x.',
+    });
+  });
+
+  it('T-117: a count inside a line with other content is cut out, keeping the rest; with nothing meaningful left the line goes', () => {
+    const cut = (line) => JSON.parse(errOf({ ...ok, log: `${line}\n- Próxima acción autorizada: revisar.` }).out);
+    expect(cut('- Hecho: parser nuevo en lib/a.mjs; npm test → 25 pasan.')).toMatchObject({
+      log: '- Hecho: parser nuevo en lib/a.mjs.\n- Próxima acción autorizada: revisar.', log_trimmed: ['- Hecho: parser nuevo en lib/a.mjs; npm test → 25 pasan.'], log_discarded: [],
+    });
+    expect(cut('- Hecho: parser nuevo (25 pasan), sin dependencias.').log).toBe('- Hecho: parser nuevo, sin dependencias.\n- Próxima acción autorizada: revisar.');
+    expect(cut('- Hecho: 25 pasan; 0 fallan.')).toMatchObject({ log: '- Próxima acción autorizada: revisar.', log_discarded: ['- Hecho: 25 pasan; 0 fallan.'] });
+  });
+
+  it('T-117: other format errors are still rejected (invalid JSON, unknown keys, invalid outcome)', () => {
+    expect(errOf('{"log": "- Verificado: 12/12"')).toMatchObject({ code: 1, err: expect.stringContaining('not valid JSON') });
+    expect(errOf({ ...ok, log: '- Hecho: x; 25 pasan.', junk: 1 })).toMatchObject({ code: 1, err: expect.stringContaining('unknown key "junk"') });
+    expect(errOf({ ...ok, log: '- Verificado: 12/12.\n- Hecho: x.', outcome: 'done' })).toMatchObject({ code: 1, err: expect.stringContaining('"outcome" must be one of') });
+  });
+
+  it('T-117: no dropped line reaches spec/LOG.md; the orchestrator warns in live.log and the run summary', () => {
+    const log = '- Hecho: parser nuevo; npm test → 25 pasan.\n- Verificado y cómo: `npm test` → 12/12.\n- Próxima acción autorizada: revisar.';
+    expect(run('apply-result', 'T-04', resultFile({ ...ok, log }), '--agent', 'implementador de T-04', '--status', 'in_progress').code).toBe(0);
+    const written = readFileSync(join(root, 'spec/LOG.md'), 'utf8');
+    expect(written).toMatch(/· implementador de T-04\n- Hecho: parser nuevo\.\n- Próxima acción autorizada: revisar\.\n$/);
+    for (const gone of ['25 pasan', '12/12', 'Verificado']) expect(written).not.toContain(gone);
+    const sh = readFileSync(new URL('../autopilot.sh', import.meta.url), 'utf8');
+    expect(sh).toContain('line(s) with test results discarded (DEC-014, T-117)');
+    expect(sh).toMatch(/while IFS= read -r line; do log "\$id: \$line"; done <<<"\$dropped"/);
+    expect(sh).toContain('summary "$id: del log del implementador se descartaron $nd línea(s)');
   });
 
   it('verified-line prints the verification line from the evidence record_evidence.py wrote; log-verified adds it to the last LOG.md entry', () => {
@@ -1569,8 +1645,9 @@ describe('autopilot.sh', () => {
 
     describe('T-84: a result rejected for its format is rewritten once, without asking the decider', () => {
       const approved = { STUB_VERDICT: '{"verdict":"approved","findings":[],"notes":"ok"}' };
-      // Wraps the claude double: the implementer's first result carries a "- Verificado" line; the relaunch whose prompt
-      // says "Result rejected (T-84)" only rewrites the result (fixed, or still invalid with WRAP_RETRY_BAD).
+      // Wraps the claude double: the implementer's first result carries an unknown key (with WRAP_VERIFIED, a
+      // "- Verificado" line instead, T-117); the relaunch whose prompt says "Result rejected (T-84)" only rewrites the
+      // result (fixed, or still invalid with WRAP_RETRY_BAD).
       beforeEach(() => {
         cpSync(join(bin, 'claude'), join(bin, 'claude-real'));
         writeFileSync(join(bin, 'claude'), `#!/usr/bin/env bash
@@ -1582,14 +1659,14 @@ case "$input" in
     n=$(( $(cat .autopilot/wrap-retry-count 2>/dev/null || echo 0) + 1 )); echo "$n" >.autopilot/wrap-retry-count
     printf '%s' "$input" >".autopilot/wrap-retry-prompt-$n.txt"
     echo '{"type":"system","subtype":"init","model":"stub","session_id":"w1"}'
-    log='- Hecho: resultado reescrito.'; [ -n "\${WRAP_RETRY_BAD:-}" ] && log='- Verificado: 3 tests passed.'
-    WRAP_LOG=$log node -e 'require("fs").writeFileSync(process.env.AUTOPILOT_RESULT, JSON.stringify({ log: process.env.WRAP_LOG }))'
+    WRAP_BAD=\${WRAP_RETRY_BAD:-} node -e 'require("fs").writeFileSync(process.env.AUTOPILOT_RESULT,
+      JSON.stringify({ log: "- Hecho: resultado reescrito.", ...(process.env.WRAP_BAD ? { state: "done" } : {}) }))'
     echo '{"type":"result","subtype":"success","result":"rewrote the result","num_turns":1,"is_error":false}'
     exit 0 ;;
   "Read AGENTS.md and execute "*)
     rc=0; printf '%s' "$input" | "$real" "$@" || rc=$?
     node -e 'const fs=require("fs");const f=process.env.AUTOPILOT_RESULT;const r=JSON.parse(fs.readFileSync(f,"utf8"));
-      r.log+="\\n- Verificado y cómo: npm test → 25 pasan.";fs.writeFileSync(f,JSON.stringify(r))'
+      if(process.env.WRAP_VERIFIED)r.log+="\\n- Verificado y cómo: npm test → 25 pasan.";else r.state="done";fs.writeFileSync(f,JSON.stringify(r))'
     exit $rc ;;
 esac
 printf '%s' "$input" | exec "$real" "$@"
@@ -1597,10 +1674,23 @@ printf '%s' "$input" | exec "$real" "$@"
       });
       const retries = () => (existsSync(join(root, '.autopilot/wrap-retry-count')) ? Number(readFileSync(join(root, '.autopilot/wrap-retry-count'), 'utf8')) : 0);
 
-      it('T-84: a result with "- Verificado" is relaunched once with the validation error and, fixed, is applied', () => {
+      it('T-117: a result with a "- Verificado" line is applied without it and without a relaunch; the run warns', () => {
+        const r = autopilot({ ...approved, WRAP_VERIFIED: '1' }, '--max-tasks', '1');
+        expect(r.status).toBe(0);
+        expect(retries()).toBe(0);
+        expect(r.stdout).toContain('T-03: log: 1 line(s) with test results discarded (DEC-014, T-117): "- Verificado y cómo: npm test → 25 pasan."');
+        expect(t03().status).toBe('reviewed');
+        const log = readFileSync(join(root, 'spec/LOG.md'), 'utf8');
+        expect(log).toContain('T-03: del log del implementador se descartaron 1 línea(s) y se recortaron 0 con resultados de pruebas (DEC-014, T-117');
+        expect(log).not.toContain('npm test → 25 pasan');
+        const live = readdirSync(join(root, '.autopilot'), { recursive: true }).find((f) => f.endsWith('live.log'));
+        expect(readFileSync(join(root, '.autopilot', live), 'utf8')).toContain('line(s) with test results discarded (DEC-014, T-117)');
+      });
+
+      it('T-84: a result with an unknown key is relaunched once with the validation error and, fixed, is applied', () => {
         const r = autopilot(approved, '--max-tasks', '1');
         expect(r.status).toBe(0);
-        expect(r.stdout).toContain('"log" must not state test results');
+        expect(r.stdout).toContain('unknown key "state"');
         expect(r.stdout).toContain('T-03: result rejected for its format; relaunching the implementer once to rewrite only the result (T-84)');
         expect(r.stdout).toContain('T-03: the rewritten result is valid (T-84)');
         expect(r.stdout).not.toContain('decide failure_cause');
@@ -1608,13 +1698,12 @@ printf '%s' "$input" | exec "$real" "$@"
         expect(retries()).toBe(1);
         const prompt = readFileSync(join(root, '.autopilot/wrap-retry-prompt-1.txt'), 'utf8');
         expect(prompt).toContain('Result rejected (T-84)');
-        expect(prompt).toContain('"log" must not state test results');
+        expect(prompt).toContain('unknown key "state"');
         expect(prompt).toContain('do not change files and do not commit');
-        expect(prompt).toContain('- Verificado y cómo: npm test → 25 pasan.'); // the rejected result
+        expect(prompt).toContain('"state":"done"'); // the rejected result
         expect(t03().status).toBe('reviewed');
         const log = readFileSync(join(root, 'spec/LOG.md'), 'utf8');
         expect(log).toContain('- Hecho: resultado reescrito.');
-        expect(log).not.toContain('npm test → 25 pasan');
         expect(git('log', '--format=%s').split('\n').filter((s) => s === 'T-03: stub')).toHaveLength(1); // its commits, kept
         expect(git('status', '--porcelain')).toBe('');
       });

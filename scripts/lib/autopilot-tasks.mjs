@@ -34,6 +34,10 @@
 //   context T-NN            Markdown with the task, its REQs (SPEC.md) and its DECs (DECISIONS.md) for the reviewer
 //   parse-verdict FILE      extracts the JSON verdict from the reviewer output → normalized JSON (exit 1 if none)
 //   set-review T-NN FILE    stores the verdict (FILE, normalized JSON) in TASKS.json; approved → reviewed
+//   set-user-review T-NN --by NAME --reason TEXT
+//                           T-103: the user's own review: verified_auto, or blocked by a review without a verdict
+//                           (DEC-030, its Q-NN marked answered) → reviewed, with decision {decider: user, by}. Sessions only,
+//                           at the user's request; never the orchestrator
 //   reopen T-NN             verified_auto with a rejected review → in_progress (a retry after research, DEC-005)
 //   unblock T-NN            blocked by a disputed acceptance test → in_progress (the researcher upheld the test, DEC-006)
 //   check-tests T-NN FILE   validates the test-author's result (DEC-006 point 4) → normalized JSON; exit 1 if invalid
@@ -52,7 +56,8 @@
 //   check-result T-NN FILE  validates the implementer's result (DEC-001 point 4) → normalized JSON; exit 1 if it is
 //                           missing or invalid, exit 3 if it proposes a reserved status. It carries no status and no
 //                           evidence (DEC-014, T-34): only what the implementer asks for (outcome, blocked_by) and
-//                           declares (claims)
+//                           declares (claims). Log lines stating test results are dropped and listed in
+//                           log_discarded / log_trimmed (T-117)
 //   apply-result T-NN FILE --agent LABEL --status in_progress|blocked
 //                           validates and applies the result to spec/: the status the orchestrator derived, blocked_by,
 //                           claims and notes in TASKS.json, an entry in LOG.md, assumptions in SPEC.md → prints the new
@@ -423,6 +428,47 @@ export function setReview(root, id, review, decision) {
   return t.status;
 }
 
+/** The question the orchestrator opens when a review gives no verdict (DEC-030; its text comes from autopilot.sh). */
+export const NO_VERDICT_QUESTION = /revisión no dio veredicto \(DEC-030\)/;
+/**
+ * T-103: the user's own review (DEC-028, DEC-015): verified_auto → reviewed, or blocked → reviewed when the block is a
+ * review without a verdict (DEC-030), whose Q-NN is marked answered. The decision is the user's, so it carries no
+ * decide record. Only a session at the user's request calls it; the orchestrator never does.
+ */
+export function setUserReview(root, id, { by, reason } = {}, date = new Date()) {
+  if (!nonEmpty(by)) throw new Error('set-user-review needs --by NAME (the person who reviewed it)');
+  if (NOT_A_PERSON.test(by)) throw new Error(`set-user-review: only a person reviews here, not ${by} (DEC-028)`);
+  if (!nonEmpty(reason)) throw new Error('set-user-review needs --reason TEXT (the user\'s words approving it)');
+  const data = readTasks(root);
+  const t = findTask(data, id);
+  let lines = null;
+  let row = -1;
+  if (t.status === 'blocked') {
+    lines = readFileSync(specPath(root), 'utf8').split('\n');
+    row = /^Q-\d+$/.test(t.blocked_by ?? '') ? lines.findIndex((l) => l.startsWith(`| ${t.blocked_by} |`)) : -1;
+    if (row < 0 || !NO_VERDICT_QUESTION.test(lines[row])) {
+      throw new Error(`${id} is blocked by ${t.blocked_by}, not by a review without a verdict (DEC-030): set-user-review does not answer it`);
+    }
+  } else if (t.status !== 'verified_auto') {
+    throw new Error(`${id} is ${t.status}: set-user-review takes only verified_auto or blocked by a review without a verdict`);
+  }
+  const name = by.trim();
+  const day = date.toISOString().slice(0, 10);
+  t.review = { reviewer: name, verdict: 'approved', findings: [], notes: reason.trim(), date: day, decision: { decider: 'user', by: name } };
+  setStatus(t, 'reviewed', name, `revisión del usuario: ${reason.trim()}`, date);
+  t.blocked_by = null;
+  if (row >= 0) {
+    const cells = lines[row].split(/(?<!\\)\|/).slice(1, -1).map((c) => c.trim());
+    // the original question is already escaped: only the new text goes through cell()
+    cells[1] = `${cell(`Respondida ${day} por ${name}: aprobó la revisión de ${id} en persona (set-user-review): «${reason.trim()}».`)} (Pregunta: ${cells[1]})`;
+    cells[3] = 'nada';
+    lines[row] = `| ${cells.join(' | ')} |`;
+    writeFileSync(specPath(root), lines.join('\n'));
+  }
+  writeTasks(root, data);
+  return t.status;
+}
+
 /**
  * A retry after research (DEC-005 point 6): a task the reviewer rejected goes back from verified_auto to in_progress so
  * the orchestrator can relaunch the implementer on it. Nothing else is reopened.
@@ -615,8 +661,45 @@ const nonEmpty = (v) => typeof v === 'string' && v.trim() !== '';
  * "3 tests passed", "1 falla" or "12/12": those lines come from the evidence record_evidence.py wrote, never from an agent.
  */
 export function statesTestResults(log) {
-  return /^\s*-\s*Verificado/im.test(log) || /\b\d+\s*\/\s*\d+\b/.test(log)
-    || /\b\d+\s+(?:(?:tests?|pruebas?)\s+)?(?:pasan|pasa|passed|pass(?:ing)?|fallan|falla|fail(?:ed|ing|s)?)\b/i.test(log);
+  return /^\s*-\s*Verificado/im.test(log) || TEST_COUNT.test(log);
+}
+const TEST_COUNT = /\b\d+\s*\/\s*\d+\b|\b\d+\s+(?:(?:tests?|pruebas?)\s+)?(?:pasan|pasa|passed|pass(?:ing)?|fallan|falla|fail(?:ed|ing|s)?)\b/i;
+
+/**
+ * T-117 (DEC-014, DEC-051): instead of rejecting an implementer's log that states test results, drop them. A
+ * "- Verificado…" line is discarded; a line with a test count keeps its clauses (split at ";" and ",", parentheses
+ * apart) that state none, if some text with meaning is left, and is discarded otherwise.
+ * → { log, discarded: [original lines dropped], trimmed: [original lines cut down] }
+ */
+export function stripTestResults(log) {
+  const kept = [], discarded = [], trimmed = [];
+  for (const line of log.split('\n')) {
+    if (/^\s*-\s*Verificado/i.test(line)) discarded.push(line);
+    else if (!TEST_COUNT.test(line)) kept.push(line);
+    else {
+      const cut = withoutTestCounts(line);
+      if (cut === null) discarded.push(line);
+      else { kept.push(cut); trimmed.push(line); }
+    }
+  }
+  return { log: kept.join('\n'), discarded, trimmed };
+}
+
+/** `line` without the clauses that state a test count, or null if nothing with meaning is left. */
+function withoutTestCounts(line) {
+  const [, prefix, rest] = /^(\s*-\s*(?:[^:\d]{1,40}:\s*)?)(.*)$/.exec(line) ?? [null, '', line];
+  const end = /[.]\s*$/.test(rest) ? '.' : '';
+  const body = rest.replace(/[.\s]+$/, '').replace(/\s*\([^()]*\)/g, (m) => (TEST_COUNT.test(m) ? '' : m));
+  const parts = body.split(/\s*([;,])\s*/);
+  let out = '';
+  for (let i = 0; i < parts.length; i += 2) {
+    if (TEST_COUNT.test(parts[i]) || parts[i].trim() === '') continue;
+    out += (out ? `${parts[i - 1]} ` : '') + parts[i];
+  }
+  out = out.replace(/\s*(?:→|->|:)\s*$/, '');
+  if (!/\p{L}{3,}/u.test(out)) return null;
+  const cut = `${prefix}${out}${end}`;
+  return statesTestResults(cut) ? null : cut;
 }
 const TEST_RESULTS_ERROR = '"log" must not state test results ("- Verificado…" lines or counts like "25 pasan"): the orchestrator writes them from record_evidence.py (DEC-014)';
 
@@ -717,10 +800,12 @@ export function checkResult(root, id, text) {
     if (typeof claims !== 'object' || Array.isArray(claims)) errors.push('"claims" must be an object of strings (e.g. {"manual_pending": "…"})');
     else for (const [k, v] of Object.entries(claims)) if (typeof v !== 'string') errors.push(`claims.${k} must be a string`);
   }
+  // T-117: lines stating test results are dropped (the orchestrator warns about them), not a reason to reject
+  const stripped = typeof r.log === 'string' ? stripTestResults(r.log) : { log: r.log, discarded: [], trimmed: [] };
   if (!nonEmpty(r.log)) errors.push('"log" must be a non-empty string (the lines of the spec/LOG.md entry)');
   else if (r.log.split('\n').some((l) => l.startsWith('#'))) {
     errors.push('"log" must not contain headings (lines starting with #): the orchestrator writes the entry heading');
-  } else if (statesTestResults(r.log)) errors.push(TEST_RESULTS_ERROR);
+  } else if (!nonEmpty(stripped.log)) errors.push(`"log" is left empty once its test results are dropped: ${TEST_RESULTS_ERROR}`);
   else if (/^\s*-\s*Pendiente deploy/im.test(r.log)) errors.push('"log" must not carry a "Pendiente deploy" line: a deploy goes in "deploy" {what, then} and the orchestrator writes the line (T-39)');
   if (r.notes != null && typeof r.notes !== 'string') errors.push('"notes" must be a string');
   const dispute = r.test_dispute ?? null; // DEC-006 point 8: a test the implementer believes wrong, never edited
@@ -776,7 +861,8 @@ export function checkResult(root, id, text) {
   if (errors.length > 0) return { errors };
   return {
     result: {
-      outcome, blocked_by: blockedBy ? blockedBy.trim() : null, claims, log: r.log.trim(), notes: nonEmpty(r.notes) ? r.notes.trim() : null,
+      outcome, blocked_by: blockedBy ? blockedBy.trim() : null, claims, log: stripped.log.trim(),
+      log_discarded: stripped.discarded, log_trimmed: stripped.trimmed, notes: nonEmpty(r.notes) ? r.notes.trim() : null,
       assumptions, deploy: deploy && { what: deploy.what.trim(), then: nonEmpty(deploy.then) ? deploy.then.trim() : null },
       deploy_pending: deploy !== null,
       test_dispute: dispute ? { file: dispute.file.trim(), reason: dispute.reason.trim() } : null,
@@ -1262,6 +1348,9 @@ function main(argv) {
       out(cmd === 'set-review' ? setReview(root, args[0], review, c.decision) : setAcceptanceReview(root, args[0], review, opt('--commits'), c.decision));
       return 0;
     }
+    case 'set-user-review':
+      out(setUserReview(root, args[0], { by: opt('--by'), reason: opt('--reason') }));
+      return 0;
     case 'reopen':
       out(reopen(root, args[0]));
       return 0;
