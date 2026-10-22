@@ -368,9 +368,9 @@
       "depends_on": [
         "T-03"
       ],
-      "status": "ready",
+      "status": "verified_auto",
       "blocked_by": null,
-      "notes": "",
+      "notes": "Los workflows apuntan a `main`, como dicen REQ-002 y el plan; en el clon local la rama por defecto se llama `master` (LOG: DEC-033). Si en GitHub la rama por defecto también es `master`, los workflows no se disparan hasta renombrarla a `main` o cambiar REQ-002: lo decide el usuario. `scripts/it/last-ci-run.sh` separa el TSV con `cut` y no con `read`, porque `read` con IFS de tabulador junta el campo vacío de `conclusion` de una corrida en curso. Fuera del plan se agregó `scripts/ci/tests/conftest.py` (dentro de touches): `record_evidence.py` solo reconoce los resúmenes de node:test, vitest y jest, y el verify (pytest) no se podía registrar; el hook imprime `Tests: F failed, P passed, T total` sin cambiar el comando del verify. Las tareas futuras con un verify de pytest (p. ej. `test:ingest`) tendrán el mismo problema si no agregan algo parecido o si `record_evidence.py` no aprende a leer pytest.",
       "touches": [
         ".github/",
         "scripts/ci/",
@@ -386,6 +386,20 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:23:36.891Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "apply-result",
+          "at": "2026-10-22T13:14:28.705Z",
+          "reason": "resultado del implementador de T-04 vía autopilot (claude)"
+        },
+        {
+          "from": "in_progress",
+          "to": "verified_auto",
+          "by": "record_evidence.py",
+          "at": "2026-10-22T13:14:29+00:00",
+          "reason": "verify con código 0: 24/24 pasan, 0 fallan"
         }
       ],
       "plan_review": {
@@ -421,6 +435,21 @@
         ],
         "opinion_blockers": [],
         "date": "2026-10-22"
+      },
+      "claims": {
+        "manual_pending": "Integración en GitHub: crear el environment `production` (con aprobación) y las variables de repositorio GCP_PROJECT_ID, GCP_REGION, WIF_PROVIDER y CI_SERVICE_ACCOUNT (salidas del bootstrap); abrir un PR hacia `main` desde una rama del repo, comprobar que `checks` y `plan` pasan y que el PR recibe el comentario con `Plan:` o `No changes.`; correr `scripts/it/last-ci-run.sh` (sale 0 con `last-ci-run: success`)."
+      },
+      "evidence": {
+        "command": "scripts/env.sh bash -c 'npm run test:workflows && npm run check:repo && npm run check:spec'",
+        "exit_code": 0,
+        "passed": 24,
+        "failed": 0,
+        "total": 24,
+        "log_path": "artifacts/T-04/verify.log",
+        "log_sha256": "95e4cf92954d34901daca79b262f3023f07f8bb68aac0aa16c585ba3f987b35f",
+        "commit": "b4d47d10612dc5c4b48c07c956a01478cfc7d29b",
+        "timestamp": "2026-10-22T13:14:29+00:00",
+        "result": "24/24 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-04/verify.log)"
       }
     },
     {
