@@ -161,3 +161,8 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Pendiente deploy: ninguno
 - Bloqueos nuevos: ninguno
 - Próxima acción autorizada: el orquestador revisa T-01 y T-02 (verified_auto) y sigue con T-03
+
+## 2026-10-22 00:39 · revisor independiente (claude -p 2.1.295 (Claude Code)) vía autopilot
+- Hecho: revisión independiente de T-01 con contexto limpio (solo diff + REQ/DEC de la tarea). Veredicto: **approved** → estado `reviewed`. Hallazgos: sin hallazgos bloqueantes.
+- Verificado y cómo: veredicto completo en TASKS.json (`review` de T-01); salida íntegra en .autopilot/2026-10-22_003840/T-01-review-output.txt.
+- Próxima acción autorizada: continúa el autopilot; el usuario decide accepted después de la corrida.
