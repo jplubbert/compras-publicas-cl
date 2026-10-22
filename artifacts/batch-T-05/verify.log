@@ -3,7 +3,7 @@
 > scripts/env.sh uv run --frozen pytest finops/killswitch/tests
 
 ..................                                                       [100%]
-18 passed in 0.29s
+18 passed in 0.25s
 
 > test:infra
 > scripts/ci/tf-test.sh
@@ -25,10 +25,14 @@ tests/bootstrap.tftest.hcl... in progress
   run "sin_alert_email"... pass
   run "presupuesto_cero"... pass
   run "rol_billing_no_permitido"... pass
+  run "e1_bucket_de_respaldo"... pass
+  run "e2_ci_solo_crea_objetos"... pass
+  run "sin_backup_project_id"... pass
+  run "backup_igual_al_proyecto"... pass
 tests/bootstrap.tftest.hcl... tearing down
 tests/bootstrap.tftest.hcl... pass
 
-Success! 14 passed, 0 failed.
+Success! 18 passed, 0 failed.
 Success! The configuration is valid.
 
 tests/main.tftest.hcl... in progress
@@ -46,7 +50,7 @@ tests/main.tftest.hcl... tearing down
 tests/main.tftest.hcl... pass
 
 Success! 10 passed, 0 failed.
-Tests: 0 failed, 0 skipped, 24 passed, 24 total
+Tests: 0 failed, 0 skipped, 28 passed, 28 total
 
 > check:spec
 > node scripts/check-spec.mjs

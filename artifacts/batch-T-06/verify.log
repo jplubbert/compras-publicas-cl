@@ -1,0 +1,12 @@
+
+> test:ingest
+> scripts/env.sh uv run --frozen pytest ingest/tests
+
+.............................................................            [100%]
+Tests: 0 failed, 61 passed, 61 total
+61 passed in 0.37s
+
+> check:spec
+> node scripts/check-spec.mjs
+
+check:spec: ok

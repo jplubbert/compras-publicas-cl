@@ -449,14 +449,14 @@
       "evidence": {
         "command": "scripts/env.sh bash -c 'npm run test:workflows && npm run check:repo && npm run check:spec'",
         "exit_code": 0,
-        "passed": 24,
+        "passed": 25,
         "failed": 0,
-        "total": 24,
+        "total": 25,
         "log_path": "artifacts/batch-T-04/verify.log",
-        "log_sha256": "2a83dd7634c40c3e2ef97f82cb07222e7c1d181cae3ee07534111b495edacfca",
-        "commit": "6086f8dd1bd46191c1f596234f1472c0809eea27",
-        "timestamp": "2026-10-22T14:24:50+00:00",
-        "result": "24/24 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-04/verify.log)",
+        "log_sha256": "f4515115ae57bd9db74f7b295db29b69deb7d9af722fade81207296f4cbb03fe",
+        "commit": "6ad3f2c46a93fa6158e17d59aa940a760ce77254",
+        "timestamp": "2026-10-22T16:11:44+00:00",
+        "result": "25/25 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-04/verify.log)",
         "batch": [
           "T-04"
         ]
@@ -568,14 +568,14 @@
       "evidence": {
         "command": "scripts/env.sh bash -c 'npm run test:finops && npm run test:infra && npm run check:spec'",
         "exit_code": 0,
-        "passed": 24,
+        "passed": 28,
         "failed": 0,
-        "total": 24,
+        "total": 28,
         "log_path": "artifacts/batch-T-05/verify.log",
-        "log_sha256": "8021558062e70078b4e37293abd07c60699c0a0408fa6ac689a72400d869d27a",
-        "commit": "6086f8dd1bd46191c1f596234f1472c0809eea27",
-        "timestamp": "2026-10-22T14:24:57+00:00",
-        "result": "24/24 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-05/verify.log)",
+        "log_sha256": "4bf773785bee9f070e54d72ba70072957aa8a2efebce11ab6e0ff4e69fe1d3cf",
+        "commit": "6ad3f2c46a93fa6158e17d59aa940a760ce77254",
+        "timestamp": "2026-10-22T16:11:52+00:00",
+        "result": "28/28 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-05/verify.log)",
         "batch": [
           "T-05"
         ]
@@ -720,11 +720,14 @@
         "passed": 61,
         "failed": 0,
         "total": 61,
-        "log_path": "artifacts/T-06/verify.log",
-        "log_sha256": "3a987c7b01aea1ac9f496cc4bb677fa54bc35e1c85eec5da8bef79d8dcef5b16",
-        "commit": "c7cee5d3325681e6d20f16a4e99fb59da2f87b18",
-        "timestamp": "2026-10-22T16:10:51+00:00",
-        "result": "61/61 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-06/verify.log)"
+        "log_path": "artifacts/batch-T-06/verify.log",
+        "log_sha256": "67a1298ea4ae85c5f25cf3d763c5c4725fde3acd29138f2984aae8ea4f9758d4",
+        "commit": "6ad3f2c46a93fa6158e17d59aa940a760ce77254",
+        "timestamp": "2026-10-22T16:11:54+00:00",
+        "result": "61/61 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-06/verify.log)",
+        "batch": [
+          "T-06"
+        ]
       },
       "review": {
         "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
@@ -1174,11 +1177,14 @@
         "passed": 74,
         "failed": 0,
         "total": 74,
-        "log_path": "artifacts/T-17/verify.log",
-        "log_sha256": "d2313e20f80046defcab03fd941b60c4a16604b1393e6bd3ce9de0bc70ffd9ba",
-        "commit": "05de516a61669d6e97d82b18cbde859218e6985c",
-        "timestamp": "2026-10-22T15:04:00+00:00",
-        "result": "74/74 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-17/verify.log)"
+        "log_path": "artifacts/batch-T-17/verify.log",
+        "log_sha256": "5a03080ee7e9ca943c8462180903d326eb8c4079a62b356427c3e3be462c633c",
+        "commit": "6ad3f2c46a93fa6158e17d59aa940a760ce77254",
+        "timestamp": "2026-10-22T16:12:03+00:00",
+        "result": "74/74 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-17/verify.log)",
+        "batch": [
+          "T-17"
+        ]
       },
       "review": {
         "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
