@@ -453,9 +453,9 @@
         "failed": 0,
         "total": 24,
         "log_path": "artifacts/batch-T-04/verify.log",
-        "log_sha256": "313367f40cbbe7af4903b6a2a9cc3c2f62872e69904e482241c2f77041e58675",
-        "commit": "fd5bb65700b9b2b5aae86055f0cd3e7f7ee0cb06",
-        "timestamp": "2026-10-22T13:45:40+00:00",
+        "log_sha256": "2a83dd7634c40c3e2ef97f82cb07222e7c1d181cae3ee07534111b495edacfca",
+        "commit": "6086f8dd1bd46191c1f596234f1472c0809eea27",
+        "timestamp": "2026-10-22T14:24:50+00:00",
         "result": "24/24 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-04/verify.log)",
         "batch": [
           "T-04"
@@ -571,11 +571,14 @@
         "passed": 24,
         "failed": 0,
         "total": 24,
-        "log_path": "artifacts/T-05/verify.log",
-        "log_sha256": "46cbc5e532bd7daaa25c6070b2bf6f9c361c7641dec86de1c23d78a19c6ed4ce",
-        "commit": "6cbb836104b07337878e1d7faaefc06f90b1b68a",
-        "timestamp": "2026-10-22T14:24:03+00:00",
-        "result": "24/24 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-05/verify.log)"
+        "log_path": "artifacts/batch-T-05/verify.log",
+        "log_sha256": "8021558062e70078b4e37293abd07c60699c0a0408fa6ac689a72400d869d27a",
+        "commit": "6086f8dd1bd46191c1f596234f1472c0809eea27",
+        "timestamp": "2026-10-22T14:24:57+00:00",
+        "result": "24/24 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/batch-T-05/verify.log)",
+        "batch": [
+          "T-05"
+        ]
       },
       "review": {
         "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",

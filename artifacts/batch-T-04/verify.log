@@ -4,7 +4,7 @@
 
 ........................                                                 [100%]
 Tests: 0 failed, 24 passed, 24 total
-24 passed in 0.18s
+24 passed in 0.13s
 
 > check:repo
 > node scripts/ci/check-repo.mjs
