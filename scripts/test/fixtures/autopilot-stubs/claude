@@ -1,0 +1,314 @@
+#!/usr/bin/env bash
+# `claude` double for the scripts/autopilot.sh tests. Like a real implementer under the result protocol (DEC-001
+# point 4), it never edits spec/: it commits a change inside the task's touches and writes its result as JSON to
+# $AUTOPILOT_RESULT.
+# Its result never carries a status or evidence (DEC-014, T-34), except in the modes that try it.
+# STUB_MODE: ok (finished: the orchestrator closes it with the verify) | accepted (proposes a reserved status) |
+#   legacy (proposes verified_auto with its own evidence) | unfinished (outcome unfinished) | dirty (leaves the tree
+#   dirty) | fail (exits 1 without a result) | blocked (blocked_by = $STUB_BLOCKED_BY, default Q-01) | noresult
+#   (commits, no result) | badresult (a result that is not JSON) | spec (its commit also edits spec/LOG.md) | outside
+#   (its commit also writes a file outside touches) | assume (finished with notes and an S-01 assumption) |
+#   block (a \"block\" {kind: STUB_BLOCK_KIND or spec_test_conflict, detail, refs}, DEC-029) | selfedit (its commit overwrites scripts/autopilot.sh, as a task that edits the orchestrator would) | deltest (its
+#   commit also deletes a test file next to its change);
+# STUB_CLAIM: claims.manual_pending of the result.
+# STUB_NOOP / STUB_FAIL / STUB_DEPLOY / STUB_WAIT: lists of tasks that end without changes / fail / wait for a deploy /
+# ask to wait for the approval of their tests/acceptance/ diff.
+# The implementer emits stream-json (like `--output-format stream-json --verbose`) and leaves in .autopilot/stub-env-<ID>.txt
+# what it sees of the environment (AUTOPILOT, CI and AUTOPILOT_PROBE, set by the tests' autopilot_env hook).
+# The LOG.md text of its result stays in Spanish, like a real one.
+# Its prompts are appended to .autopilot/stub-prompt-<ID>.txt. A relaunch after a demo deploy (the prompt carries the
+# deploy result) ends verified_auto, unless STUB_DEPLOY_AGAIN is set; it also records DEMO_SECRET (set only by the
+# tests' autopilot_deploy_env hook) and AUTOPILOT_DEMO_DEPLOY_CMD, which must not reach it.
+# STUB_ACCEPTANCE (with STUB_WAIT): delete | modify | rename | chmod | runner — besides its new file, its commit deletes,
+# rewrites a line of, renames or makes executable tests/acceptance/existing.txt, or writes package.json. A relaunch after
+# a reviewer approval of its acceptance diff (in the prompt) ends verified_auto, unless STUB_ACCEPTANCE_AGAIN is set.
+# STUB_PUSH=<remote>: before working, it tries `git push <remote> HEAD:refs/heads/stub-push-<ID>` and leaves its exit
+# code in .autopilot/stub-push-<ID>.txt (the children's pushurl is disabled, so it must fail).
+# Researcher (DEC-005; the prompt on stdin starts with "You are a researcher"): saves its prompt and arguments to
+# .autopilot/stub-research-prompt-<ID>.txt and stub-research-args-<ID>.txt (one per line), writes research/<ID>.md in
+# Spanish and prints a JSON result event. STUB_RESEARCH: retry (default: reintentar, confianza media) | cut (recortar,
+# with "Recorte propuesto") | escalate | low (reintentar, confianza baja) | invalid (no required sections) | none (no
+# report) | outside (also writes stray-<ID>.txt) | slow (sleeps 5 s first) | budget (partial report, error_max_budget_usd).
+# A relaunch with the research note in its prompt ends verified_auto, unless STUB_RESEARCH_AGAIN is set.
+# Every role gets its prompt on stdin and emits stream-json, as through the claude adapter (DEC-008); each saves its
+# arguments: .autopilot/stub-args-<ID>.txt (implementer), stub-args-review.txt, stub-research-args-<ID>.txt (one per
+# line). The reviewer answers STUB_VERDICT (default: a rejection with a cited finding), from its second review on
+# STUB_VERDICT_NEXT if set, keeps each prompt as .autopilot/stub-review-prompt-<n>.txt, leaves in
+# .autopilot/stub-env-review.txt what it sees of DEMO_SECRET and, with STUB_PUSH, tries a push like the implementer
+# (exit code in .autopilot/stub-push-review.txt). With STUB_REVIEW_USAGE its result reports tokens and US$ 0.05. STUB_PEEK=impl|review|research: that agent's stream shows a Read of
+# .autopilot/ (another agent's records), which the orchestrator's audit must catch; STUB_PEEK_PATH changes the path.
+# Test-author (DEC-006; prompt "You are the test-author"): writes tests/acceptance/<ID>.test.sh, a shell test that
+# passes once the implementer double wrote its change ("sh" is the acceptance command of the tests), and its result to
+# $AUTOPILOT_RESULT. STUB_TESTS: ok (default) | green (a test that already passes) | outside (also writes stray-<ID>.txt)
+# | strict (a test that never passes) | blocked | invalid (a result without "red") | readsrc (its stream reads app/src/, outside spec/ and tests/acceptance/).
+# Stop hooks (DEC-014): like Claude Code, the implementer runs the Stop hooks of its --settings when it ends (stdin
+# {"hook_event_name":"Stop"}); their exit codes go to .autopilot/stub-stop-<ID>.txt. STUB_HOOK=skip: it runs none (the
+# hook is down). STUB_EVIDENCE=forge: afterwards it rewrites the hook's report to claim 57 of 57 tests.
+# Implementer mode for DEC-011: missing (blocked by its first REQ with a missing_requirement for its change).
+# Implementer modes for DEC-006: dispute (blocked by its first REQ with a test_dispute) | touchtests (its commit, made
+# with --no-verify, also changes tests/acceptance/<ID>.test.sh).
+# Planner (DEC-010; prompt "You are the planner"): writes plans/<ID>.md with the fixed sections and keeps its prompt as
+# .autopilot/stub-plan-prompt-<ID>-<n>.txt and its arguments. STUB_PLAN: ok (default) | invalid (an extra section) |
+# none (writes nothing) | outside (also writes stray-<ID>.txt).
+# Critic (prompt "You are the critic"): answers STUB_CRITIC (a JSON object; default APROBAR with 3 sourced
+# assumptions and no findings), from its second invocation on STUB_CRITIC_NEXT if set; keeps each prompt as
+# .autopilot/stub-critic-prompt-<n>.txt and its arguments as stub-args-critic-<n>.txt. STUB_PEEK=critic reads .autopilot/.
+# A researcher prompt with "Report file: research/<name>.md" (a question of the critic) writes that report with
+# Pregunta, Respuesta, Evidencia and Fuentes.
+[ "$1" = "--version" ] && { echo "0.0.0 (Claude Code stub)"; exit 0; }
+[ "$1" = "-p" ] || exit 3
+input=$(cat)
+peek() { # $1 = role: a tool call into another agent's records when STUB_PEEK names this role
+  [ "${STUB_PEEK:-}" = "$1" ] || return 0
+  printf '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"p1","name":"Read","input":{"file_path":"%s"}}]}}\n' \
+    "${STUB_PEEK_PATH:-.autopilot/live.log}"
+  # STUB_PEEK_DENIED=1: the attempt gets the access guard's denial as its result (DEC-018: logged, not a breach)
+  [ -n "${STUB_PEEK_DENIED:-}" ] && echo '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"p1","is_error":true,"content":"PreToolUse:Read hook error: access_guard (DEC-016): denied: .autopilot/live.log is under a denied path"}]}}'
+}
+test_author() { # $1 = prompt; the test-author's double
+  local tid mode=${STUB_TESTS:-ok} target file
+  tid=$(printf '%s' "$1" | grep -o 'acceptance tests of task T-[0-9]*' | head -1 | grep -o 'T-[0-9]*')
+  printf '%s' "$1" >".autopilot/stub-tests-prompt-$tid.txt"
+  shift; printf '%s\n' "$@" >".autopilot/stub-args-tests-$tid.txt"
+  echo '{"type":"system","subtype":"init","model":"stub","session_id":"t1"}'
+  peek tests
+  [ "$mode" = readsrc ] && echo '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"r1","name":"Read","input":{"file_path":"app/src/orders/x.ts"}}]}}'
+  target=$(node -e '
+    const t=require(process.cwd()+"/spec/TASKS.json").tasks.find(t=>t.id===process.argv[1]);const ts=t.touches??[];
+    const dir=ts.find(p=>p.endsWith("/"));console.log(dir?dir+"stub-"+t.id+".txt":ts[0])' "$tid")
+  file=tests/acceptance/$tid.test.sh
+  if [ "$mode" != blocked ]; then
+    mkdir -p tests/acceptance
+    case "$mode" in
+      green) echo true >"$file" ;;
+      strict) echo "grep -q 'never written for $tid' $target" >"$file" ;;   # red now and after implementing
+      *) echo "grep -q 'stub change for $tid' $target" >"$file" ;;
+    esac
+  fi
+  [ "$mode" = outside ] && echo stray >"stray-$tid.txt"
+  node -e '
+    const [out, mode, file, id] = process.argv.slice(1);
+    const r = mode === "blocked" ? { blocked: "REQ-002 no tiene ejemplos", log: "- Hecho: sin pruebas para " + id + "." }
+      : { tests: [{ file, req: "REQ-002", example: "E1 de REQ-002" }], log: "- Hecho: pruebas de " + id + " escritas por el stub." };
+    if (mode !== "blocked" && mode !== "invalid") r.red = "falla: el cambio de " + id + " no existe todavía";
+    require("fs").writeFileSync(out, JSON.stringify(r));' "$AUTOPILOT_RESULT" "$mode" "$file" "$tid"
+  echo '{"type":"result","subtype":"success","is_error":false,"result":"tests written"}'
+}
+planner() { # $1 = prompt; the planner's double
+  local tid n mode=${STUB_PLAN:-ok}
+  tid=$(printf '%s' "$1" | grep -o 'plans/T-[0-9]*\.md' | head -1 | grep -o 'T-[0-9]*')
+  n=$(( $(ls .autopilot/stub-plan-prompt-"$tid"-* 2>/dev/null | wc -l) + 1 ))
+  printf '%s' "$1" >".autopilot/stub-plan-prompt-$tid-$n.txt"
+  shift; printf '%s\n' "$@" >".autopilot/stub-args-plan-$tid.txt"
+  echo '{"type":"system","subtype":"init","model":"stub","session_id":"p1"}'
+  peek plan
+  mkdir -p plans
+  case "$mode" in
+    none) ;;
+    *) { printf '# Plan de %s\n## Objetivo\nCumplir los REQ de %s (versión %s).\n## Pasos\n1. Escribir el cambio.\n' "$tid" "$tid" "$n"
+         printf '## Archivos\n- el primer path de touches\n## Supuestos\n- grep está disponible\n## Riesgos\n- ninguno conocido\n'
+         printf '## Verificación\n- correr sus pruebas de aceptación\n'
+         [ "$mode" = invalid ] && printf '## Autoevaluación\nEl plan es excelente.\n'
+       } >"plans/$tid.md" ;;
+  esac
+  [ "$mode" = outside ] && echo stray >"stray-$tid.txt"
+  echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.11,"result":"plan written: I am confident it is right"}'
+}
+critic() { # $1 = prompt; the critic's double
+  local n v
+  n=$(( $(cat .autopilot/stub-critic-count 2>/dev/null || echo 0) + 1 )); echo "$n" >.autopilot/stub-critic-count
+  printf '%s' "$1" >".autopilot/stub-critic-prompt-$n.txt"
+  shift; printf '%s\n' "$@" >".autopilot/stub-args-critic-$n.txt"
+  v=${STUB_CRITIC:-'{"verdict":"APROBAR","assumptions":[{"assumption":"grep existe","practice":"POSIX lo trae","sources":["https://example.com/grep"]},{"assumption":"sh existe","practice":"POSIX","sources":["https://example.com/sh"]},{"assumption":"git existe","practice":"siempre","sources":["https://example.com/git"]}],"findings":[],"summary":"bien"}'}
+  [ "$n" -gt 1 ] && [ -n "${STUB_CRITIC_NEXT:-}" ] && v=$STUB_CRITIC_NEXT
+  echo '{"type":"system","subtype":"init","model":"stub","session_id":"c1"}'
+  peek critic
+  node -e 'console.log(JSON.stringify({type:"result",subtype:"success",is_error:false,total_cost_usd:0.2,result:"Critique.\n```json\n"+process.argv[1]+"\n```\n"}))' "$v"
+}
+research() { # $1 = prompt; the researcher's double
+  local rid mode=${STUB_RESEARCH:-retry} action=reintentar confidence=media qfile
+  rid=$(printf '%s' "$1" | grep -o 'Task under investigation: T-[0-9]*' | grep -o 'T-[0-9]*')
+  qfile=$(printf '%s' "$1" | grep -o 'Report file: research/[^ ]*\.md' | head -1 | sed 's/^Report file: //')
+  if [ -n "$qfile" ]; then
+    printf '%s' "$1" >".autopilot/stub-research-prompt-$(basename "$qfile" .md).txt"
+    shift; printf '%s\n' "$@" >".autopilot/stub-research-args-$(basename "$qfile" .md).txt"
+    mkdir -p research
+    printf '# Investigación de %s (pregunta del crítico del plan)\n## Pregunta\nq\n## Respuesta\nr\n## Evidencia\ne\n## Fuentes\n- https://example.com/deep\n' "$rid" >"$qfile"
+    echo '{"type":"system","subtype":"init","model":"stub","session_id":"q1"}'
+    echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.5,"result":"answered"}'
+    return 0
+  fi
+  printf '%s' "$1" >".autopilot/stub-research-prompt-$rid.txt"
+  shift; printf '%s\n' "$@" >".autopilot/stub-research-args-$rid.txt"
+  [ "$mode" = slow ] && sleep 5
+  case "$mode" in cut) action=recortar ;; escalate) action=escalar ;; low) confidence=baja ;; esac
+  mkdir -p research
+  case "$mode" in
+    none) ;;
+    invalid) printf '# Investigación de %s\n## Causa probable\nalgo\n' "$rid" >"research/$rid.md" ;;
+    *) {
+         printf '# Investigación de %s\n## Causa probable\nLa dependencia cambió su API.\n' "$rid"
+         printf '## Evidencia\nEl intento 2 falla con el mismo error.\n## Fuentes\n- https://example.com/changelog\n'
+         printf '## Recomendación\nUsar la API nueva.\nAcción sugerida: %s\nConfianza: %s\n' "$action" "$confidence"
+         [ "$action" = recortar ] && printf '## Recorte propuesto\nTítulo: Exportación diferida\nDescripción: exportar cuando la API lo permita.\n'
+       } >"research/$rid.md" ;;
+  esac
+  [ "$mode" = outside ] && echo "stray" >"stray-$rid.txt"
+  echo '{"type":"system","subtype":"init","model":"stub","session_id":"r1"}'
+  peek research
+  if [ "$mode" = budget ]; then
+    echo '{"type":"result","subtype":"error_max_budget_usd","is_error":true,"total_cost_usd":2.31,"result":""}'; return 1
+  fi
+  echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.37,"result":"report written"}'
+}
+review() { # $1 = prompt; the reviewer's double (claude -p, stream-json)
+  local n v
+  n=$(( $(cat .autopilot/stub-review-count 2>/dev/null || echo 0) + 1 )); echo "$n" >.autopilot/stub-review-count
+  printf '%s' "$1" >".autopilot/stub-review-prompt-$n.txt"
+  shift; printf '%s\n' "$@" >.autopilot/stub-args-review.txt; cp .autopilot/stub-args-review.txt ".autopilot/stub-args-review-$n.txt"
+  { echo "DEMO_SECRET=${DEMO_SECRET:-}"; echo "TYPESAFE_API_KEY=${TYPESAFE_API_KEY:-}"; echo "OTHER_SECRET=${OTHER_SECRET:-}"; } >.autopilot/stub-env-review.txt   # DEMO_SECRET: set only by the tests' autopilot_deploy_env
+  if [ -n "${STUB_PUSH:-}" ]; then
+    local push_rc=0; git push -q "$STUB_PUSH" HEAD:refs/heads/stub-push-review >/dev/null 2>&1 || push_rc=$?
+    echo "$push_rc" >.autopilot/stub-push-review.txt
+  fi
+  v=${STUB_VERDICT:-'{"verdict":"rejected","findings":["REQ-001: E2 sin prueba (confirmado con npm test)"],"notes":"stub claude"}'}
+  [ "$n" -gt 1 ] && [ -n "${STUB_VERDICT_NEXT:-}" ] && v=$STUB_VERDICT_NEXT
+  echo '{"type":"system","subtype":"init","model":"stub","session_id":"v1"}'
+  peek review
+  node -e 'const r={type:"result",subtype:"success",is_error:false,num_turns:3,result:"Reviewed.\n```json\n"+process.argv[1]+"\n```\n"};
+    if(process.env.STUB_REVIEW_USAGE)Object.assign(r,{usage:{input_tokens:7,output_tokens:300,cache_read_input_tokens:9000,cache_creation_input_tokens:100},total_cost_usd:0.05});
+    console.log(JSON.stringify(r))' "$v"
+}
+case "$input" in
+  "You are a researcher"*) research "$input" "$@"; exit $? ;;
+  "You are the test-author"*) test_author "$input" "$@"; exit $? ;;
+  "You are the planner"*) planner "$input" "$@"; exit $? ;;
+  "You are the critic"*) critic "$input" "$@"; exit $? ;;
+  "Read AGENTS.md and execute "*) ;;   # the implementer
+  *) review "$input" "$@"; exit 0 ;;
+esac
+prompt=$input
+id=$(printf '%s' "$prompt" | grep -o 'T-[0-9]*' | head -1)
+if [ -n "${STUB_PUSH:-}" ]; then
+  push_rc=0; git push -q "$STUB_PUSH" "HEAD:refs/heads/stub-push-$id" >/dev/null 2>&1 || push_rc=$?
+  echo "$push_rc" >".autopilot/stub-push-$id.txt"
+fi
+mode=${STUB_MODE:-ok}
+case ",${STUB_NOOP:-}," in *",$id,"*) mode=noop ;; esac   # STUB_NOOP=T-03,…: ends fine without touching anything
+case ",${STUB_FAIL:-}," in *",$id,"*) mode=fail ;; esac   # STUB_FAIL=T-03,…: fails only on those tasks
+case ",${STUB_DEPLOY:-}," in *",$id,"*) mode=deploy ;; esac   # STUB_DEPLOY=T-03,…: a "deploy" {what, then} result
+case ",${STUB_WAIT:-}," in *",$id,"*) mode=wait ;; esac   # STUB_WAIT=T-03,…: awaiting_acceptance_approval
+# Relaunched after a demo deploy (its result is in the prompt): it finishes, unless STUB_DEPLOY_AGAIN asks for another.
+case "$prompt" in *"the orchestrator deployed this task"*) [ -n "${STUB_DEPLOY_AGAIN:-}" ] || mode=ok ;; esac
+case "$prompt" in *"Acceptance diff approved"*) [ -n "${STUB_ACCEPTANCE_AGAIN:-}" ] || mode=ok ;; esac
+case "$prompt" in *"Research note (DEC-005)"*) [ -n "${STUB_RESEARCH_AGAIN:-}" ] || mode=ok ;; esac
+printf '%s\n\x1e\n' "$prompt" >>".autopilot/stub-prompt-$id.txt"
+printf '%s\n' "$@" >".autopilot/stub-args-$id.txt"
+{ echo "AUTOPILOT=${AUTOPILOT:-}"; echo "CI=${CI:-}"; echo "AUTOPILOT_PROBE=${AUTOPILOT_PROBE:-}"; echo "USER_SECRET=${USER_SECRET:-}"; echo "NTFY_TOPIC=${NTFY_TOPIC:-}"; echo "AUTOPILOT_RESULT=${AUTOPILOT_RESULT:-}"; echo "AUTOPILOT_PUSH_REMOTE=${AUTOPILOT_PUSH_REMOTE:-}"; echo "DEMO_SECRET=${DEMO_SECRET:-}"; echo "AUTOPILOT_DEMO_DEPLOY_CMD=${AUTOPILOT_DEMO_DEPLOY_CMD:-}"; echo "CLAUDE_CODE_DISABLE_AUTO_MEMORY=${CLAUDE_CODE_DISABLE_AUTO_MEMORY:-}"; echo "TYPESAFE_API_KEY=${TYPESAFE_API_KEY:-}"; echo "OTHER_SECRET=${OTHER_SECRET:-}"; } >".autopilot/stub-env-$id.txt"
+echo '{"type":"system","subtype":"init","model":"stub","session_id":"s1"}'
+peek impl
+echo '{"type":"assistant","message":{"content":[{"type":"text","text":"Starting the task"},{"type":"tool_use","id":"u1","name":"Bash","input":{"command":"npm test"}}]}}'
+echo '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"u1","content":"Tests 25 passed"}]}}'
+ok_event="{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"done $id\",\"num_turns\":5,\"total_cost_usd\":0.42,\"usage\":{\"input_tokens\":44,\"output_tokens\":11440,\"cache_read_input_tokens\":1266786,\"cache_creation_input_tokens\":64481},\"is_error\":false}"
+result() { # $1 = outcome (finished, unfinished, awaiting_acceptance_approval, blocked, or a status to propose it the
+          # old way), $2 = log text; claims.manual_pending with STUB_CLAIM; notes and assumption in assume mode
+  node -e '
+    const [file, outcome, log, id, commit, mode] = process.argv.slice(1);
+    const r = { log };
+    if (["unfinished", "awaiting_acceptance_approval"].includes(outcome)) r.outcome = outcome;
+    else if (outcome === "deploy") r.deploy = { what: "desplegar", then: "correr la aceptación" };
+    else if (outcome === "blocked") r.blocked_by = process.env.STUB_BLOCKED_BY || "Q-01";
+    else if (outcome !== "finished" && outcome !== "deploy") { r.status = outcome; r.evidence = { command: "npm test", result: "25 pasan", commit }; } // legacy/forged
+    if (process.env.STUB_CLAIM) r.claims = { manual_pending: process.env.STUB_CLAIM };
+    if (mode === "dispute") {
+      r.blocked_by = require(process.cwd() + "/spec/TASKS.json").tasks.find((t) => t.id === id).reqs[0];
+      r.test_dispute = { file: "tests/acceptance/" + id + ".test.sh", reason: "la prueba exige algo que REQ no pide" };
+    }
+    if (mode === "missing") {
+      r.blocked_by = require(process.cwd() + "/spec/TASKS.json").tasks.find((t) => t.id === id).reqs[0];
+      r.missing_requirement = { lines: "app/src/orders/stub-" + id + ".txt:1", reason: "valida un caso que ningún REQ pide" };
+    }
+    if (mode === "block") r.block = { kind: process.env.STUB_BLOCK_KIND || "spec_test_conflict", detail: "REQ-001 E2 pide 3 y la prueba espera 4", refs: ["REQ-001"] }; // DEC-029
+    if (mode === "assume") {
+      r.notes = `Interpretación de ${id}: supuesto S-01.`;
+      r.assumptions = [{ id: "S-01", belief: "el stub | no falla", default: "sí", class: "reversible", trigger: "si falla" }];
+    }
+    require("fs").writeFileSync(file, JSON.stringify(r));' "$AUTOPILOT_RESULT" "$1" "$2" "$id" "$(git rev-parse --short HEAD)" "$mode"
+}
+if [ "$mode" = noop ]; then
+  result finished "- Hecho: $id ya estaba hecha; nada que cambiar."
+  echo '{"type":"result","subtype":"success","result":"already done","num_turns":2,"is_error":false}'; exit 0
+fi
+# DEC-024 modes: usage (its account's usage limit) | apierror (an API error) | hang (writes a half-done file, leaves
+# .autopilot/stub-hang-<ID> and sleeps STUB_HANG_SECONDS without output)
+[ "$mode" = usage ] && { echo '{"type":"result","subtype":"success","is_error":true,"result":"Claude AI usage limit reached|1792600000","api_error_status":429,"num_turns":1,"total_cost_usd":0}'; exit 1; }
+[ "$mode" = apierror ] && { echo '{"type":"result","subtype":"error_during_execution","is_error":true,"result":"API Error: 529 {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}","api_error_status":529,"num_turns":1,"total_cost_usd":0}'; exit 1; }
+if [ "$mode" = hang ]; then
+  echo "half-done $id" >"half-$id.txt"; : >".autopilot/stub-hang-$id"; sleep "${STUB_HANG_SECONDS:-60}"; exit 0
+fi
+[ "$mode" = fail ] && { echo '{"type":"result","subtype":"error_during_execution","result":"could not do it","num_turns":1,"total_cost_usd":0.01,"usage":{"input_tokens":3,"output_tokens":100,"cache_read_input_tokens":2000,"cache_creation_input_tokens":500},"is_error":true}'; exit 1; }
+# The change goes to the first directory of touches (or its first file).
+target=$(node -e '
+  const t=require(process.cwd()+"/spec/TASKS.json").tasks.find(t=>t.id===process.argv[1]);const ts=t.touches??[];
+  const dir=ts.find(p=>p.endsWith("/"));console.log(dir?dir+"stub-"+t.id+".txt":ts[0])' "$id")
+mkdir -p "$(dirname "$target")"
+echo "stub change for $id" >>"$target"   # appended: a relaunch on the same task also commits a change
+[ "$mode" = spec ] && printf '\n## stub · implementador\n- Hecho: edita spec/ por su cuenta\n' >>spec/LOG.md
+[ "$mode" = outside ] && echo "outside of touches" >"outside-$id.txt"
+[ "$mode" = selfedit ] && printf '#!/usr/bin/env bash\necho SELF-EDITED; exit 97\n' >scripts/autopilot.sh
+if [ "$mode" = wait ]; then
+  case "${STUB_ACCEPTANCE:-}" in
+    delete) git rm -q tests/acceptance/existing.txt ;;
+    modify) sed -i 's/^example one$/example uno/' tests/acceptance/existing.txt ;;
+    rename) git mv tests/acceptance/existing.txt tests/acceptance/renamed.txt ;;
+    chmod) chmod +x tests/acceptance/existing.txt ;;
+    runner) echo '{"scripts": {"test": "true"}}' >package.json ;;
+  esac
+fi
+[ "$mode" = touchtests ] && echo "# edited by the implementer" >>"tests/acceptance/$id.test.sh"
+# deltest (DEC-022): its commit also deletes the first test file under the directory of its change
+# edittest (DEC-034): its commit changes one expected value of the first test file there; newtest: it adds a test file
+[ "$mode" = edittest ] && sed -i 's/toBe(1)/toBe(2)/' "$(git ls-files -- "$(dirname "$target")" | grep -E '\.test\.' | head -1)"
+[ "$mode" = newtest ] && echo "it('new', () => {});" >"$(dirname "$target")/new-$id.test.ts"
+[ "$mode" = deltest ] && git rm -q "$(git ls-files -- "$(dirname "$target")" | grep -E '\.test\.' | head -1)"
+[ "$mode" = dirty ] && { echo '{"type":"result","result":"leaving it dirty","num_turns":1,"total_cost_usd":0.01,"is_error":false}'; exit 0; }
+reqs=$(node -e 'const t=require(process.cwd()+"/spec/TASKS.json").tasks.find(t=>t.id===process.argv[1]);console.log(t.reqs.length?t.reqs.join(", "):(t.kind==="tooling"?"N/A":"none"))' "$id")
+no_verify=(); [ "$mode" = touchtests ] && no_verify=(--no-verify)
+git add -A && git -c user.name=S -c user.email=s@example.com commit -q "${no_verify[@]}" -m "$id: stub" -m "Task: $id" -m "Req: $reqs"
+case "$mode" in
+  accepted) result accepted "- Hecho: $id (se otorga accepted)." ;;
+  missing) result blocked "- Hecho: $id necesita una línea que ningún REQ cubre.
+- Próxima acción autorizada: decide el orquestador." ;;
+  dispute) result blocked "- Hecho: $id disputa una prueba de aceptación.
+- Próxima acción autorizada: decide el orquestador." ;;
+  block) result finished "- Hecho: $id se detiene: declara un bloqueo.
+- Próxima acción autorizada: decide el usuario." ;;
+  blocked) result blocked "- Hecho: $id bloqueada.
+- Bloqueos nuevos: ${STUB_BLOCKED_BY:-Q-01}" ;;
+  deploy) result deploy "- Hecho: $id lista para desplegar." ;;
+  wait) result awaiting_acceptance_approval "- Hecho: $id escrita." ;;
+  noresult) ;;
+  badresult) echo 'not json' >"$AUTOPILOT_RESULT" ;;
+  unfinished) result unfinished "- Hecho: $id a medias." ;;
+  legacy) result verified_auto "- Hecho: $id (propone su estado y su evidencia)." ;;
+  *) result finished "- Hecho: $id implementada por el stub.
+- Próxima acción autorizada: revisión independiente de $id." ;;
+esac
+stop_hooks() { # runs the Stop hooks of --settings, as Claude Code does when the session ends
+  [ "${STUB_HOOK:-}" = skip ] && return 0
+  local settings="" prev="" a
+  for a in "$@"; do [ "$prev" = --settings ] && settings=$a; prev=$a; done
+  [ -n "$settings" ] || return 0
+  node -e 'for (const g of JSON.parse(process.argv[1]).hooks?.Stop ?? []) for (const h of g.hooks) console.log(h.command)' "$settings" |
+    while IFS= read -r cmd; do
+      local rc=0
+      echo '{"hook_event_name":"Stop","stop_hook_active":false}' | bash -c "$cmd" >/dev/null 2>>".autopilot/stub-stop-$id.err" || rc=$?
+      echo "$rc" >>".autopilot/stub-stop-$id.txt"
+    done
+  if [ "${STUB_EVIDENCE:-}" = forge ] && [ -n "${AUTOPILOT_RESULT:-}" ] && [ -e "$(dirname "$AUTOPILOT_RESULT")/evidence.json" ]; then
+    node -e 'const fs=require("fs");const f=process.argv[1];const r=JSON.parse(fs.readFileSync(f,"utf8"));
+      Object.assign(r,{passed:57,failed:0,total:57});fs.writeFileSync(f,JSON.stringify(r))' "$(dirname "$AUTOPILOT_RESULT")/evidence.json"
+  fi
+}
+stop_hooks "$@"
+echo "$ok_event"

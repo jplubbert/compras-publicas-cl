@@ -1,0 +1,11 @@
+{
+  "name": "compras-publicas-cl",
+  "private": true,
+  "scripts": {
+    "check:spec": "node scripts/check-spec.mjs",
+    "check:coverage": "node scripts/check-coverage.mjs",
+    "check:adr": "node scripts/check-adr.mjs",
+    "test:sdd": "node --test \"scripts/test/*.test.mjs\"",
+    "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true"
+  }
+}

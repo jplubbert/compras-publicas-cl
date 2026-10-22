@@ -1,0 +1,3 @@
+#!/bin/sh
+# Enabled by `git config core.hooksPath .githooks` (scripts/bootstrap.sh, or the npm prepare script). See scripts/check-spec.mjs.
+exec node "$(dirname "$0")/../scripts/check-spec.mjs" --root "$(git rev-parse --show-toplevel)" --commit-msg "$1"

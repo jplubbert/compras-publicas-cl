@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# `curl` double for the ntfy notice tests of scripts/autopilot.sh: records each call in $STUB_CURL_LOG
+# (arguments separated by \x1f, call terminated by \x1e) and exits with $STUB_CURL_RC (0 by default; 7 = can't connect).
+{ printf '%s\x1f' "$@"; printf '\x1e'; } >>"${STUB_CURL_LOG:-/dev/null}"
+exit "${STUB_CURL_RC:-0}"

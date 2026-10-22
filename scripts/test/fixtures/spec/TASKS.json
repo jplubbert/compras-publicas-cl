@@ -1,0 +1,192 @@
+{
+  "corte": 1,
+  "evidence_legacy": [
+    "T-02"
+  ],
+  "tasks": [
+    {
+      "id": "T-01",
+      "title": "Esqueleto andante",
+      "reqs": [
+        "REQ-001",
+        "REQ-002"
+      ],
+      "decisions": [
+        "DEC-001",
+        "DEC-002",
+        "DEC-003",
+        "DEC-004",
+        "DEC-005",
+        "DEC-006",
+        "DEC-007"
+      ],
+      "depends_on": [],
+      "status": "in_progress",
+      "touches": [
+        "app/",
+        "package.json"
+      ],
+      "evidence": null,
+      "review": null,
+      "blocked_by": null,
+      "verify": "printf '\\xe2\\x84\\xb9 tests 25\\n\\xe2\\x84\\xb9 pass 25\\n\\xe2\\x84\\xb9 fail 0\\n'"
+    },
+    {
+      "id": "T-02",
+      "title": "Guardas mecánicas del protocolo",
+      "reqs": [],
+      "decisions": [],
+      "depends_on": [],
+      "status": "verified_auto",
+      "touches": [
+        "scripts/"
+      ],
+      "evidence": {
+        "command": "npm test",
+        "result": "ok",
+        "commit": "0000000"
+      },
+      "review": null,
+      "blocked_by": null,
+      "verify": "printf '\\xe2\\x84\\xb9 tests 25\\n\\xe2\\x84\\xb9 pass 25\\n\\xe2\\x84\\xb9 fail 0\\n'"
+    },
+    {
+      "id": "T-03",
+      "title": "Pruebas de aceptación de REQ-001..004 (tarea de spec)",
+      "reqs": [
+        "REQ-001",
+        "REQ-002",
+        "REQ-003",
+        "REQ-004"
+      ],
+      "decisions": [
+        "DEC-007"
+      ],
+      "depends_on": [
+        "T-01"
+      ],
+      "status": "approved_for_impl",
+      "touches": [
+        "tests/acceptance/"
+      ],
+      "evidence": null,
+      "review": null,
+      "blocked_by": null,
+      "kind": "spec",
+      "verify": "printf '\\xe2\\x84\\xb9 tests 25\\n\\xe2\\x84\\xb9 pass 25\\n\\xe2\\x84\\xb9 fail 0\\n'"
+    },
+    {
+      "id": "T-04",
+      "title": "Funcionalidad de REQ-002",
+      "reqs": [
+        "REQ-002"
+      ],
+      "decisions": [
+        "DEC-005",
+        "DEC-006"
+      ],
+      "depends_on": [
+        "T-01",
+        "T-03"
+      ],
+      "status": "approved_for_impl",
+      "touches": [
+        "app/src/orders/"
+      ],
+      "evidence": null,
+      "review": null,
+      "blocked_by": null,
+      "verify": "printf '\\xe2\\x84\\xb9 tests 25\\n\\xe2\\x84\\xb9 pass 25\\n\\xe2\\x84\\xb9 fail 0\\n'"
+    },
+    {
+      "id": "T-05",
+      "title": "Funcionalidad de REQ-003",
+      "reqs": [
+        "REQ-003"
+      ],
+      "decisions": [
+        "DEC-004",
+        "DEC-005",
+        "DEC-006"
+      ],
+      "depends_on": [
+        "T-04"
+      ],
+      "status": "approved_for_impl",
+      "touches": [
+        "app/src/orders/discounts.ts"
+      ],
+      "evidence": null,
+      "review": null,
+      "blocked_by": null,
+      "verify": "printf '\\xe2\\x84\\xb9 tests 25\\n\\xe2\\x84\\xb9 pass 25\\n\\xe2\\x84\\xb9 fail 0\\n'"
+    },
+    {
+      "id": "T-06",
+      "title": "Funcionalidad de REQ-004",
+      "reqs": [
+        "REQ-004"
+      ],
+      "decisions": [
+        "DEC-004",
+        "DEC-006"
+      ],
+      "depends_on": [
+        "T-05"
+      ],
+      "status": "approved_for_impl",
+      "touches": [
+        "apps/admin/"
+      ],
+      "evidence": null,
+      "review": null,
+      "blocked_by": null,
+      "verify": "printf '\\xe2\\x84\\xb9 tests 25\\n\\xe2\\x84\\xb9 pass 25\\n\\xe2\\x84\\xb9 fail 0\\n'"
+    },
+    {
+      "id": "T-07",
+      "title": "Funcionalidad de REQ-001 y REQ-005",
+      "reqs": [
+        "REQ-001",
+        "REQ-005"
+      ],
+      "decisions": [
+        "DEC-003",
+        "DEC-004"
+      ],
+      "depends_on": [
+        "T-01",
+        "T-03"
+      ],
+      "status": "approved_for_impl",
+      "touches": [
+        "app/src/catalog/",
+        "README.md"
+      ],
+      "evidence": null,
+      "review": null,
+      "blocked_by": null,
+      "verify": "printf '\\xe2\\x84\\xb9 tests 25\\n\\xe2\\x84\\xb9 pass 25\\n\\xe2\\x84\\xb9 fail 0\\n'"
+    },
+    {
+      "id": "T-08",
+      "title": "Orquestador del autopilot",
+      "reqs": [],
+      "decisions": [],
+      "depends_on": [
+        "T-02"
+      ],
+      "status": "in_progress",
+      "touches": [
+        "scripts/autopilot.sh",
+        "scripts/lib/"
+      ],
+      "evidence": null,
+      "review": null,
+      "blocked_by": null,
+      "kind": "tooling",
+      "description": "Orquestador de prueba.",
+      "verify": "printf '\\xe2\\x84\\xb9 tests 25\\n\\xe2\\x84\\xb9 pass 25\\n\\xe2\\x84\\xb9 fail 0\\n'"
+    }
+  ]
+}
