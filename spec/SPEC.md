@@ -423,6 +423,8 @@ Trazas: objetivo §Criterio de éxito (1) · decisiones: DEC-003, DEC-004, DEC-0
 | S-11 | no hace falta `spec/COVERAGE.json` en este corte | sin regla de cobertura desde aceptación | diferible | un corte futuro la pide |
 | S-12 | 30 a 50 millones de filas sintéticas (~3–5 GB) bastan para que se note la diferencia | 40.000.000 filas, 5 años de fechas, 2.000 organismos | reversible | el ahorro medido es menor que 50 % |
 | S-13 | los nombres de recursos del proveedor `google` (Dataform, taxonomía de policy tags, cuota de BigQuery, presupuesto) siguen vigentes tras el apagado de Data Catalog | los que confirme T-02 | requiere spike | T-02 |
+| S-16 | una variable con `default = null` y un bloque `validation` cumple «variable obligatoria» de REQ-001: `terraform plan` sin ella falla con un mensaje que la nombra, sin pedirla interactivamente | `project_id`, `region` y `github_repository` con `default = null` y validación en las dos raíces | reversible | se quiere que Terraform pida la variable de forma interactiva o que falte sin default |
+| S-17 | las «cuentas de servicio del pipeline» de REQ-001 son las de ingesta, Dataform, Workflow y CI; la de CI lee bronze y los datasets por sus roles de proyecto, no por bindings en esos recursos | bronze y los datasets restringidos (raw, raw_ci, quarantine, quarantine_ci, pii) solo dan acceso a esas cuentas y a projectOwners | reversible | otro principal (analista, BI) necesita leer bronze o una capa restringida |
 
 ## Preguntas abiertas
 | ID | pregunta | clase (bloqueante/costosa/spike/diferible) | bloquea a | responsable | vence |
