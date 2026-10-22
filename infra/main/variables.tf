@@ -31,3 +31,15 @@ variable "github_repository" {
     error_message = "github_repository es obligatoria, con la forma owner/nombre."
   }
 }
+
+variable "schedule" {
+  description = "Cron schedule of the daily Workflow run (REQ-007, DEC-002)."
+  type        = string
+  default     = "30 23 * * *"
+}
+
+variable "time_zone" {
+  description = "Time zone of the daily schedule."
+  type        = string
+  default     = "America/Santiago"
+}

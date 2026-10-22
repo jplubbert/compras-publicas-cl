@@ -69,6 +69,31 @@ output "ci_actas" {
   value       = module.iam.ci_actas
 }
 
+output "orchestration" {
+  description = "Scheduler job, Workflow, Dataform repository and failure alert of the daily run (REQ-007)."
+  value       = module.orchestration.orchestration
+}
+
+output "workflow_actas" {
+  description = "actAs grant of the Workflow account on the Dataform account."
+  value       = module.iam.workflow_actas
+}
+
+output "ci_actas_pipeline" {
+  description = "actAs grants of the CI account on the Dataform, Workflow and Scheduler accounts."
+  value       = module.iam.ci_actas_pipeline
+}
+
+output "dataform_agent_actas" {
+  description = "Grants of the Dataform service agent on the Dataform account."
+  value       = module.iam.dataform_agent_actas
+}
+
+output "job_invokers" {
+  description = "Members that may run the ingest jobs."
+  value       = module.iam.job_invokers
+}
+
 output "enabled_apis" {
   description = "APIs enabled by this root."
   value       = module.apis.services

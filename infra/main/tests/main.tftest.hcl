@@ -6,8 +6,21 @@ mock_provider "google" {
       name = "projects/demo-proj/serviceAccounts/compras-mock@demo-proj.iam.gserviceaccount.com"
     }
   }
+  # Fixed ids: random 12-digit numbers would trip check:repo (literal-account).
+  mock_data "google_monitoring_notification_channel" {
+    defaults = {
+      name = "projects/demo-proj/notificationChannels/1"
+    }
+  }
 }
-mock_provider "google-beta" {}
+mock_provider "google-beta" {
+  mock_resource "google_project_service_identity" {
+    defaults = {
+      email  = "service-0@gcp-sa-dataform.iam.gserviceaccount.com"
+      member = "serviceAccount:service-0@gcp-sa-dataform.iam.gserviceaccount.com"
+    }
+  }
+}
 
 variables {
   project_id        = "demo-proj"
@@ -243,5 +256,140 @@ run "t08_apis" {
   assert {
     condition     = contains(output.enabled_apis, "run.googleapis.com") && contains(output.enabled_apis, "artifactregistry.googleapis.com")
     error_message = "the Run and Artifact Registry APIs must be enabled"
+  }
+}
+
+# REQ-007 E1: the Scheduler starts compras-diario at 23:30 America/Santiago, once, as its own account.
+run "t11_e1_scheduler" {
+  command = apply
+
+  assert {
+    condition = (output.orchestration.scheduler.schedule == "30 23 * * *" && output.orchestration.scheduler.time_zone == "America/Santiago"
+    && output.orchestration.scheduler.region == "us-central1")
+    error_message = "the Scheduler must run at 30 23 * * * America/Santiago in var.region"
+  }
+  assert {
+    condition = (startswith(output.orchestration.scheduler.uri, "https://workflowexecutions.googleapis.com/v1/")
+    && endswith(output.orchestration.scheduler.uri, "/executions"))
+    error_message = "the Scheduler must create an execution of the Workflow"
+  }
+  assert {
+    condition     = output.orchestration.scheduler.service_account == output.service_accounts["scheduler"] && output.orchestration.scheduler.retry_count == 0
+    error_message = "the Scheduler starts the Workflow as compras-scheduler, without retries"
+  }
+}
+
+# REQ-007 / DEC-002: the Workflow runs the daily.yaml file as is, as the Workflow account.
+run "t11_workflow" {
+  command = apply
+
+  assert {
+    condition = (output.orchestration.workflow.name == "compras-diario" && output.orchestration.workflow.region == "us-central1"
+    && output.orchestration.workflow.service_account == output.service_accounts["workflow"])
+    error_message = "the Workflow is compras-diario, in var.region, as the Workflow account"
+  }
+  assert {
+    condition     = output.orchestration.workflow.source_contents == file("../../orchestration/daily.yaml")
+    error_message = "the Workflow source must be orchestration/daily.yaml untouched"
+  }
+  assert {
+    condition = alltrue([for e in ["JOB_MERCADOPUBLICO", "JOB_INDICADORES", "DATAFORM_REPOSITORY", "DATAFORM_SERVICE_ACCOUNT", "RAW_DATASET"] :
+    contains(output.orchestration.workflow.env_names, e)])
+    error_message = "the Workflow needs the job, repository, Dataform account and raw dataset env vars"
+  }
+}
+
+# DEC-002 / DEC-009: the Dataform repository pulls main from GitHub with the token of Secret Manager.
+run "t11_repositorio_dataform" {
+  command = apply
+
+  assert {
+    condition = (output.orchestration.repository.url == "https://github.com/demo-owner/compras-publicas-cl.git"
+    && output.orchestration.repository.default_branch == "main")
+    error_message = "the repository must track main of the GitHub repository"
+  }
+  assert {
+    condition     = endswith(output.orchestration.repository.token_secret_version, "/secrets/dataform-github-token/versions/latest")
+    error_message = "the repository must read the latest version of dataform-github-token"
+  }
+  assert {
+    condition     = output.orchestration.repository.service_account == output.service_accounts["dataform"]
+    error_message = "the repository runs as the Dataform account"
+  }
+  assert {
+    condition = anytrue([for b in output.secret_bindings : b.secret_id == "dataform-github-token" && b.role == "roles/secretmanager.secretAccessor"
+    && b.member == "serviceAccount:service-0@gcp-sa-dataform.iam.gserviceaccount.com"])
+    error_message = "the Dataform service agent must read the GitHub token"
+  }
+}
+
+# REQ-007 E4: a failed execution of compras-diario alerts the email channel.
+run "t11_e4_alerta" {
+  command = apply
+
+  assert {
+    condition = (strcontains(output.orchestration.alert.filter, "workflows.googleapis.com/finished_execution_count")
+      && strcontains(output.orchestration.alert.filter, "metric.label.status = \"FAILED\"")
+    && strcontains(output.orchestration.alert.filter, "compras-diario"))
+    error_message = "the alert must count failed executions of compras-diario"
+  }
+  assert {
+    condition     = tolist(output.orchestration.alert.notification_channels) == tolist(["projects/demo-proj/notificationChannels/1"])
+    error_message = "the alert must notify the email channel"
+  }
+}
+
+# REQ-007: grants of the Scheduler, the Workflow, the Dataform agent and CI.
+run "t11_permisos" {
+  command = apply
+
+  assert {
+    condition     = contains(output.project_bindings, { role = "roles/workflows.invoker", member = "serviceAccount:${output.service_accounts["scheduler"]}" })
+    error_message = "the Scheduler account must invoke the Workflow"
+  }
+  assert {
+    condition = alltrue([for r in ["roles/dataform.editor", "roles/run.viewer"] :
+    contains(output.project_bindings, { role = r, member = "serviceAccount:${output.service_accounts["workflow"]}" })])
+    error_message = "the Workflow account must drive Dataform and read the job executions"
+  }
+  assert {
+    condition     = alltrue([for j in values(output.ingest_jobs) : contains(j.invokers, "serviceAccount:${output.service_accounts["workflow"]}")])
+    error_message = "the Workflow account must run both ingest jobs"
+  }
+  assert {
+    condition = (output.workflow_actas.role == "roles/iam.serviceAccountUser"
+      && output.workflow_actas.member == "serviceAccount:${output.service_accounts["workflow"]}"
+    && output.workflow_actas.service_account_email == output.service_accounts["dataform"])
+    error_message = "the Workflow account must act as the Dataform account (strict act-as mode)"
+  }
+  assert {
+    condition = (length(output.dataform_agent_actas) == 2 && alltrue([for r in ["roles/iam.serviceAccountUser", "roles/iam.serviceAccountTokenCreator"] :
+      anytrue([for g in output.dataform_agent_actas : g.role == r && g.member == "serviceAccount:service-0@gcp-sa-dataform.iam.gserviceaccount.com"
+    && g.service_account_email == output.service_accounts["dataform"]])]))
+    error_message = "the Dataform service agent must use and mint tokens of the Dataform account"
+  }
+  assert {
+    condition = alltrue([for k in ["dataform", "workflow", "scheduler"] :
+      output.ci_actas_pipeline[k].role == "roles/iam.serviceAccountUser"
+      && output.ci_actas_pipeline[k].member == "serviceAccount:compras-ci@demo-proj.iam.gserviceaccount.com"
+    && output.ci_actas_pipeline[k].service_account_email == output.service_accounts[k]])
+    error_message = "the CI account must act as the Dataform, Workflow and Scheduler accounts"
+  }
+  assert {
+    condition     = output.ci_actas.member == "serviceAccount:compras-ci@demo-proj.iam.gserviceaccount.com"
+    error_message = "the CI actAs on the ingest account must stay"
+  }
+}
+
+# DEC-002: schedule and time zone are variables.
+run "t11_horario_variable" {
+  command = plan
+  variables {
+    schedule = "0 22 * * *"
+  }
+
+  assert {
+    condition     = output.orchestration.scheduler.schedule == "0 22 * * *"
+    error_message = "the Scheduler must take var.schedule"
   }
 }

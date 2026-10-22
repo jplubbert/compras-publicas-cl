@@ -11,9 +11,14 @@ locals {
     # infra/main creates the ingest Cloud Run Jobs and their image repository; deploy.yml updates them (REQ-006).
     "roles/run.admin",
     "roles/artifactregistry.admin",
+    # T-11: infra/main creates the Workflow, the Scheduler job, the Dataform repository and the failure alert policy.
+    "roles/workflows.admin",
+    "roles/cloudscheduler.admin",
+    "roles/dataform.admin",
+    "roles/monitoring.editor",
   ]
   # Project-level roles CI may grant to the pipeline accounts; anything else (billing included) is denied.
-  ci_grantable_project_roles = ["roles/bigquery.jobUser"]
+  ci_grantable_project_roles = ["roles/bigquery.jobUser", "roles/workflows.invoker", "roles/dataform.editor", "roles/run.viewer"]
   ci_iam_admin_condition     = "api.getAttribute('iam.googleapis.com/modifiedGrantsByRole', []).hasOnly([${join(", ", formatlist("'%s'", local.ci_grantable_project_roles))}])"
 }
 

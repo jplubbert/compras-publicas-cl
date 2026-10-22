@@ -24,6 +24,12 @@ variable "raw_dataset" {
   default     = "raw"
 }
 
+variable "job_invokers" {
+  description = "Members granted roles/run.invoker on every job (the Workflow account, REQ-007)."
+  type        = list(string)
+  default     = []
+}
+
 variable "mp_daily_request_budget" {
   description = "Daily request budget of the Mercado Público job (S-06)."
   type        = number

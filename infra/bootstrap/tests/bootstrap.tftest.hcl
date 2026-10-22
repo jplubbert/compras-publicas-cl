@@ -81,6 +81,11 @@ run "t08_ci_run_y_artifact_registry" {
     condition     = contains(output.ci_project_roles, "roles/run.admin") && contains(output.ci_project_roles, "roles/artifactregistry.admin")
     error_message = "the CI account needs run.admin and artifactregistry.admin"
   }
+  assert {
+    condition = alltrue([for r in ["roles/workflows.admin", "roles/cloudscheduler.admin", "roles/dataform.admin", "roles/monitoring.editor"] :
+    contains(output.ci_project_roles, r)])
+    error_message = "the CI account needs the T-11 roles for Workflows, Scheduler, Dataform and the alert policy"
+  }
 }
 
 run "e2_without_project_id" {

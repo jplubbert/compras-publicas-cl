@@ -4,6 +4,11 @@ provider "google" {
   region  = var.region
 }
 
+provider "google-beta" {
+  project = var.project_id
+  region  = var.region
+}
+
 # Null-safe copies of the required variables: a missing value only yields its validation error.
 locals {
   project_id        = var.project_id == null ? "" : var.project_id
@@ -55,6 +60,7 @@ module "ingest_job" {
   region                = local.region
   service_account_email = module.iam.emails["ingest"]
   bronze_bucket         = module.storage.bronze_bucket.name
+  job_invokers          = module.iam.job_invokers
   depends_on            = [module.apis, module.iam]
 }
 
@@ -64,6 +70,31 @@ module "secrets" {
   region           = local.region
   secret_accessors = module.iam.secret_accessors
   depends_on       = [module.apis]
+}
+
+# Email channel created by infra/bootstrap (budget.tf) with alert_email; the Workflow failure alert reuses it.
+data "google_monitoring_notification_channel" "alert_email" {
+  project      = local.project_id
+  display_name = "Budget alerts"
+  type         = "email"
+}
+
+# The Dataform agent must already read the token and act as compras-dataform when the repository is created.
+module "orchestration" {
+  source                          = "../modules/orchestration"
+  project_id                      = local.project_id
+  region                          = local.region
+  github_repository               = local.github_repository
+  github_token_secret_id          = module.secrets.secret_names["dataform-github-token"]
+  dataform_service_account_email  = module.iam.emails["dataform"]
+  workflow_service_account_email  = module.iam.emails["workflow"]
+  scheduler_service_account_email = module.iam.emails["scheduler"]
+  job_mercadopublico              = module.ingest_job.ingest_jobs["mercadopublico"].name
+  job_indicadores                 = module.ingest_job.ingest_jobs["indicadores"].name
+  alert_channel_ids               = [data.google_monitoring_notification_channel.alert_email.name]
+  schedule                        = var.schedule
+  time_zone                       = var.time_zone
+  depends_on                      = [module.apis, module.iam, module.secrets]
 }
 
 module "quotas" {

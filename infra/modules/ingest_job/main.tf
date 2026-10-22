@@ -87,3 +87,17 @@ resource "google_cloud_run_v2_job" "this" {
     ignore_changes = [template[0].template[0].containers[0].image, client, client_version]
   }
 }
+
+# The daily Workflow runs the jobs (REQ-007, DEC-002).
+resource "google_cloud_run_v2_job_iam_member" "invoker" {
+  for_each = { for p in setproduct(keys(local.jobs), range(length(var.job_invokers))) : "${p[0]}/${p[1]}" => {
+    job    = p[0]
+    member = var.job_invokers[p[1]]
+  } }
+
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_job.this[each.value.job].name
+  role     = "roles/run.invoker"
+  member   = each.value.member
+}
