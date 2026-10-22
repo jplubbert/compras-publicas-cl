@@ -1,0 +1,22 @@
+{
+  "question_id": "review_verdict",
+  "instructions": "Does this independent review approve the change? Approve only if it reports no blocking finding.",
+  "state": "## Revisión de T-17: aprobada\n\n**Resultado:** apruebo la tarea. Ningún requisito queda sin cubrir y no encontré hallazgos bloqueantes.\n\n**Lo que corrí:**\n- **Evidencia:** el sha256 de `artifacts/T-17/verify.log` coincide con el registrado (`d2313e20…`). El log muestra 74 pruebas que pasan y ninguna que falle, entre ellas `e1_bucket_de_respaldo`, `e2_ci_solo_crea_objetos`, `sin_backup_project_id`, `backup_igual_al_proyecto`, `test_e3_deploy_backs_up_state_after_apply` y los seis casos de `backup-state.test.mjs`.\n- **Pruebas propias de la tarea:** `node --test --test-name-pattern=T-17 scripts/ci/tests/backup-state.test.mjs` sale con 0. Ninguna prueba lleva \"T-17\" en su nombre, así que el filtro no eligió casos E4/E5 concretos; el runner informó un solo test, el archivo. No pude correr el archivo sin filtro porque el permiso fue denegado. Los seis casos solo constan como aprobados en el log de evidencia.\n- **Otros chequeos:** `npm run check:repo` y `npm run lint` (incluido `terraform fmt -check`) pasan.\n- **No corrido:** `bash -n` sobre los scripts de shell (permiso denegado).\n\n**1. Requisitos (REQ-016):**\n- **E1:** el bucket está en `backup_project_id`, en `upper(var.region)`, versionado y con una sola regla de borrado a los 365 días. Hay prueba.\n- **E2:** la cuenta de servicio de CI recibe solo `roles/storage.objectCreator` sobre el bucket. Hay prueba de que no tiene roles de lectura ni de borrado, ni ninguno en el proyecto de respaldo.\n- **E3:** el paso de respaldo va después del apply, sin `if` ni `continue-on-error`, con `state pull` y subida a `infra-main%2F<marca>-${{ github.sha }}`. Hay prueba.\n  - El paso no necesita un `init` nuevo, porque `tf-apply.sh` deja inicializado `infra/main` sin `TF_DATA_DIR`.\n  - Las credenciales llegan al `state pull`, porque `env.sh` solo reescribe el `PATH`.\n- **E4 y E5:** probados con un `gcloud` simulado en un directorio temporal, sin tocar el estado local real.\n- **E6:** existe `scripts/it/state-backup.sh`; la prueba real queda como integración que corre el usuario.\n\n**2. Alcance:** todos los archivos cambiados están dentro de los `touches` de T-17.\n\n**3. Decisiones:** no veo ninguna violada.\n- **DEC-003:** la cuenta de CI no recibe roles de billing y el presupuesto sigue mirando solo `project_id`.\n- **DEC-004:** se usa WIF sin llaves y el token se enmascara en el log.\n- **DEC-009:** el bucket de respaldo vive en un proyecto aparte.\n\n```json\n{\"verdict\": \"approved\", \"findings\": [], \"notes\": \"Evidencia verificada: el sha256 de artifacts/T-17/verify.log coincide (d2313e20…) y el log muestra 74/74. `node --test --test-name-pattern=T-17 scripts/ci/tests/backup-state.test.mjs` sale con 0, pero ningún nombre de prueba cita T-17, así que el filtro no eligió casos E4/E5 concretos y el runner informó un solo test (el archivo); los seis casos de E4, E5 y bordes solo constan como aprobados en el log de evidencia. check:repo y lint (incluido terraform fmt -check) pasan. No se pudo correr `node --test` sin filtro sobre el archivo ni `bash -n` sobre scripts/it/state-backup.sh y killswitch-drill.sh (permiso denegado); conviene correrlos antes de E6. El paso de respaldo de deploy.yml no necesita un init nuevo: tf-apply.sh inicializa infra/main sin TF_DATA_DIR, y env.sh solo reescribe PATH, así que las credenciales de WIF llegan al state pull. E6 y la restauración documentada en el README (T-15) quedan pendientes para la integración manual.\"}\n```",
+  "options": {
+    "approved": "the review finds no blocking problem: the change can be accepted",
+    "rejected": "the review reports at least one blocking problem"
+  },
+  "answer": "approved",
+  "confidence": 0.82,
+  "probabilities": {
+    "approved": 0.91,
+    "rejected": 0.09
+  },
+  "model": "jev-1.13.0",
+  "user_criteria_sha256": "4b5fe8253cd2ce3f881a867a3a42fb91cca7f750479a10a48097785c98497310",
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "",
+  "decider": "/home/pepe/Projects/compras-publicas-cl/scripts/agents/decider/jev.sh",
+  "timestamp": "2026-10-22T15:04:41.007Z"
+}

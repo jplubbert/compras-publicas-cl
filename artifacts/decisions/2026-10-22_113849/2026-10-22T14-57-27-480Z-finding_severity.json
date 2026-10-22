@@ -1,0 +1,29 @@
+{
+  "question_id": "finding_severity",
+  "instructions": "Does this finding of a plan critique block implementing the plan as written?",
+  "state": {
+    "id": "req-016:gcloud-cp-requiere-get-con-objectcreator",
+    "severity": "P1",
+    "evidence_type": "fuente",
+    "evidence": "https://docs.cloud.google.com/storage/docs/uploading-objects — storage.objects.get y storage.objects.list: «only required if you plan on using the Google Cloud CLI to perform the tasks on this page»; roles/storage.objectCreator solo trae storage.objects.create.",
+    "summary": "El paso 6 sube el estado de infra/main con `gcloud storage cp` y REQ-016 limita la cuenta de servicio de CI a roles/storage.objectCreator. Según la documentación oficial, gcloud necesita además get y list para subir, así que el respaldo fallaría con 403 en cada deploy. El plan reconoce el riesgo, pero lo deja para que lo detecte el verify_integration; el job quedaría rojo en cada merge y E3/E6 no se cumplirían. Ampliar el rol rompería REQ-016 E2.",
+    "fix": "En deploy.yml, subir con una llamada que solo requiera storage.objects.create, por ejemplo: `curl --fail-with-body -sS -X POST -H \"Authorization: Bearer $(gcloud auth print-access-token)\" -H 'Content-Type: application/json' --data-binary @\"$state\" \"https://storage.googleapis.com/upload/storage/v1/b/${STATE_BACKUP_BUCKET}/o?uploadType=media&ifGenerationMatch=0&name=infra-main%2F<marca>-${{ github.sha }}.tfstate\"`. También vale una alternativa verificada contra la documentación de que no hace get ni list. Ajustar test_e3_deploy_backs_up_state_after_apply para que exija esa forma (upload/storage/v1, uploadType=media, /infra-main/ o infra-main%2F, y github.sha) en vez de `gcloud storage cp`, y anotar en Supuestos por qué. scripts/backup-state.sh puede seguir usando gcloud, porque lo corre el usuario como dueño."
+  },
+  "options": {
+    "blocking": "P0/P1: the plan cannot be implemented as written without fixing this",
+    "not_blocking": "P2/P3: worth fixing, but the plan can go ahead"
+  },
+  "answer": "blocking",
+  "confidence": 0.98,
+  "probabilities": {
+    "blocking": 0.99,
+    "not_blocking": 0.01
+  },
+  "model": "jev-1.13.0",
+  "user_criteria_sha256": "4b5fe8253cd2ce3f881a867a3a42fb91cca7f750479a10a48097785c98497310",
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "",
+  "decider": "/home/pepe/Projects/compras-publicas-cl/scripts/agents/decider/jev.sh",
+  "timestamp": "2026-10-22T14:57:27.480Z"
+}
