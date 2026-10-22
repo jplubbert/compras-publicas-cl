@@ -1,5 +1,5 @@
 # SPEC — compras-publicas-cl
-Versión: 1  ·  Corte 1: draft  ·  Nivel de riesgo (sdd.md §10.4): funcionalidad mediana
+Versión: 1  ·  Corte 1: aprobado por José Pedro Lübbert (2026-10-21)  ·  Nivel de riesgo (sdd.md §10.4): funcionalidad mediana
 
 <!--
 Variante "desarrollador único" de PCR: el Plan vive en este archivo (sección Plan) en vez de spec/PLAN.md.
@@ -85,7 +85,7 @@ de cuenta de servicio; (3) el README trae la tabla del benchmark con números re
 
 ## Requisitos
 
-### REQ-001 Infraestructura reproducible con Terraform · estado: proposed · prioridad: must
+### REQ-001 Infraestructura reproducible con Terraform · estado: approved_for_impl · prioridad: must
 Cuando el usuario aplica `infra/bootstrap` y luego `infra/main` con `project_id`, `region` y `github_repository` como
 únicas variables obligatorias, el sistema deberá crear: el bucket de estado (versionado); el pool y el proveedor de
 Workload Identity Federation restringidos al repo; el bucket bronze en `us-central1` con lifecycle (Nearline a los 30
@@ -108,7 +108,7 @@ Ejemplos (aceptación):
 | E6 negativo | `terraform test` | ningún binding de lectura sobre bronze, `raw`, `quarantine` ni `pii` para miembros fuera de las cuentas de servicio del pipeline |
 Trazas: objetivo §Criterio de éxito (1) · decisiones: DEC-001, DEC-004, DEC-005 · prueba: tests/acceptance/T-03*
 
-### REQ-002 CI/CD en GitHub Actions con WIF · estado: proposed · prioridad: must
+### REQ-002 CI/CD en GitHub Actions con WIF · estado: approved_for_impl · prioridad: must
 Cuando se abre o actualiza un pull request hacia `main`, el sistema deberá correr en GitHub Actions las comprobaciones
 locales (`npm run lint`, `npm test`, `npm run check:repo`, `npm run check:spec`, `dataform compile`) y `terraform plan`
 de `infra/main` autenticado con WIF, y publicar el resumen del plan como comentario del PR. Cuando se hace merge a
@@ -125,7 +125,7 @@ Ejemplos (aceptación):
 | E4 borde | PR desde un fork | el job `plan` tiene la condición `github.event.pull_request.head.repo.full_name == github.repository` |
 Trazas: objetivo §Criterio de éxito (2) · decisiones: DEC-004, DEC-005 · prueba: tests/acceptance/T-04*
 
-### REQ-003 Tope de gasto · estado: proposed · prioridad: must
+### REQ-003 Tope de gasto · estado: approved_for_impl · prioridad: must
 Cuando el gasto real del mes llega al 50 % o al 90 % del presupuesto (USD 10 por defecto), el sistema deberá avisar por
 correo. Cuando llega al 100 %, la función desvinculadora deberá quitar la cuenta de facturación del proyecto. Toda
 consulta de BigQuery deberá correr bajo la cuota diaria del proyecto (S-07), y las consultas de Dataform y de los
@@ -144,7 +144,7 @@ Ejemplos (aceptación):
 | E6 positivo | `terraform test` de `infra/main` y `dataform compile` | la cuota diaria de bytes de query existe y `workflow_settings.yaml` fija `maximumBytesBilled` |
 Trazas: objetivo §Criterio de éxito (3) · decisiones: DEC-003 · prueba: tests/acceptance/T-05*
 
-### REQ-004 Ingesta de Mercado Público a bronze · estado: proposed · prioridad: must
+### REQ-004 Ingesta de Mercado Público a bronze · estado: approved_for_impl · prioridad: must
 Cuando el job de ingesta corre para la fecha D (por defecto ayer en America/Santiago, o `--date`), el sistema deberá
 pedir el listado diario de licitaciones y de órdenes de compra de D, después el detalle de cada código (primero las
 licitaciones, después las OC), y escribir
@@ -173,7 +173,7 @@ Ejemplos (aceptación):
 | E8 positivo | cursor con D−2 a medio procesar y fecha D | termina D−2, procesa D−1 y luego D, en ese orden, hasta agotar el presupuesto |
 Trazas: objetivo §Alcance 2 · decisiones: DEC-004, DEC-006 · prueba: tests/acceptance/T-06*
 
-### REQ-005 Ingesta del Banco Central y de mindicador a bronze · estado: proposed · prioridad: must
+### REQ-005 Ingesta del Banco Central y de mindicador a bronze · estado: approved_for_impl · prioridad: must
 Cuando el job de indicadores corre para la fecha D, el sistema deberá pedir a la BDE las series de UF, dólar observado e
 IPC (S-08) desde D−10 hasta D (para captar revisiones, usando `updatedAt`) y a mindicador.cl la UF y el dólar de D, y
 escribir las respuestas crudas en bronze (`bcentral/<serie>/…` y `mindicador/<indicador>/…`) con los metadatos de
@@ -190,7 +190,7 @@ Ejemplos (aceptación):
 | E4 negativo | mindicador da timeout | aviso en el registro, sin archivo de mindicador y sale en 0 |
 Trazas: objetivo §Alcance 2 · decisiones: DEC-004, DEC-006 · prueba: tests/acceptance/T-07*
 
-### REQ-006 Carga de bronze a BigQuery raw · estado: proposed · prioridad: must
+### REQ-006 Carga de bronze a BigQuery raw · estado: approved_for_impl · prioridad: must
 Cuando una corrida de ingesta termina de escribir bronze, el sistema deberá lanzar un load job de BigQuery (gratis, no
 streaming) por entidad desde los archivos de esa corrida a `raw.<fuente>_<entidad>`, particionada por `_ingest_date`,
 con `WRITE_APPEND`, esquema declarado en el repo (sin autodetect) y las columnas `run_id` y `_ingest_date`. Cuando se
@@ -209,7 +209,7 @@ Ejemplos (aceptación):
 | E5 positivo | `.github/workflows/deploy.yml` | tras el job `apply`, un job que depende de él publica la imagen con `${{ github.sha }}`, actualiza los 2 jobs y corre Dataform con `schemaSuffix: "ci"` y `raw_dataset=raw_ci` |
 Trazas: objetivo §Alcance 2 · decisiones: DEC-006 · prueba: tests/acceptance/T-08*
 
-### REQ-007 Orquestación diaria · estado: proposed · prioridad: must
+### REQ-007 Orquestación diaria · estado: approved_for_impl · prioridad: must
 Cuando llega la hora programada (23:30 America/Santiago por defecto, dentro de la ventana de R-04), Cloud Scheduler
 deberá lanzar el Workflow, que ejecuta en orden el job de Mercado Público, el de indicadores y la invocación de Dataform
 (compilación desde `main` con `codeCompilationConfig.vars` que trae `policy_tag_rut` y `raw_dataset`, y ejecución de las
@@ -227,7 +227,7 @@ Ejemplos (aceptación):
 | E5 negativo | integración: el job de Mercado Público falla (ticket inválido) | la ejecución del Workflow queda `FAILED`, no hay invocación de Dataform y llega el correo |
 Trazas: objetivo §Criterio de éxito (1) · decisiones: DEC-002 · prueba: tests/acceptance/T-11*
 
-### REQ-008 Silver incremental en Dataform · estado: proposed · prioridad: must
+### REQ-008 Silver incremental en Dataform · estado: approved_for_impl · prioridad: must
 Cuando Dataform corre, el sistema deberá materializar `silver.licitaciones`, `silver.ordenes_compra`,
 `silver.licitacion_items`, `silver.compradores`, `silver.proveedores` e `silver.indicadores_diarios` como tablas
 incrementales con MERGE por clave natural (código de licitación, código de OC, código + correlativo de ítem, código de
@@ -247,7 +247,7 @@ Ejemplos (aceptación):
 | E4 positivo | en `ci`: UF con `ND` en un día | fila con `valor NULL` y `es_nd TRUE` |
 Trazas: objetivo §Alcance 2 · decisiones: DEC-001, DEC-006 · prueba: tests/acceptance/T-09*
 
-### REQ-009 Assertions y criterio de promoción · estado: proposed · prioridad: must
+### REQ-009 Assertions y criterio de promoción · estado: approved_for_impl · prioridad: must
 Cuando Dataform corre, cada modelo de silver y de gold deberá ejecutar sus assertions: `uniqueKey` sobre su clave,
 `nonNull` sobre la clave y las fechas, y `rowConditions` de dominio (monto ≥ 0, fecha de cierre ≥ fecha de publicación,
 estado dentro del catálogo). Además deberá haber assertions de continuidad (UF con un valor por día calendario y dólar
@@ -265,7 +265,7 @@ Ejemplos (aceptación):
 | E5 borde | en `ci`: el dólar no tiene observaciones de viernes a lunes (feriado y fin de semana, 4 días) | `assert_dolar_continuidad` pasa; con 5 días falla |
 Trazas: objetivo §Objetivo («calidad como código») · decisiones: DEC-001 · prueba: tests/acceptance/T-10*
 
-### REQ-010 Cuarentena con motivo · estado: proposed · prioridad: must
+### REQ-010 Cuarentena con motivo · estado: approved_for_impl · prioridad: must
 Cuando una fila de raw no cumple una regla de fila (RUT con dígito verificador inválido, monto negativo, moneda fuera de
 CLP/USD/UF/UTM/EUR, fecha fuera de 2000-01-01 … D+1 o clave nula), el sistema deberá escribirla en
 `quarantine.<entidad>` con `motivos` (ARRAY de códigos de regla), `run_id` y `quarantined_at`, y no deberá pasarla a
@@ -281,7 +281,7 @@ Ejemplos (aceptación):
 | E4 positivo | RUT `12.345.678-5`, monto 0, moneda `CLP` | sin motivos |
 Trazas: objetivo §Objetivo («calidad como código») · decisiones: DEC-001 · prueba: tests/acceptance/T-10*
 
-### REQ-011 Descripciones obligatorias persistidas · estado: proposed · prioridad: must
+### REQ-011 Descripciones obligatorias persistidas · estado: approved_for_impl · prioridad: must
 Cuando se compila Dataform, cada modelo y cada columna de silver, gold y quarantine deberá tener una descripción en
 español (`description` y `columns` del `config`), que Dataform persiste en BigQuery.
 Si un modelo o una columna no tiene descripción, entonces `npm run check:descriptions` (que corre en CI) deberá fallar
@@ -295,7 +295,7 @@ Ejemplos (aceptación):
 | E4 positivo | en `ci`: `INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` de `silver.licitaciones` | cada columna tiene `description` no vacía |
 Trazas: objetivo §Alcance 2 (gobierno) · decisiones: DEC-001 · prueba: tests/acceptance/T-09*
 
-### REQ-012 Capa final (gold) · estado: proposed · prioridad: must
+### REQ-012 Capa final (gold) · estado: approved_for_impl · prioridad: must
 Cuando Dataform corre, el sistema deberá materializar `gold.fct_licitaciones` y `gold.fct_ordenes_compra` (montos en CLP,
 en UF de la fecha del documento y en USD al dólar observado), `gold.dim_comprador`, `gold.dim_proveedor` y
 `gold.mart_organismo_mes` (monto adjudicado en UF, número de licitaciones, tasa de desiertas y de revocadas por
@@ -317,7 +317,7 @@ Ejemplos (aceptación):
 | E6 negativo | en `ci`: se inyecta una licitación duplicada en silver | `gold.fct_licitaciones` conserva su `last_modified_time` |
 Trazas: objetivo §Alcance 3, «calidad como código» · decisiones: DEC-001 · prueba: tests/acceptance/T-12*
 
-### REQ-013 Benchmark antes y después · estado: proposed · prioridad: must
+### REQ-013 Benchmark antes y después · estado: approved_for_impl · prioridad: must
 Cuando el usuario corre `benchmarks/run.py`, el sistema deberá generar en `bench` las licitaciones sintéticas de S-12
 con SQL determinista (DEC-007), crear tres variantes (sin partición; particionada por fecha; particionada y
 clusterizada con `require_partition_filter`), correr cada query de `benchmarks/queries/` sobre cada variante con
@@ -336,7 +336,7 @@ Ejemplos (aceptación):
 | E4 borde | `--dry-run` | la columna se titula «bytes estimados (cota superior)» |
 Trazas: objetivo §Criterio de éxito (3) · decisiones: DEC-003, DEC-007 · prueba: tests/acceptance/T-13*
 
-### REQ-014 Policy tags sobre el RUT de personas naturales · estado: proposed · prioridad: must
+### REQ-014 Policy tags sobre el RUT de personas naturales · estado: approved_for_impl · prioridad: must
 Cuando se aplica Terraform, el sistema deberá crear una taxonomía `compras_publicas` con control de acceso fino activado
 y la policy tag `dato_personal.rut`, conceder `roles/datacatalog.categoryFineGrainedReader` sobre ella solo a los
 miembros de la variable `pii_readers` y a las cuentas de servicio de Dataform y de CI (que la leen al materializar), y
@@ -361,7 +361,7 @@ Ejemplos (aceptación):
 | E4 negativo | integración: una cuenta de servicio de lectura sin el rol hace `SELECT rut_persona_natural` | error de acceso; `SELECT rut_empresa` funciona |
 Trazas: objetivo §Objetivo («policy tags») · decisiones: DEC-008 · prueba: tests/acceptance/T-14*
 
-### REQ-015 README de portafolio · estado: proposed · prioridad: must
+### REQ-015 README de portafolio · estado: approved_for_impl · prioridad: must
 Cuando un evaluador abre el repo, el README deberá tener, en este orden: resumen de una línea y diagrama de arquitectura;
 qué demuestra (tabla requisito del rol → pieza del repo); cómo reproducir (prerrequisitos, bootstrap, carga de
 secretos, apply, primera corrida); costos y FinOps (tope, cuotas, costo mensual medido); benchmark (la tabla de
@@ -401,9 +401,9 @@ Trazas: objetivo §Criterio de éxito (1)(3) · decisiones: DEC-001 · prueba: t
 ## Preguntas abiertas
 | ID | pregunta | clase (bloqueante/costosa/spike/diferible) | bloquea a | responsable | vence |
 |---|---|---|---|---|---|
-| Q-01 | ¿El proyecto GCP va en una cuenta nueva (crédito de USD 300 por 90 días) o en una existente? | diferible | `verify_integration` de T-03 | usuario | antes de aplicar el bootstrap |
-| Q-02 | ¿Ya tienes el ticket de Mercado Público (Clave Única) y el usuario de la BDE? | diferible | `verify_integration` de T-06, T-07 | usuario | antes de la primera corrida real |
-| Q-03 | ¿Cuál es el correo de las alertas (presupuesto y Workflow)? | diferible | `verify_integration` de T-05, T-11 | usuario | antes de aplicar el bootstrap |
+| Q-01 | ¿El proyecto GCP va en una cuenta nueva (crédito de USD 300 por 90 días) o en una existente? | resuelta 2026-10-21: cuenta nueva (respuesta del usuario) | — | usuario | — |
+| Q-02 | ¿Ya tienes el ticket de Mercado Público (Clave Única) y el usuario de la BDE? | diferible; 2026-10-21: todavía no, los obtiene el usuario | `verify_integration` de T-06, T-07 | usuario | antes de la primera corrida real |
+| Q-03 | ¿Cuál es el correo de las alertas (presupuesto y Workflow)? | resuelta 2026-10-21: el Gmail del usuario; va en la variable `alert_email` de un `terraform.tfvars` fuera de git (repo público, R-05) | — | usuario | — |
 
 ## Plan (corte 1)
 ### Diseño
@@ -462,8 +462,8 @@ Fase 3, valor:
 - [x] Cada REQ con ID, ≥1 ejemplo positivo y ≥1 negativo/borde
 - [x] Sin preguntas bloqueantes/costosas abiertas que el corte consuma (Q-01 a Q-03 son diferibles y solo afectan la
   integración)
-- [ ] Decisiones globales consumidas en `accepted` o con spike en curso (DEC-001 a DEC-008 `proposed`; se aceptan con
-  la aprobación del corte)
+- [x] Decisiones globales consumidas en `accepted` o con spike en curso (DEC-001 a DEC-008 aceptadas por José Pedro
+  Lübbert el 2026-10-21; S-13 y S-14 con el spike T-02)
 - [x] Conjunto coherente: objetivo→REQ→ejemplo, sin conflictos, glosario
-- [ ] Revisión independiente sin bloqueos nuevos
+- [x] Revisión independiente sin bloqueos nuevos (10 hallazgos corregidos; crítica ESCALAR resuelta por el usuario)
 - Presupuesto del bloque: 1 sesión; al agotarse: cortar (la fase 3 pasa a «Cortes futuros»)

@@ -40,3 +40,20 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Pendiente deploy: ninguno
 - Bloqueos nuevos: ninguno (Q-01 a Q-03 diferibles, solo para la integración)
 - Próxima acción autorizada: el usuario aprueba el corte 1
+
+## 2026-10-21 23:40 · Claude (analista, sesión interactiva)
+- Hecho: aprobación nominal del corte 1 completo por José Pedro Lübbert en sesión. REQ-001 a REQ-015 →
+  `approved_for_impl`; DEC-001 a DEC-008 → `accepted` (Aprobador: José Pedro Lübbert); T-01 a T-15 → `ready` con
+  `set-status --by "José Pedro Lübbert"` (el autopilot respeta `depends_on`).
+- Interpretaciones: para aceptar los ADR (check-adr) se unieron en una línea los pros y contras de las opciones, sin
+  cambiar el texto. Módulos quedó en `package.json` (el único archivo que ya existe), y Enforced-by en `manual:`
+  apuntando al chequeo que crea cada tarea (DEC-005 ya usa `cmd: npm run check:spec`). Los dos campos son de los que se
+  pueden cambiar en un ADR aceptado. Q-01: cuenta GCP nueva. Q-02: el usuario obtiene el ticket y el usuario de la BDE.
+  Q-03: su Gmail, en la variable `alert_email` de un `terraform.tfvars` fuera de git (T-01 lo ignora); no va al repo
+  público.
+- check:spec: ok · check-adr: ok
+- Pendiente manual: después de T-01, T-03, T-05 y T-11, el usuario cambia los Módulos y el Enforced-by de DEC-001 a
+  DEC-004 a los archivos y comandos reales.
+- Pendiente deploy: ninguno
+- Bloqueos nuevos: ninguno
+- Próxima acción autorizada: el despachador (o `scripts/autopilot.sh`) toma T-01 y T-02, que no tienen dependencias

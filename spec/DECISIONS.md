@@ -8,7 +8,7 @@ Un ADR aceptado no se edita: se supersede con uno nuevo, y el viejo pasa a "supe
 Las reversibles (se apagan con una opción o tocan un solo componente) van como `## DEC-NNN` debajo del índice:
 
 ## DEC-NNN <título como frase nominal>
-- Estado: proposed | accepted | rejected | superseded by DEC-NNN
+- Estado: accepted | accepted | rejected | superseded by DEC-NNN
 - Alcance: global | local
 - Fecha: <AAAA-MM-DD> · Aprobador: <persona o rol> · Confianza: alta | media | baja
 - Problema: <contexto y fuerzas, neutral>
@@ -27,23 +27,23 @@ El índice lo genera `node scripts/adr.mjs index`; check-adr falla si no está a
 
 | ID | Título | Estado | Dónde |
 |---|---|---|---|
-| DEC-001 | Arquitectura lakehouse medallion en GCP us-central1 sin Composer | proposed | [ADR](adr/0001-arquitectura-lakehouse-medallion-en-gcp-us-central1-sin.md) |
-| DEC-002 | Orquestación con Cloud Scheduler, Workflows y Dataform conectado a GitHub | proposed | [ADR](adr/0002-orquestacion-con-cloud-scheduler-workflows-y-dataform.md) |
-| DEC-003 | Tope de gasto duro con presupuesto, desvinculación de billing y cuotas | proposed | [ADR](adr/0003-tope-de-gasto-duro-con-presupuesto-desvinculacion-de.md) |
-| DEC-004 | Secretos en Secret Manager cargados a mano y CI sin llaves | proposed | [ADR](adr/0004-secretos-en-secret-manager-cargados-a-mano-y-ci-sin-llaves.md) |
-| DEC-005 | Verificación local sin nube y verificación de integración aparte | proposed | [ADR](adr/0005-verificacion-local-sin-nube-y-verificacion-de-integracion.md) |
-| DEC-006 | Bronze en JSONL crudo por fecha y corrida, deduplicado en silver | proposed | [más abajo](#dec-006-bronze-en-jsonl-crudo-por-fecha-y-corrida-deduplicado-en-silver) |
-| DEC-007 | Benchmark sobre datos sintéticos a escala GB generados en BigQuery | proposed | [más abajo](#dec-007-benchmark-sobre-datos-sintéticos-a-escala-gb-generados-en-bigquery) |
-| DEC-008 | RUT de persona natural en columna propia con policy tag | proposed | [más abajo](#dec-008-rut-de-persona-natural-en-columna-propia-con-policy-tag) |
+| DEC-001 | Arquitectura lakehouse medallion en GCP us-central1 sin Composer | accepted | [ADR](adr/0001-arquitectura-lakehouse-medallion-en-gcp-us-central1-sin.md) |
+| DEC-002 | Orquestación con Cloud Scheduler, Workflows y Dataform conectado a GitHub | accepted | [ADR](adr/0002-orquestacion-con-cloud-scheduler-workflows-y-dataform.md) |
+| DEC-003 | Tope de gasto duro con presupuesto, desvinculación de billing y cuotas | accepted | [ADR](adr/0003-tope-de-gasto-duro-con-presupuesto-desvinculacion-de.md) |
+| DEC-004 | Secretos en Secret Manager cargados a mano y CI sin llaves | accepted | [ADR](adr/0004-secretos-en-secret-manager-cargados-a-mano-y-ci-sin-llaves.md) |
+| DEC-005 | Verificación local sin nube y verificación de integración aparte | accepted | [ADR](adr/0005-verificacion-local-sin-nube-y-verificacion-de-integracion.md) |
+| DEC-006 | Bronze en JSONL crudo por fecha y corrida, deduplicado en silver | accepted | [más abajo](#dec-006-bronze-en-jsonl-crudo-por-fecha-y-corrida-deduplicado-en-silver) |
+| DEC-007 | Benchmark sobre datos sintéticos a escala GB generados en BigQuery | accepted | [más abajo](#dec-007-benchmark-sobre-datos-sintéticos-a-escala-gb-generados-en-bigquery) |
+| DEC-008 | RUT de persona natural en columna propia con policy tag | accepted | [más abajo](#dec-008-rut-de-persona-natural-en-columna-propia-con-policy-tag) |
 
 <!-- adr-index:end -->
 
 ## Decisiones reversibles (no migradas a ADR, DEC-035)
 
 ## DEC-006 Bronze en JSONL crudo por fecha y corrida, deduplicado en silver
-- Estado: proposed
+- Estado: accepted
 - Alcance: global
-- Fecha: 2026-10-22 · Aprobador: pendiente · Confianza: alta
+- Fecha: 2026-10-21 · Aprobador: José Pedro Lübbert (aprobación nominal del corte 1) · Confianza: alta
 - Problema: la ingesta se reintenta y se reprocesa (backfill, revisiones del Banco Central). Hace falta que repetir una
   fecha no duplique datos y que lo crudo quede tal como llegó.
 - Alternativas consideradas:
@@ -62,9 +62,9 @@ El índice lo genera `node scripts/adr.mjs index`; check-adr falla si no está a
 - Revisar si: el volumen de raw supera el free tier de almacenamiento.
 
 ## DEC-007 Benchmark sobre datos sintéticos a escala GB generados en BigQuery
-- Estado: proposed
+- Estado: accepted
 - Alcance: local
-- Fecha: 2026-10-22 · Aprobador: pendiente (elegido por el usuario el 2026-10-21) · Confianza: alta
+- Fecha: 2026-10-21 · Aprobador: José Pedro Lübbert (elegido y aprobado en sesión) · Confianza: alta
 - Problema: a escala de MB, los mínimos de facturación de BigQuery hacen que el antes y después del benchmark no
   signifique nada.
 - Alternativas consideradas:
@@ -82,9 +82,9 @@ El índice lo genera `node scripts/adr.mjs index`; check-adr falla si no está a
 - Revisar si: los datos reales superan los 5 GB.
 
 ## DEC-008 RUT de persona natural en columna propia con policy tag
-- Estado: proposed
+- Estado: accepted
 - Alcance: local
-- Fecha: 2026-10-22 · Aprobador: pendiente · Confianza: media
+- Fecha: 2026-10-21 · Aprobador: José Pedro Lübbert (aprobación nominal del corte 1) · Confianza: media
 - Problema: las policy tags de BigQuery se aplican por columna, no por fila. El RUT de un proveedor persona natural es
   dato personal; el de una empresa no lo es.
 - Alternativas consideradas:

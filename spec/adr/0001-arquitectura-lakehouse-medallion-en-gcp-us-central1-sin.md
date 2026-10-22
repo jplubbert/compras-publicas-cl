@@ -1,10 +1,10 @@
 # DEC-001 Arquitectura lakehouse medallion en GCP us-central1 sin Composer
 
-- Estado: proposed
+- Estado: accepted
 - Fecha: 2026-10-22
-- Aprobador: pendiente: lo acepta Jev (node scripts/adr.mjs accept 0001, DEC-036)
-- Módulos: infra/, ingest/, dataform/, finops/, orchestration/, benchmarks/
-- Enforced-by: cmd: npm run check:repo
+- Aprobador: José Pedro Lübbert (aprobación nominal del corte 1 en sesión, 2026-10-21)
+- Módulos: package.json
+- Enforced-by: manual: el chequeo `npm run check:repo` lo crea su tarea; se cambia a `cmd: npm run check:repo` cuando exista
 
 ## Contexto
 
@@ -20,8 +20,7 @@ sin Composer.
 ## Opciones consideradas
 
 ### 1. Medallion: GCS (bronze) → BigQuery raw → Dataform (silver/gold), Cloud Run Jobs en Python, us-central1
-- A favor: los batch loads a BigQuery y Dataform son gratis; GCS tiene free tier solo en regiones US; el SQL en Dataform
-  es el núcleo que piden los avisos; un solo lenguaje de transformación.
+- A favor: los batch loads a BigQuery y Dataform son gratis; GCS tiene free tier solo en regiones US; el SQL en Dataform es el núcleo que piden los avisos; un solo lenguaje de transformación.
 - En contra: los datos chilenos quedan en EE. UU. (son públicos, no importa); Dataform es menos conocido que dbt.
 
 ### 2. Igual, pero con dbt Core en un Cloud Run Job

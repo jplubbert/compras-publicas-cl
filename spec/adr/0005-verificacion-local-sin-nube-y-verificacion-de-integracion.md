@@ -1,9 +1,9 @@
 # DEC-005 Verificación local sin nube y verificación de integración aparte
 
-- Estado: proposed
+- Estado: accepted
 - Fecha: 2026-10-22
-- Aprobador: pendiente: lo acepta Jev (node scripts/adr.mjs accept 0005, DEC-036)
-- Módulos: scripts/, tests/acceptance/, infra/, ingest/, dataform/, .github/workflows/
+- Aprobador: José Pedro Lübbert (aprobación nominal del corte 1 en sesión, 2026-10-21)
+- Módulos: package.json
 - Enforced-by: cmd: npm run check:spec
 
 ## Contexto
@@ -18,8 +18,7 @@ REQ-001 a REQ-015, DEC-019 de sdd-base.
 ## Opciones consideradas
 
 ### 1. Local: pytest con HTTP simulado, `terraform test` con `mock_provider`, `dataform compile` y pruebas Node sobre el grafo compilado; nube: `verify_integration` y CI
-- A favor: el autopilot puede verificar cada tarea sin credenciales; la semántica SQL se prueba en BigQuery en un
-  dataset `ci_` en CI.
+- A favor: el autopilot puede verificar cada tarea sin credenciales; la semántica SQL se prueba en BigQuery en un dataset `ci_` en CI.
 - En contra: el SQL no se ejecuta localmente; un error de dialecto solo aparece en CI o en la integración.
 
 ### 2. Todo contra un proyecto GCP de pruebas

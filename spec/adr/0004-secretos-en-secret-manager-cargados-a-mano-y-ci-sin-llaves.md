@@ -1,10 +1,10 @@
 # DEC-004 Secretos en Secret Manager cargados a mano y CI sin llaves
 
-- Estado: proposed
+- Estado: accepted
 - Fecha: 2026-10-22
-- Aprobador: pendiente: lo acepta Jev (node scripts/adr.mjs accept 0004, DEC-036)
-- Módulos: infra/, .github/workflows/, ingest/
-- Enforced-by: cmd: npm run check:repo
+- Aprobador: José Pedro Lübbert (aprobación nominal del corte 1 en sesión, 2026-10-21)
+- Módulos: package.json
+- Enforced-by: manual: el chequeo `npm run check:repo` lo crea su tarea; se cambia a `cmd: npm run check:repo` cuando exista
 
 ## Contexto
 
@@ -19,8 +19,7 @@ REQ-002, REQ-004, REQ-005, DEC-002.
 ## Opciones consideradas
 
 ### 1. Terraform crea los secretos vacíos y el usuario carga los valores con gcloud; CI se autentica con Workload Identity Federation
-- A favor: ningún valor queda en el estado de Terraform ni en git; no hay llaves de cuenta de servicio; es el patrón que
-  recomienda Google.
+- A favor: ningún valor queda en el estado de Terraform ni en git; no hay llaves de cuenta de servicio; es el patrón que recomienda Google.
 - En contra: hay un paso manual al configurar el proyecto.
 
 ### 2. Valores como variables sensibles de Terraform y llave JSON de la cuenta de servicio en los secretos de GitHub

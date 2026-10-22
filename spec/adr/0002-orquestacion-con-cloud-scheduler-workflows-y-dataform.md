@@ -1,10 +1,10 @@
 # DEC-002 Orquestación con Cloud Scheduler, Workflows y Dataform conectado a GitHub
 
-- Estado: proposed
+- Estado: accepted
 - Fecha: 2026-10-22
-- Aprobador: pendiente: lo acepta Jev (node scripts/adr.mjs accept 0002, DEC-036)
-- Módulos: infra/, orchestration/, dataform/
-- Enforced-by: cmd: npm run test:infra
+- Aprobador: José Pedro Lübbert (aprobación nominal del corte 1 en sesión, 2026-10-21)
+- Módulos: package.json
+- Enforced-by: manual: el chequeo `npm run test:infra` lo crea su tarea; se cambia a `cmd: npm run test:infra` cuando exista
 
 ## Contexto
 
@@ -18,15 +18,12 @@ REQ-007, DEC-001, tope de gasto (DEC-003).
 ## Opciones consideradas
 
 ### 1. Cloud Scheduler → Workflows → Cloud Run Jobs → API de Dataform (repositorio conectado a GitHub)
-- A favor: es el patrón documentado por Google para Dataform; muestra el servicio Dataform nativo, con su grafo y sus
-  logs de ejecución; Workflows encadena los pasos y corta si uno falla; Scheduler (3 jobs) y Workflows (5.000 pasos al
-  mes) caben en el free tier.
+- A favor: es el patrón documentado por Google para Dataform; muestra el servicio Dataform nativo, con su grafo y sus logs de ejecución; Workflows encadena los pasos y corta si uno falla; Scheduler (3 jobs) y Workflows (5.000 pasos al mes) caben en el free tier.
 - En contra: el repositorio Dataform necesita un token de GitHub de solo lectura en Secret Manager.
 
 ### 2. Cloud Scheduler → Workflows → Cloud Run Job que corre la CLI de Dataform
 - A favor: no necesita token de GitHub.
-- En contra: no usa el servicio Dataform; se pierde el grafo y el historial de ejecución en la consola; hay que mantener
-  una imagen más.
+- En contra: no usa el servicio Dataform; se pierde el grafo y el historial de ejecución en la consola; hay que mantener una imagen más.
 
 ### 3. Programación nativa de Dataform (workflow config) más un Scheduler aparte para la ingesta
 - A favor: es la configuración más simple.

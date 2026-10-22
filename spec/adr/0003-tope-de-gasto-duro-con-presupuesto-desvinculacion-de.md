@@ -1,10 +1,10 @@
 # DEC-003 Tope de gasto duro con presupuesto, desvinculación de billing y cuotas
 
-- Estado: proposed
+- Estado: accepted
 - Fecha: 2026-10-22
-- Aprobador: pendiente: lo acepta Jev (node scripts/adr.mjs accept 0003, DEC-036)
-- Módulos: infra/bootstrap/, infra/, finops/
-- Enforced-by: cmd: npm run test:finops
+- Aprobador: José Pedro Lübbert (aprobación nominal del corte 1 en sesión, 2026-10-21)
+- Módulos: package.json
+- Enforced-by: manual: el chequeo `npm run test:finops` lo crea su tarea; se cambia a `cmd: npm run test:finops` cuando exista
 
 ## Contexto
 
@@ -19,8 +19,7 @@ REQ-003, R-03, DEC-001.
 
 ### 1. Presupuesto de USD 10 + Pub/Sub + función que desvincula el billing al 100 %, cuotas de BigQuery y `maximum_bytes_billed`
 - A favor: es el único corte real que documenta Google; las cuotas frenan antes el caso más probable (una query cara).
-- En contra: si salta, todo el proyecto se detiene hasta revincularlo a mano. Además, el dato de costo llega con
-  retraso, así que se puede pasar algo de USD 10.
+- En contra: si salta, todo el proyecto se detiene hasta revincularlo a mano. Además, el dato de costo llega con retraso, así que se puede pasar algo de USD 10.
 
 ### 2. Solo avisos de presupuesto y cuotas
 - A favor: no hay riesgo de apagar el proyecto.

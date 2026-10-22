@@ -4,7 +4,7 @@
     {
       "id": "T-01",
       "title": "Entorno fijado y esqueleto andante del repo",
-      "description": "Espacio de trabajo uv en la raíz (pyproject.toml, uv.lock, .python-version 3.12) con los miembros ingest/, finops/killswitch/ y benchmarks/; scripts/setup.sh (la única con red: instala Terraform fijado en .tools/ verificando su sha256, corre uv sync y npm ci de dataform/, fija y precarga con terraform providers mirror en .tools/providers todos los proveedores que usará el corte (google, google-beta, archive, random) e inicializa infra/bootstrap e infra/main con -backend=false y -plugin-dir, para que el verify no use red); scripts/acceptance.sh <archivo> (runner por extensión, DEC-005: .py → uv run pytest, .tftest.hcl → terraform test, .test.mjs → node --test; comprueba S-10 y deja anotado en notes si hace falta copiar el archivo al módulo); esqueleto andante: infra/bootstrap e infra/main con un módulo vacío que valida, ingest/ con un paquete compras_ingest y una prueba trivial, dataform/ con workflow_settings.yaml (us-central1) y una declaración de fuente que compila; scripts/ci/check-repo.mjs (sin dependencias: falla ante google_composer_environment, IDs de proyecto o números de cuenta literales en infra/, credentials_json, llaves de cuenta de servicio y google_secret_manager_secret_version con secret_data) con sus pruebas node:test; package.json con lint (ruff + terraform fmt -check), test (todas las pruebas unitarias más test:sdd), test:infra, test:ingest, test:dataform, check:repo; .gitignore (.tools/, .terraform/, *.tfstate*, .venv/, node_modules/, .env*). Sin cambios en GCP.",
+      "description": "Espacio de trabajo uv en la raíz (pyproject.toml, uv.lock, .python-version 3.12) con los miembros ingest/, finops/killswitch/ y benchmarks/; scripts/setup.sh (la única con red: instala Terraform fijado en .tools/ verificando su sha256, corre uv sync y npm ci de dataform/, fija y precarga con terraform providers mirror en .tools/providers todos los proveedores que usará el corte (google, google-beta, archive, random) e inicializa infra/bootstrap e infra/main con -backend=false y -plugin-dir, para que el verify no use red); scripts/acceptance.sh <archivo> (runner por extensión, DEC-005: .py → uv run pytest, .tftest.hcl → terraform test, .test.mjs → node --test; comprueba S-10 y deja anotado en notes si hace falta copiar el archivo al módulo); esqueleto andante: infra/bootstrap e infra/main con un módulo vacío que valida, ingest/ con un paquete compras_ingest y una prueba trivial, dataform/ con workflow_settings.yaml (us-central1) y una declaración de fuente que compila; scripts/ci/check-repo.mjs (sin dependencias: falla ante google_composer_environment, IDs de proyecto o números de cuenta literales en infra/, credentials_json, llaves de cuenta de servicio y google_secret_manager_secret_version con secret_data) con sus pruebas node:test; package.json con lint (ruff + terraform fmt -check), test (todas las pruebas unitarias más test:sdd), test:infra, test:ingest, test:dataform, check:repo; .gitignore (conserva .autopilot/ y agrega .tools/, .terraform/, *.tfstate*, *.tfvars salvo *.tfvars.example —ahí va alert_email, Q-03—, .venv/, node_modules/, .env*). Sin cambios en GCP.",
       "reqs": [],
       "decisions": [
         "DEC-001",
@@ -12,7 +12,7 @@
         "DEC-005"
       ],
       "depends_on": [],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "kind": "tooling",
@@ -31,7 +31,16 @@
         "finops/",
         "benchmarks/"
       ],
-      "verify": "npm run lint && npm test && npm run check:repo && npm run check:spec"
+      "verify": "npm run lint && npm test && npm run check:repo && npm run check:spec",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:36.654Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     },
     {
       "id": "T-02",
@@ -44,13 +53,22 @@
         "DEC-003"
       ],
       "depends_on": [],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "touches": [
         "docs/spikes/"
       ],
-      "verify": "test -s docs/spikes/T-02-recursos.md && grep -c '^## ' docs/spikes/T-02-recursos.md && npm run check:spec"
+      "verify": "test -s docs/spikes/T-02-recursos.md && grep -c '^## ' docs/spikes/T-02-recursos.md && npm run check:spec",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:36.735Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     },
     {
       "id": "T-03",
@@ -68,7 +86,7 @@
         "T-01",
         "T-02"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "touches": [
@@ -79,7 +97,16 @@
         "scripts/setup.sh"
       ],
       "verify": "npm run test:infra && npm run check:repo && npm run check:spec",
-      "verify_integration": "scripts/it/tf-plan.sh bootstrap && scripts/it/tf-plan.sh main"
+      "verify_integration": "scripts/it/tf-plan.sh bootstrap && scripts/it/tf-plan.sh main",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:36.813Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     },
     {
       "id": "T-04",
@@ -95,7 +122,7 @@
       "depends_on": [
         "T-03"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "touches": [
@@ -105,7 +132,16 @@
         "package.json"
       ],
       "verify": "npm run test:workflows && npm run check:repo && npm run check:spec",
-      "verify_integration": "scripts/it/last-ci-run.sh"
+      "verify_integration": "scripts/it/last-ci-run.sh",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:36.891Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     },
     {
       "id": "T-05",
@@ -121,7 +157,7 @@
       "depends_on": [
         "T-03"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "touches": [
@@ -135,7 +171,16 @@
         "scripts/setup.sh"
       ],
       "verify": "npm run test:finops && npm run test:infra && npm run check:spec",
-      "verify_integration": "scripts/it/killswitch-drill.sh"
+      "verify_integration": "scripts/it/killswitch-drill.sh",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:36.971Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     },
     {
       "id": "T-06",
@@ -152,7 +197,7 @@
         "T-01",
         "T-02"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "touches": [
@@ -160,7 +205,16 @@
         "scripts/it/"
       ],
       "verify": "npm run test:ingest && npm run check:spec",
-      "verify_integration": "scripts/it/ingest-mp.sh"
+      "verify_integration": "scripts/it/ingest-mp.sh",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:37.048Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     },
     {
       "id": "T-07",
@@ -176,7 +230,7 @@
       "depends_on": [
         "T-06"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "touches": [
@@ -184,7 +238,16 @@
         "scripts/it/"
       ],
       "verify": "npm run test:ingest && npm run check:spec",
-      "verify_integration": "scripts/it/ingest-indicadores.sh"
+      "verify_integration": "scripts/it/ingest-indicadores.sh",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:37.128Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     },
     {
       "id": "T-08",
@@ -203,7 +266,7 @@
         "T-04",
         "T-07"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "touches": [
@@ -214,7 +277,16 @@
         "scripts/it/"
       ],
       "verify": "npm run test:ingest && npm run test:infra && npm run test:workflows && npm run check:spec",
-      "verify_integration": "scripts/it/run-jobs.sh"
+      "verify_integration": "scripts/it/run-jobs.sh",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:37.208Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     },
     {
       "id": "T-09",
@@ -232,7 +304,7 @@
       "depends_on": [
         "T-08"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "touches": [
@@ -243,7 +315,16 @@
         ".github/workflows/ci.yml"
       ],
       "verify": "npm run test:dataform && npm run check:descriptions && npm run check:spec",
-      "verify_integration": "scripts/it/dataform-ci.sh"
+      "verify_integration": "scripts/it/dataform-ci.sh",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:37.290Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     },
     {
       "id": "T-10",
@@ -260,7 +341,7 @@
       "depends_on": [
         "T-09"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "touches": [
@@ -268,7 +349,16 @@
         "scripts/it/"
       ],
       "verify": "npm run test:dataform && npm run check:descriptions && npm run check:spec",
-      "verify_integration": "scripts/it/dataform-ci.sh"
+      "verify_integration": "scripts/it/dataform-ci.sh",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:37.368Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     },
     {
       "id": "T-11",
@@ -286,7 +376,7 @@
         "T-05",
         "T-10"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "touches": [
@@ -297,7 +387,16 @@
         "scripts/setup.sh"
       ],
       "verify": "npm run test:infra && npm run test:orchestration && npm run check:spec",
-      "verify_integration": "scripts/it/run-workflow.sh"
+      "verify_integration": "scripts/it/run-workflow.sh",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:37.448Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     },
     {
       "id": "T-12",
@@ -313,7 +412,7 @@
       "depends_on": [
         "T-10"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "touches": [
@@ -321,7 +420,16 @@
         "scripts/it/"
       ],
       "verify": "npm run test:dataform && npm run check:descriptions && npm run check:spec",
-      "verify_integration": "scripts/it/dataform-ci.sh"
+      "verify_integration": "scripts/it/dataform-ci.sh",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:37.529Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     },
     {
       "id": "T-13",
@@ -338,7 +446,7 @@
         "T-05",
         "T-12"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "touches": [
@@ -347,7 +455,16 @@
         "package.json"
       ],
       "verify": "npm run test:benchmarks && npm run check:spec",
-      "verify_integration": "scripts/it/benchmark.sh"
+      "verify_integration": "scripts/it/benchmark.sh",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:37.609Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     },
     {
       "id": "T-14",
@@ -365,7 +482,7 @@
         "T-11",
         "T-12"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "touches": [
@@ -377,7 +494,16 @@
         "orchestration/"
       ],
       "verify": "npm run test:infra && npm run test:dataform && npm run check:spec",
-      "verify_integration": "scripts/it/policy-tags.sh"
+      "verify_integration": "scripts/it/policy-tags.sh",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:37.690Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     },
     {
       "id": "T-15",
@@ -395,7 +521,7 @@
         "T-13",
         "T-14"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "notes": "",
       "touches": [
@@ -404,7 +530,16 @@
         "scripts/ci/",
         "package.json"
       ],
-      "verify": "npm run check:readme && npm run check:spec"
+      "verify": "npm run check:readme && npm run check:spec",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T02:23:37.766Z",
+          "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        }
+      ]
     }
   ]
 }
