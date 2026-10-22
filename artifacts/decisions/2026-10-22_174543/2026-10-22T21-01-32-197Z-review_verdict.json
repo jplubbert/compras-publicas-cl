@@ -1,0 +1,25 @@
+{
+  "question_id": "review_verdict",
+  "instructions": "Does this independent review approve the change? Approve only if it reports no blocking finding.",
+  "state": "Apruebo la tarea T-11: no encontré hallazgos bloqueantes.\n\n**Lo que ejecuté:**\n- `sha256sum artifacts/T-11/verify.log` coincide con el valor registrado (`e5d5aae0…`). El log muestra 39 pruebas de Terraform y 16 de pytest en verde, y `check:spec` pasa.\n- `npm run test:orchestration` (las pruebas propias de T-11): 16 de 16 pasan.\n- `npm run check:repo` y `npm run lint` pasan.\n- `git diff --name-only 20a84df^ f519a6a`: todos los archivos cambiados están dentro de los `touches` de la tarea o son artefactos del orquestador (plan, `spec/LOG.md`, `spec/TASKS.json`, `artifacts/`).\n\n**Pregunta 1, ¿está implementado y probado REQ-007?** Sí, con una salvedad que no bloquea (`policy_tag_rut`, en las notas):\n- **E1:** `t11_e1_scheduler` comprueba el cron `30 23 * * *`, la zona `America/Santiago`, la URI de ejecuciones del Workflow, la cuenta `compras-scheduler` y `retry_count = 0`.\n- **E2:** el orden ingesta MP → indicadores → compilación → invocación está en el YAML y lo comprueba `test_orden_de_pasos`, con su prueba negativa. Los dos jobs usan el conector `jobs.run` con `connector_params.timeout: 25200` y sin `skip_polling`. El timeout de tarea de los jobs ya era de 7 h (`25200s` en `infra/modules/ingest_job/main.tf:60`, de T-08). La compilación sale de `main` con `vars.raw_dataset`.\n- **E3:** no hay ningún `try` ni `except`, y `test_ingesta_sin_try` lo comprueba con un recorrido recursivo y su prueba negativa. `FAILED` y `CANCELLED` levantan una excepción, y la prueba negativa también falla si se borra `CANCELLED`.\n- **E4:** `t11_e4_alerta` comprueba el filtro sobre `finished_execution_count` con `status = FAILED` y el canal de correo.\n- **E5:** es de integración. Lo cubre `scripts/it/run-workflow.sh --expect-failure`, y sus pruebas sin red usan un `gcloud` y un `curl` falsos.\n\n**Pregunta 2, ¿hubo cambios fuera del alcance?** No.\n\n**Pregunta 3, ¿se violó alguna decisión aceptada?** No:\n- **DEC-002 y DEC-009:** el repositorio Dataform tiene remoto GitHub en `main` y lee el token de Secret Manager con `versions/latest`.\n- **DEC-004:** los secretos no tienen versiones con datos, y `check:repo` pasa.\n- **DEC-005:** el `verify` es local y la corrida real queda en `verify_integration`.\n\n```json\n{\"verdict\": \"approved\", \"findings\": [], \"notes\": \"E2 de REQ-007 queda cubierto en parte: la compilación pasa solo vars.raw_dataset; vars.policy_tag_rut lo agrega T-14, como dice la descripción de T-11, y test_daily.py deja un comentario para su aserción. No existen pruebas tests/acceptance/T-11*. E5, el correo de la alerta y el valor FAILED de la etiqueta status de finished_execution_count (Beta, sin documentar) quedan para el verify_integration del usuario. También queda pendiente reaplicar infra/bootstrap por los roles nuevos de CI y cargar la versión del token de GitHub antes del primer apply. Desviación interna aceptable: secret_names arma projects/<p>/secrets/<id> desde las entradas del recurso porque el id simulado es aleatorio. Verificado: sha256 del log coincide; test:orchestration 16/16; check:repo y lint en verde; todos los archivos cambiados están dentro de los touches de la tarea o son del orquestador.\"}\n```",
+  "options": {
+    "approved": "the review finds no blocking problem: the change can be accepted",
+    "rejected": "the review reports at least one blocking problem"
+  },
+  "answer": "approved",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule review_approved_without_findings (DEC-051)",
+  "decider": "rule",
+  "rule": "review_approved_without_findings",
+  "facts": {
+    "verdict": "approved",
+    "findings": [],
+    "notes": "E2 de REQ-007 queda cubierto en parte: la compilación pasa solo vars.raw_dataset; vars.policy_tag_rut lo agrega T-14, como dice la descripción de T-11, y test_daily.py deja un comentario para su aserción. No existen pruebas tests/acceptance/T-11*. E5, el correo de la alerta y el valor FAILED de la etiqueta status de finished_execution_count (Beta, sin documentar) quedan para el verify_integration del usuario. También queda pendiente reaplicar infra/bootstrap por los roles nuevos de CI y cargar la versión del token de GitHub antes del primer apply. Desviación interna aceptable: secret_names arma projects/<p>/secrets/<id> desde las entradas del recurso porque el id simulado es aleatorio. Verificado: sha256 del log coincide; test:orchestration 16/16; check:repo y lint en verde; todos los archivos cambiados están dentro de los touches de la tarea o son del orquestador."
+  },
+  "timestamp": "2026-10-22T21:01:32.197Z"
+}

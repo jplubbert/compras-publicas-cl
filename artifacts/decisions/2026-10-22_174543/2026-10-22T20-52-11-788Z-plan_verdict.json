@@ -1,0 +1,89 @@
+{
+  "question_id": "plan_verdict",
+  "instructions": "Given this critique of an implementation plan, what is the verdict?",
+  "state": "**Veredicto: REVISAR.** El plan está bien armado, pero tiene un problema P1 respaldado por fuente que el planner debe corregir antes de implementarlo.\n\n**El problema que bloquea (P1).** La documentación de Dataform dice que el modo strict act-as «se aplica a todos los repositorios». Por eso, quien llama a `workflowInvocations.create` necesita `roles/iam.serviceAccountUser` sobre la cuenta efectiva de la invocación. Esa cuenta es `invocationConfig.serviceAccount`, o sea `compras-dataform`. El paso 4 del plan le da a `compras-workflow` solo `roles/dataform.editor` y `roles/run.viewer`. Así, el paso `invocar_dataform` fallaría con un error de permisos en la corrida real, y ninguna prueba local lo detecta. La corrección es agregar ese grant en `infra/modules/iam`, exponerlo en una salida y comprobarlo en `t11_permisos`.\n\n**Lo que sí se sostiene:**\n- **Conector de Cloud Run Jobs.** Espera la operación, acepta un timeout de hasta un año y levanta `OperationError` si el job falla. Con eso, E3 y E5 funcionan sin `try`.\n- **Métrica de la alerta.** `finished_execution_count` existe, es de tipo DELTA sobre `workflows.googleapis.com/Workflow` y tiene la etiqueta `status`. La documentación no lista los valores de esa etiqueta, así que `FAILED` sale del estado de las ejecuciones de Workflows y no está confirmado. Además, la métrica está en Beta (P3).\n- **Repositorio de Dataform.** El agente de Dataform y sus permisos sobre el secreto y sobre `compras-dataform` siguen el patrón de la documentación. CI ya recibe `serviceAccountUser` sobre las tres cuentas.\n\n**Riesgos menores (no bloquean):**\n- **P2:** no pude confirmar en la documentación de Terraform que `google_project_service_identity` acepte `dataform.googleapis.com`; solo lo respalda un ejemplo de Pulumi. Si falla, aparece en el `apply` real. Conviene dejar documentado un plan B: un miembro construido con el número de proyecto, armado de forma que `check:repo` no lo marque como número literal.\n- **P3:** `policy_tag_rut` queda fuera hasta T-14, como dice la descripción de la tarea. E2 queda cubierto solo en parte.\n\n```json\n{\"verdict\": \"REVISAR\", \"assumptions\": [{\"assumption\": \"La cuenta del Workflow puede crear la invocación de Dataform con invocationConfig.serviceAccount = compras-dataform teniendo solo roles/dataform.editor.\", \"practice\": \"Dataform aplica el modo strict act-as a todos los repositorios: quien crea una invocación necesita roles/iam.serviceAccountUser (iam.serviceAccounts.actAs) sobre la cuenta efectiva, que es la de invocationConfig si está fijada.\", \"sources\": [\"https://docs.cloud.google.com/dataform/docs/strict-act-as-mode\"]}, {\"assumption\": \"El conector googleapis.run.v2.projects.locations.jobs.run espera la operación, admite connector_params.timeout de 25200 s y levanta una excepción si la ejecución del job falla.\", \"practice\": \"Los conectores con operaciones de larga duración hacen polling hasta terminar, tienen un timeout de 30 min por defecto (configurable hasta un año) y levantan OperationError si la operación termina mal, o TimeoutError si se acaba el tiempo.\", \"sources\": [\"https://docs.cloud.google.com/workflows/docs/connectors\", \"https://docs.cloud.google.com/workflows/docs/reference/googleapis/run/v2/projects.locations.jobs/create?authuser=4\"]}, {\"assumption\": \"La métrica workflows.googleapis.com/finished_execution_count existe sobre workflows.googleapis.com/Workflow con la etiqueta status = FAILED.\", \"practice\": \"La métrica existe (DELTA, INT64, Beta) con las etiquetas status y revision_id. La página no lista los valores de status; FAILED se infiere de los estados de ejecución de Workflows.\", \"sources\": [\"https://docs.cloud.google.com/workflows/docs/monitor\"]}, {\"assumption\": \"google_project_service_identity (google-beta) admite dataform.googleapis.com y crea el agente gcp-sa-dataform antes de crear el repositorio.\", \"practice\": \"En la práctica se habilita la API, se obtiene la identidad de servicio (Pulumi lo hace con serviceIdentity para dataform) y se le dan secretAccessor sobre el secreto del token y TokenCreator sobre la cuenta propia. No hay una fuente de Terraform que lo confirme.\", \"sources\": [\"https://www.pulumi.com/registry/packages/gcp/api-docs/dataform/config\", \"https://book.st-hakky.com/data-platform/dataform-terraform\"]}], \"findings\": [{\"id\": \"iam:workflow-sin-actas-sobre-dataform\", \"severity\": \"P1\", \"evidence_type\": \"fuente\", \"evidence\": \"https://docs.cloud.google.com/dataform/docs/strict-act-as-mode — «Strict act-as mode is enforced for all repositories» y «You should have the Service Account User role granted for the effective service account used in the workflow invocation»; la cuenta efectiva es la de InvocationConfig si está fijada.\", \"summary\": \"El paso 1.6 crea la invocación con invocationConfig.serviceAccount = compras-dataform, pero el paso 4 solo le da a compras-workflow roles/dataform.editor y roles/run.viewer. Sin iam.serviceAccounts.actAs sobre compras-dataform, workflowInvocations.create falla con un error de permisos en la primera corrida real. Ninguna prueba local lo detecta y la corrida diaria nunca llega a transformar.\", \"fix\": \"En infra/modules/iam, agregar un google_service_account_iam_member con roles/iam.serviceAccountUser sobre compras-dataform para la cuenta compras-workflow, exponerlo en una salida y comprobarlo en el run t11_permisos. Si CI concede ese rol, verificar que el bootstrap lo permite (lo mismo que ya hace con ci_actas_*).\"}, {\"id\": \"iam:service-identity-dataform-no-confirmado\", \"severity\": \"P2\", \"evidence_type\": \"opinión\", \"evidence\": \"No encontré en la documentación de Terraform que google_project_service_identity acepte dataform.googleapis.com; solo un ejemplo de Pulumi lo usa.\", \"summary\": \"Si generateServiceIdentity no acepta Dataform, el apply falla antes de crear el repositorio, y no hay un plan B documentado.\", \"fix\": \"Agregar a Riesgos un plan B: construir el miembro service-<número>@gcp-sa-dataform.iam.gserviceaccount.com desde data.google_project.number, sin un literal que marque check:repo.\"}, {\"id\": \"req-007:alerta-status-failed-no-documentado\", \"severity\": \"P3\", \"evidence_type\": \"fuente\", \"evidence\": \"https://docs.cloud.google.com/workflows/docs/monitor — lista la etiqueta status de finished_execution_count, pero no sus valores; la métrica está en Beta.\", \"summary\": \"El valor \\\"FAILED\\\" del filtro no está documentado de forma explícita; si fuera otro, la alerta de E4 nunca dispararía, y solo lo mostraría E5 en la integración.\", \"fix\": \"En la verificación de integración de E5, confirmar en el Explorador de métricas el valor de status antes de dar por cumplido E4.\"}], \"summary\": \"El plan cubre REQ-007 con un diseño fiel a DEC-002/DEC-009: conector de Cloud Run que espera con timeout de 25200 s, compilación y polling de la invocación de Dataform con excepción ante FAILED/CANCELLED, ingesta sin try, Scheduler 23:30 America/Santiago sin reintentos y alerta por correo sobre finished_execution_count. Tiene un problema P1 respaldado por fuente: Dataform aplica el modo strict act-as a todos los repositorios, y la cuenta compras-workflow no recibe roles/iam.serviceAccountUser sobre compras-dataform, que es la cuenta de invocationConfig. La invocación fallaría en la corrida real sin que lo detecte ninguna prueba local. Además, falta un plan B si google_project_service_identity no acepta Dataform (P2), y el valor FAILED de la etiqueta status no está documentado (P3). El planner debe agregar el grant y comprobarlo en t11_permisos.\"}\n```",
+  "options": {
+    "APROBAR": "no P0/P1 finding: the implementer may start with this plan",
+    "REVISAR": "the planner must fix P0/P1 findings before implementing",
+    "ESCALAR": "it needs a decision of the user"
+  },
+  "answer": "REVISAR",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule critic_revises_with_blocking (DEC-051)",
+  "decider": "rule",
+  "rule": "critic_revises_with_blocking",
+  "facts": {
+    "verdict": "REVISAR",
+    "effective": "REVISAR",
+    "assumptions": [
+      {
+        "assumption": "La cuenta del Workflow puede crear la invocación de Dataform con invocationConfig.serviceAccount = compras-dataform teniendo solo roles/dataform.editor.",
+        "practice": "Dataform aplica el modo strict act-as a todos los repositorios: quien crea una invocación necesita roles/iam.serviceAccountUser (iam.serviceAccounts.actAs) sobre la cuenta efectiva, que es la de invocationConfig si está fijada.",
+        "sources": [
+          "https://docs.cloud.google.com/dataform/docs/strict-act-as-mode"
+        ]
+      },
+      {
+        "assumption": "El conector googleapis.run.v2.projects.locations.jobs.run espera la operación, admite connector_params.timeout de 25200 s y levanta una excepción si la ejecución del job falla.",
+        "practice": "Los conectores con operaciones de larga duración hacen polling hasta terminar, tienen un timeout de 30 min por defecto (configurable hasta un año) y levantan OperationError si la operación termina mal, o TimeoutError si se acaba el tiempo.",
+        "sources": [
+          "https://docs.cloud.google.com/workflows/docs/connectors",
+          "https://docs.cloud.google.com/workflows/docs/reference/googleapis/run/v2/projects.locations.jobs/create?authuser=4"
+        ]
+      },
+      {
+        "assumption": "La métrica workflows.googleapis.com/finished_execution_count existe sobre workflows.googleapis.com/Workflow con la etiqueta status = FAILED.",
+        "practice": "La métrica existe (DELTA, INT64, Beta) con las etiquetas status y revision_id. La página no lista los valores de status; FAILED se infiere de los estados de ejecución de Workflows.",
+        "sources": [
+          "https://docs.cloud.google.com/workflows/docs/monitor"
+        ]
+      },
+      {
+        "assumption": "google_project_service_identity (google-beta) admite dataform.googleapis.com y crea el agente gcp-sa-dataform antes de crear el repositorio.",
+        "practice": "En la práctica se habilita la API, se obtiene la identidad de servicio (Pulumi lo hace con serviceIdentity para dataform) y se le dan secretAccessor sobre el secreto del token y TokenCreator sobre la cuenta propia. No hay una fuente de Terraform que lo confirme.",
+        "sources": [
+          "https://www.pulumi.com/registry/packages/gcp/api-docs/dataform/config",
+          "https://book.st-hakky.com/data-platform/dataform-terraform"
+        ]
+      }
+    ],
+    "findings": [
+      {
+        "id": "iam:workflow-sin-actas-sobre-dataform",
+        "severity": "P1",
+        "evidence_type": "fuente",
+        "evidence": "https://docs.cloud.google.com/dataform/docs/strict-act-as-mode — «Strict act-as mode is enforced for all repositories» y «You should have the Service Account User role granted for the effective service account used in the workflow invocation»; la cuenta efectiva es la de InvocationConfig si está fijada.",
+        "summary": "El paso 1.6 crea la invocación con invocationConfig.serviceAccount = compras-dataform, pero el paso 4 solo le da a compras-workflow roles/dataform.editor y roles/run.viewer. Sin iam.serviceAccounts.actAs sobre compras-dataform, workflowInvocations.create falla con un error de permisos en la primera corrida real. Ninguna prueba local lo detecta y la corrida diaria nunca llega a transformar.",
+        "fix": "En infra/modules/iam, agregar un google_service_account_iam_member con roles/iam.serviceAccountUser sobre compras-dataform para la cuenta compras-workflow, exponerlo en una salida y comprobarlo en el run t11_permisos. Si CI concede ese rol, verificar que el bootstrap lo permite (lo mismo que ya hace con ci_actas_*)."
+      },
+      {
+        "id": "iam:service-identity-dataform-no-confirmado",
+        "severity": "P2",
+        "evidence_type": "opinión",
+        "evidence": "No encontré en la documentación de Terraform que google_project_service_identity acepte dataform.googleapis.com; solo un ejemplo de Pulumi lo usa.",
+        "summary": "Si generateServiceIdentity no acepta Dataform, el apply falla antes de crear el repositorio, y no hay un plan B documentado.",
+        "fix": "Agregar a Riesgos un plan B: construir el miembro service-<número>@gcp-sa-dataform.iam.gserviceaccount.com desde data.google_project.number, sin un literal que marque check:repo."
+      },
+      {
+        "id": "req-007:alerta-status-failed-no-documentado",
+        "severity": "P3",
+        "evidence_type": "fuente",
+        "evidence": "https://docs.cloud.google.com/workflows/docs/monitor — lista la etiqueta status de finished_execution_count, pero no sus valores; la métrica está en Beta.",
+        "summary": "El valor \"FAILED\" del filtro no está documentado de forma explícita; si fuera otro, la alerta de E4 nunca dispararía, y solo lo mostraría E5 en la integración.",
+        "fix": "En la verificación de integración de E5, confirmar en el Explorador de métricas el valor de status antes de dar por cumplido E4."
+      }
+    ],
+    "blocking": [
+      "iam:workflow-sin-actas-sobre-dataform"
+    ],
+    "opinion_blockers": [],
+    "repeated": [],
+    "summary": "El plan cubre REQ-007 con un diseño fiel a DEC-002/DEC-009: conector de Cloud Run que espera con timeout de 25200 s, compilación y polling de la invocación de Dataform con excepción ante FAILED/CANCELLED, ingesta sin try, Scheduler 23:30 America/Santiago sin reintentos y alerta por correo sobre finished_execution_count. Tiene un problema P1 respaldado por fuente: Dataform aplica el modo strict act-as a todos los repositorios, y la cuenta compras-workflow no recibe roles/iam.serviceAccountUser sobre compras-dataform, que es la cuenta de invocationConfig. La invocación fallaría en la corrida real sin que lo detecte ninguna prueba local. Además, falta un plan B si google_project_service_identity no acepta Dataform (P2), y el valor FAILED de la etiqueta status no está documentado (P3). El planner debe agregar el grant y comprobarlo en t11_permisos."
+  },
+  "timestamp": "2026-10-22T20:52:11.788Z"
+}

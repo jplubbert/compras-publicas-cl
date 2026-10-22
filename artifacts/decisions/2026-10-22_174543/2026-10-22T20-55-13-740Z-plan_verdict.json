@@ -1,0 +1,79 @@
+{
+  "question_id": "plan_verdict",
+  "instructions": "Given this critique of an implementation plan, what is the verdict?",
+  "state": "El plan de T-11 se puede implementar tal como está. El problema bloqueante de la ronda 1 (`iam:workflow-sin-actas-sobre-dataform`) quedó resuelto y no encontré ningún otro P0 ni P1.\n\n- **El problema de la ronda 1 está corregido.** El plan nombra el permiso que ya existe en `infra/modules/iam/main.tf:40`, que deja a `compras-workflow` actuar como `compras-dataform`. Lo publica como la salida `workflow_actas` y lo comprueba en `t11_permisos` (rol, miembro y cuenta). Esto coincide con la guía de Google: en el modo act-as estricto, quien crea la invocación necesita `iam.serviceAccounts.actAs` sobre la cuenta de `invocationConfig.serviceAccount`. El plan también da a CI el permiso de actuar como las cuentas `dataform`, `workflow` y `scheduler`, que hace falta para crear el repositorio y el Scheduler.\n- **La métrica de la alerta (E4) existe, pero un valor no está documentado.** La documentación de Google confirma `finished_execution_count` y su etiqueta `status`. No lista los valores de `status` ni la etiqueta de recurso `workflow_id`. El plan ya lo trata como riesgo y lo comprueba en el Explorador de métricas antes de dar E4 por cumplido.\n- **Los permisos para lanzar los jobs no salen de la guía oficial.** El tutorial de Google da `roles/run.admin` a la cuenta del Workflow. El plan usa roles más acotados (`roles/run.invoker` sobre cada job y `roles/run.viewer`) y tiene un plan B en la verificación de integración.\n- **Hay hallazgos menores que no bloquean:**\n  - E2 queda cubierto en parte, porque `policy_tag_rut` lo agrega T-14, como dice la propia tarea.\n  - No pude confirmar con una fuente que `google_project_service_identity` acepte `dataform.googleapis.com`; el plan ya trae una alternativa.\n\nHay dos límites en lo que revisé. No leí los contratos de `spec/contracts/` ni sus pruebas de aceptación. Tampoco abrí `infra/modules/iam/main.tf:40`, así que la existencia de ese permiso la tomo del plan. El orquestador comprueba la línea.\n\n```json\n{\"verdict\": \"APROBAR\", \"assumptions\": [{\"assumption\": \"La métrica workflows.googleapis.com/finished_execution_count, sobre el recurso workflows.googleapis.com/Workflow, tiene la etiqueta status con el valor FAILED y se puede filtrar por resource.label.workflow_id.\", \"practice\": \"La documentación de monitoreo de Workflows lista la métrica (DELTA, INT64) con las etiquetas status y revision_id, pero no da los valores de status ni las etiquetas de recurso. En la práctica se confirma el valor en el Explorador de métricas antes de fijar el filtro, que es lo que hace el plan en la verificación de integración.\", \"sources\": [\"https://docs.cloud.google.com/workflows/docs/monitor\", \"https://docs.cloud.google.com/workflows/docs/reference/executions/rest/v1/projects.locations.workflows.executions?authuser=0\"]}, {\"assumption\": \"En el modo act-as estricto, la cuenta que crea la invocación (compras-workflow) necesita iam.serviceAccounts.actAs sobre la cuenta efectiva, que es invocationConfig.serviceAccount (compras-dataform). CI también lo necesita para crear el repositorio con esa cuenta.\", \"practice\": \"La guía de Dataform confirma que el modo estricto rige para todos los repositorios y que la cuenta efectiva de una invocación creada desde un resultado de compilación es la de InvocationConfig, si está fijada. Se concede roles/iam.serviceAccountUser sobre esa cuenta.\", \"sources\": [\"https://docs.cloud.google.com/dataform/docs/strict-act-as-mode\"]}, {\"assumption\": \"La cuenta del Workflow puede lanzar los jobs y esperar su operación con roles/run.invoker sobre cada job y roles/run.viewer en el proyecto, y el conector jobs.run espera la operación y levanta una excepción si la ejecución falla.\", \"practice\": \"El tutorial oficial usa el conector jobs.run y le da roles/run.admin a la cuenta del Workflow. Usar roles más acotados es una práctica de mínimo privilegio que el tutorial no documenta. El plan trae un plan B (roles/run.developer) que se activa si aparece PERMISSION_DENIED en la integración.\", \"sources\": [\"https://docs.cloud.google.com/workflows/docs/tutorials/execute-cloud-run-jobs\"]}, {\"assumption\": \"google_project_service_identity (google-beta) acepta dataform.googleapis.com y exporta member para darle acceso al secreto y a compras-dataform.\", \"practice\": \"Google publica un ejemplo de Terraform con google_project_service_identity para otras APIs. Para Dataform no encontré un ejemplo, y es común construir el correo service-<número>@gcp-sa-dataform.iam.gserviceaccount.com a mano, que es el plan B del plan.\", \"sources\": [\"https://cloud.google.com/iam/docs/samples/iam-create-project-level-service-agent?hl=ja\", \"https://discuss.hashicorp.com/t/read-default-service-agent-in-google-cloud-using-terraform/74437\"]}], \"findings\": [{\"id\": \"req-007:e2-policy-tag-rut-parcial\", \"severity\": \"P2\", \"evidence_type\": \"opinión\", \"evidence\": \"El plan pasa solo vars.raw_dataset y deja vars.policy_tag_rut a T-14, como dice la descripción de T-11. E2 de REQ-007 pide las dos variables.\", \"summary\": \"E2 queda verificado en parte hasta T-14. Si alguna prueba de aceptación de T-11 (tests/acceptance/T-11*) espera policy_tag_rut, fallará. No pude revisar spec/contracts/ para confirmarlo.\", \"fix\": \"Dejar escrito en el plan que la aserción de policy_tag_rut de E2 se agrega en T-14, y comprobar que ninguna prueba de aceptación de T-11 la exija ahora.\"}, {\"id\": \"e4:etiqueta-status-sin-documentar\", \"severity\": \"P3\", \"evidence_type\": \"fuente\", \"evidence\": \"https://docs.cloud.google.com/workflows/docs/monitor: la métrica tiene la etiqueta status, pero la página no lista sus valores ni documenta workflow_id como etiqueta de recurso.\", \"summary\": \"El filtro de la alerta depende de dos valores sin documentar. El plan ya lo trata como riesgo y lo comprueba en la integración.\", \"fix\": \"Ninguno obligatorio. Se puede comprobar también resource.label.workflow_id en el Explorador de métricas, junto con status.\"}], \"summary\": \"El plan corrige el problema bloqueante de la ronda 1: nombra el permiso de compras-workflow para actuar como compras-dataform, que ya existe en infra/modules/iam/main.tf:40, lo publica como la salida workflow_actas y lo comprueba en t11_permisos, como pide el modo act-as estricto de Dataform. También da a CI el permiso de actuar como las cuentas dataform, workflow y scheduler, y al agente de Dataform acceso al secreto. El orden de los pasos, el conector que espera con timeout 25200, que no haya try alrededor de la ingesta, la excepción ante FAILED o CANCELLED, el Scheduler en America/Santiago y la alerta por correo responden a REQ-007, DEC-002 y DEC-009. Los supuestos sin respaldo en la documentación (los valores de la etiqueta status, los roles acotados de Cloud Run y el agente de Dataform vía google_project_service_identity) tienen un plan B o una comprobación en la integración. Solo quedan hallazgos P2 y P3 que no bloquean: E2 queda cubierto en parte hasta T-14 y el valor de status falta confirmarlo.\"}\n```\n\nFuentes:\n- [Monitoreo de Workflows](https://docs.cloud.google.com/workflows/docs/monitor)\n- [Recurso REST de las ejecuciones de Workflows](https://docs.cloud.google.com/workflows/docs/reference/executions/rest/v1/projects.locations.workflows.executions?authuser=0)\n- [Modo act-as estricto de Dataform](https://docs.cloud.google.com/dataform/docs/strict-act-as-mode)\n- [Ejecutar un Cloud Run Job con Workflows](https://docs.cloud.google.com/workflows/docs/tutorials/execute-cloud-run-jobs)\n- [Crear agentes de servicio a nivel de proyecto](https://cloud.google.com/iam/docs/samples/iam-create-project-level-service-agent?hl=ja)\n- [Foro de HashiCorp: leer el agente de servicio por defecto](https://discuss.hashicorp.com/t/read-default-service-agent-in-google-cloud-using-terraform/74437)",
+  "options": {
+    "APROBAR": "no P0/P1 finding: the implementer may start with this plan",
+    "REVISAR": "the planner must fix P0/P1 findings before implementing",
+    "ESCALAR": "it needs a decision of the user"
+  },
+  "answer": "APROBAR",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule critic_approves_without_p0_p1 (DEC-051)",
+  "decider": "rule",
+  "rule": "critic_approves_without_p0_p1",
+  "facts": {
+    "verdict": "APROBAR",
+    "effective": "APROBAR",
+    "assumptions": [
+      {
+        "assumption": "La métrica workflows.googleapis.com/finished_execution_count, sobre el recurso workflows.googleapis.com/Workflow, tiene la etiqueta status con el valor FAILED y se puede filtrar por resource.label.workflow_id.",
+        "practice": "La documentación de monitoreo de Workflows lista la métrica (DELTA, INT64) con las etiquetas status y revision_id, pero no da los valores de status ni las etiquetas de recurso. En la práctica se confirma el valor en el Explorador de métricas antes de fijar el filtro, que es lo que hace el plan en la verificación de integración.",
+        "sources": [
+          "https://docs.cloud.google.com/workflows/docs/monitor",
+          "https://docs.cloud.google.com/workflows/docs/reference/executions/rest/v1/projects.locations.workflows.executions?authuser=0"
+        ]
+      },
+      {
+        "assumption": "En el modo act-as estricto, la cuenta que crea la invocación (compras-workflow) necesita iam.serviceAccounts.actAs sobre la cuenta efectiva, que es invocationConfig.serviceAccount (compras-dataform). CI también lo necesita para crear el repositorio con esa cuenta.",
+        "practice": "La guía de Dataform confirma que el modo estricto rige para todos los repositorios y que la cuenta efectiva de una invocación creada desde un resultado de compilación es la de InvocationConfig, si está fijada. Se concede roles/iam.serviceAccountUser sobre esa cuenta.",
+        "sources": [
+          "https://docs.cloud.google.com/dataform/docs/strict-act-as-mode"
+        ]
+      },
+      {
+        "assumption": "La cuenta del Workflow puede lanzar los jobs y esperar su operación con roles/run.invoker sobre cada job y roles/run.viewer en el proyecto, y el conector jobs.run espera la operación y levanta una excepción si la ejecución falla.",
+        "practice": "El tutorial oficial usa el conector jobs.run y le da roles/run.admin a la cuenta del Workflow. Usar roles más acotados es una práctica de mínimo privilegio que el tutorial no documenta. El plan trae un plan B (roles/run.developer) que se activa si aparece PERMISSION_DENIED en la integración.",
+        "sources": [
+          "https://docs.cloud.google.com/workflows/docs/tutorials/execute-cloud-run-jobs"
+        ]
+      },
+      {
+        "assumption": "google_project_service_identity (google-beta) acepta dataform.googleapis.com y exporta member para darle acceso al secreto y a compras-dataform.",
+        "practice": "Google publica un ejemplo de Terraform con google_project_service_identity para otras APIs. Para Dataform no encontré un ejemplo, y es común construir el correo service-<número>@gcp-sa-dataform.iam.gserviceaccount.com a mano, que es el plan B del plan.",
+        "sources": [
+          "https://cloud.google.com/iam/docs/samples/iam-create-project-level-service-agent?hl=ja",
+          "https://discuss.hashicorp.com/t/read-default-service-agent-in-google-cloud-using-terraform/74437"
+        ]
+      }
+    ],
+    "findings": [
+      {
+        "id": "req-007:e2-policy-tag-rut-parcial",
+        "severity": "P2",
+        "evidence_type": "opinión",
+        "evidence": "El plan pasa solo vars.raw_dataset y deja vars.policy_tag_rut a T-14, como dice la descripción de T-11. E2 de REQ-007 pide las dos variables.",
+        "summary": "E2 queda verificado en parte hasta T-14. Si alguna prueba de aceptación de T-11 (tests/acceptance/T-11*) espera policy_tag_rut, fallará. No pude revisar spec/contracts/ para confirmarlo.",
+        "fix": "Dejar escrito en el plan que la aserción de policy_tag_rut de E2 se agrega en T-14, y comprobar que ninguna prueba de aceptación de T-11 la exija ahora."
+      },
+      {
+        "id": "e4:etiqueta-status-sin-documentar",
+        "severity": "P3",
+        "evidence_type": "fuente",
+        "evidence": "https://docs.cloud.google.com/workflows/docs/monitor: la métrica tiene la etiqueta status, pero la página no lista sus valores ni documenta workflow_id como etiqueta de recurso.",
+        "summary": "El filtro de la alerta depende de dos valores sin documentar. El plan ya lo trata como riesgo y lo comprueba en la integración.",
+        "fix": "Ninguno obligatorio. Se puede comprobar también resource.label.workflow_id en el Explorador de métricas, junto con status."
+      }
+    ],
+    "blocking": [],
+    "opinion_blockers": [],
+    "repeated": [],
+    "summary": "El plan corrige el problema bloqueante de la ronda 1: nombra el permiso de compras-workflow para actuar como compras-dataform, que ya existe en infra/modules/iam/main.tf:40, lo publica como la salida workflow_actas y lo comprueba en t11_permisos, como pide el modo act-as estricto de Dataform. También da a CI el permiso de actuar como las cuentas dataform, workflow y scheduler, y al agente de Dataform acceso al secreto. El orden de los pasos, el conector que espera con timeout 25200, que no haya try alrededor de la ingesta, la excepción ante FAILED o CANCELLED, el Scheduler en America/Santiago y la alerta por correo responden a REQ-007, DEC-002 y DEC-009. Los supuestos sin respaldo en la documentación (los valores de la etiqueta status, los roles acotados de Cloud Run y el agente de Dataform vía google_project_service_identity) tienen un plan B o una comprobación en la integración. Solo quedan hallazgos P2 y P3 que no bloquean: E2 queda cubierto en parte hasta T-14 y el valor de status falta confirmarlo."
+  },
+  "timestamp": "2026-10-22T20:55:13.740Z"
+}

@@ -1,0 +1,29 @@
+{
+  "question_id": "finding_severity",
+  "instructions": "Does this finding of a plan critique block implementing the plan as written?",
+  "state": {
+    "id": "iam:workflow-sin-actas-sobre-dataform",
+    "severity": "P1",
+    "evidence_type": "fuente",
+    "evidence": "https://docs.cloud.google.com/dataform/docs/strict-act-as-mode — «Strict act-as mode is enforced for all repositories» y «You should have the Service Account User role granted for the effective service account used in the workflow invocation»; la cuenta efectiva es la de InvocationConfig si está fijada.",
+    "summary": "El paso 1.6 crea la invocación con invocationConfig.serviceAccount = compras-dataform, pero el paso 4 solo le da a compras-workflow roles/dataform.editor y roles/run.viewer. Sin iam.serviceAccounts.actAs sobre compras-dataform, workflowInvocations.create falla con un error de permisos en la primera corrida real. Ninguna prueba local lo detecta y la corrida diaria nunca llega a transformar.",
+    "fix": "En infra/modules/iam, agregar un google_service_account_iam_member con roles/iam.serviceAccountUser sobre compras-dataform para la cuenta compras-workflow, exponerlo en una salida y comprobarlo en el run t11_permisos. Si CI concede ese rol, verificar que el bootstrap lo permite (lo mismo que ya hace con ci_actas_*)."
+  },
+  "options": {
+    "blocking": "P0/P1: the plan cannot be implemented as written without fixing this",
+    "not_blocking": "P2/P3: worth fixing, but the plan can go ahead"
+  },
+  "answer": "blocking",
+  "confidence": 0.98,
+  "probabilities": {
+    "blocking": 0.99,
+    "not_blocking": 0.01
+  },
+  "model": "jev-1.13.0",
+  "user_criteria_sha256": "b05fc00d836b6571c541f0fdc594d8aa7a574abd69583a37ee89ac1b95d25c37",
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "",
+  "decider": "/home/pepe/Projects/compras-publicas-cl/scripts/agents/decider/jev.sh",
+  "timestamp": "2026-10-22T20:52:13.260Z"
+}
