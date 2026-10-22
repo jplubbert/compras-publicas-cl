@@ -584,3 +584,8 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Pendiente manual: correr `GCP_PROJECT_ID=… GCP_REGION=us-central1 scripts/env.sh scripts/it/dataform-ci.sh` tras un deploy.yml verde (solo el usuario); `bash -n` de ese script y `npm run test:workflows` no se pudieron correr en esta sesión.
 - Verificado y cómo: `scripts/env.sh bash -c 'npm run test:dataform && npm run check:descriptions && npm run check:spec'` → 33/33 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-09/verify.log), commit 0cedff3.
 - Próxima acción autorizada: revisión independiente de T-09 y, con aprobación del usuario, su verify_integration (scripts/it/dataform-ci.sh); luego T-10.
+
+## 2026-10-22 17:25 · revisor independiente (claude -p 2.1.295 (Claude Code)) vía autopilot
+- Hecho: revisión independiente de T-09 con contexto limpio (solo diff + REQ/DEC de la tarea). Veredicto: **approved** → estado `reviewed`. Hallazgos: sin hallazgos bloqueantes.
+- Verificado y cómo: veredicto completo en TASKS.json (`review` de T-09); salida íntegra en .autopilot/2026-10-22_170657/T-09-review-output.txt.
+- Próxima acción autorizada: continúa el autopilot; el usuario decide accepted después de la corrida.

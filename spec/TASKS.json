@@ -1017,7 +1017,7 @@
       "depends_on": [
         "T-08"
       ],
-      "status": "verified_auto",
+      "status": "reviewed",
       "blocked_by": null,
       "notes": "Supuesto del plan corregido: con @dataform/cli 3.1.2, --vars se mezcla con el mapa vars de workflow_settings.yaml (no lo reemplaza): `dataform compile --vars=otra=x` mantiene raw_dataset=raw. No cambia el diseño (los modelos siguen dependiendo solo de raw_dataset); el comentario de workflow_settings.yaml no afirma el reemplazo. La prueba REQ-011 E1 acepta cualquier número de modelos (\\d+) para que T-10 no tenga que cambiarla; el verify imprime 'ok (6 modelos)'. RUT vacío ('' tras limpiar) no se convierte en NULL en rutSql (forma exacta del plan); lo valida T-10.",
       "touches": [
@@ -1050,6 +1050,13 @@
           "by": "record_evidence.py",
           "at": "2026-10-22T20:24:17+00:00",
           "reason": "verify con código 0: 33/33 pasan, 0 fallan"
+        },
+        {
+          "from": "verified_auto",
+          "to": "reviewed",
+          "by": "set-review",
+          "at": "2026-10-22T20:25:12.943Z",
+          "reason": "veredicto approved confirmado por el decisor"
         }
       ],
       "plan_review": {
@@ -1100,6 +1107,21 @@
         "commit": "0cedff3291ee9609907cf5c1fa849341f7d2b1f1",
         "timestamp": "2026-10-22T20:24:17+00:00",
         "result": "33/33 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-09/verify.log)"
+      },
+      "review": {
+        "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Verificado: sha256 de artifacts/T-09/verify.log coincide (0c9609e7…), 33/33 pasan; npm run check:descriptions → 'ok (6 modelos)'; check:repo, lint y check-spec salen en 0. Los archivos cambiados están dentro de los touches de T-09 (dataform/, scripts/ci/, scripts/it/, package.json, ci.yml). Las órdenes con --test-name-pattern=T-09 no ejecutan ninguna prueba porque ningún nombre de prueba cita T-09: se ejecuta solo el archivo y se filtran todas, así que la evidencia de las pruebas es el log registrado. No se pudieron correr bash -n scripts/it/dataform-ci.sh, npm test ni test:workflows (permiso denegado); test_workflows.py modificado solo se revisó leyéndolo. REQ-008 E2–E4 y REQ-011 E4 quedan para verify_integration (usuario). No bloqueante (REQ-008): en scripts/it/dataform-ci.sh, la corrida 2 conserva en raw_ci la versión 8 dentro de la ventana, así que E3 pasa aunque la unión con ${self()} fallara; no ejercita ese mecanismo en BigQuery (hallazgo P2 del crítico sin aplicar). No bloqueante (REQ-008/DEC-006): la ventana incremental de 3 días sobre MAX(_ingest_date) omite recargas a particiones antiguas hasta un --full-refresh, y no está documentado. No bloqueante: rut_proveedor en ordenes_compra y rut_proveedor_adjudicado en licitacion_items exponen el RUT en silver; T-14 debe cubrirlos (REQ-014). Las trazas de REQ-008/REQ-011 apuntan a tests/acceptance/T-09*, pero no existe ningún archivo ahí (tampoco de otras tareas); las pruebas viven en dataform/tests/.",
+        "date": "2026-10-22",
+        "decision": {
+          "question_id": "review_verdict",
+          "decider": "rule",
+          "confidence": 1,
+          "threshold": 0.8,
+          "timestamp": "2026-10-22T20:25:11.906Z",
+          "rule": "review_approved_without_findings"
+        }
       }
     },
     {
