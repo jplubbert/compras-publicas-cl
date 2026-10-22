@@ -1,0 +1,84 @@
+{
+  "question_id": "plan_verdict",
+  "instructions": "Given this critique of an implementation plan, what is the verdict?",
+  "state": "**Veredicto: ESCALAR.** El diseño técnico del plan es correcto. Lo que queda es el bloqueante de la ronda 1, y ese no lo puede resolver el planificador.\n\n**Bloqueante (P1, mismo id `req-013:sin-prueba-de-aceptacion`).** La traza de REQ-013 apunta a `tests/acceptance/T-13*` (`spec/SPEC.md:341`), y DEC-005 dice que las pruebas de aceptación viven en `tests/acceptance/` (`spec/adr/0005-...:33`). El plan prueba E1–E4 en `benchmarks/tests/test_acceptance_req013.py` y deja el archivo de la traza como pendiente manual (paso 12). Al cerrar la tarea, ese archivo no existe. Según el plan, ese directorio está protegido y el test-author está apagado (no pude leer esos archivos para comprobarlo). Por eso hace falta que el usuario decida una de estas tres cosas:\n- crear él mismo `tests/acceptance/T-13_benchmark.py`, con el contenido del paso 12, antes o después de implementar;\n- autorizar a T-13 a escribirlo;\n- aceptar que la traza apunte a `benchmarks/tests/`.\n\n**Otros hallazgos (no bloquean):**\n- **P3, generación sintética:** crear 40 M de filas en un solo CTAS a partir de `CROSS JOIN UNNEST(GENERATE_ARRAY…)` podría chocar con \"Resources exceeded\" o tardar mucho. Esto solo aparece al correr `scripts/it/benchmark.sh`. Es mi opinión, sin una fuente oficial. Conviene que el script registre el `job_id` del CTAS si falla y que el plan nombre una alternativa (generar en tramos con `INSERT`).\n- **P3, cota del dry run:** que el dry run sea cota superior está respaldado por el campo `UPPER_BOUND` de la API, pero la explicación sobre clustering viene de blogs, no de documentación oficial de Google. El plan la tiene que presentar como una nota del informe, no como un dato documentado.\n\n```json\n{\"verdict\": \"ESCALAR\", \"assumptions\": [{\"assumption\": \"Un único CTAS que genera 40.000.000 filas con CROSS JOIN de dos UNNEST(GENERATE_ARRAY) (40.000 × 1.000) y FARM_FINGERPRINT termina sin 'Resources exceeded' y factura 0 bytes porque no lee tablas.\", \"practice\": \"Quienes generan volúmenes grandes en BigQuery evitan las operaciones que concentran los datos en un solo nodo (p. ej. ROW_NUMBER() OVER () sin partición), derivan el id del valor del arreglo y, si el job falla por recursos, generan por tramos o materializan tablas intermedias. El plan ya deriva el id del arreglo; la escala solo se confirma en la integración.\", \"sources\": [\"https://community.looker.com/gc/Modeling/Resources-exceeded-during-query-execution-in-BigQuery-because-of/m-p/578360\", \"https://oneuptime.com/blog/post/2026-02-17-how-to-fix-bigquery-query-exceeded-resource-limits-and-optimize-slot-usage/markdown\"]}, {\"assumption\": \"El dry run refleja la poda por partición pero no la poda por clustering, así que sus bytes son una cota superior y sirven para el presupuesto previo y para rotular el informe con --dry-run.\", \"practice\": \"Las estadísticas de un dry run traen un campo de precisión (PRECISE/LOWER_BOUND/UPPER_BOUND); en la práctica, el dry run se usa como techo para guardas como maximum_bytes_billed y se compara después con total_bytes_billed real. La poda por bloques del clustering ocurre al ejecutar.\", \"sources\": [\"https://googleapis.dev/nodejs/googleapis/latest/bigquery/interfaces/Schema$JobStatistics2.html\", \"https://oneuptime.com/blog/post/2026-02-17-how-to-estimate-bigquery-query-costs-before-running-with-dry-run/markdown\"]}, {\"assumption\": \"La cuota QueryUsagePerUserPerDay se reinicia a medianoche, hora del Pacífico, y se aplica antes de correr la query, así que restar lo facturado desde esa hora (JOBS_BY_USER) da lo disponible.\", \"practice\": \"La documentación oficial de cuotas personalizadas dice que las cuotas diarias se reinician a medianoche (hora del Pacífico), que la cuota por usuario alcanza a cada usuario y cuenta de servicio, y que se aplica antes de ejecutar.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/cost-controls\"]}, {\"assumption\": \"INFORMATION_SCHEMA.JOBS expone cache_hit, total_bytes_billed, total_bytes_processed, total_slot_ms y labels casi en tiempo real, y se puede filtrar por etiqueta.\", \"practice\": \"La vista JOBS trae metadatos casi en tiempo real de los jobs del proyecto, particionados por creation_time; necesita bigquery.jobs.listAll; cache_hit es NULL en el padre de un script de varias sentencias. Se filtra por creation_time para acotar los bytes y se reintenta mientras faltan jobs.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/information-schema-jobs?hl=es-419\", \"https://docs.cloud.google.com/bigquery/docs/information-schema-jobs-by-user?hl=es-419\"]}], \"findings\": [{\"id\": \"req-013:sin-prueba-de-aceptacion\", \"severity\": \"P1\", \"evidence_type\": \"archivo\", \"evidence\": \"spec/SPEC.md:341 — la traza de REQ-013 es «prueba: tests/acceptance/T-13*»; spec/adr/0005-verificacion-local-sin-nube-y-verificacion-de-integracion.md:33 — «Las pruebas de aceptación viven en `tests/acceptance/`».\", \"summary\": \"El plan sigue sin dejar un archivo tests/acceptance/T-13*: pone E1–E4 en benchmarks/tests/test_acceptance_req013.py y deja tests/acceptance/T-13_benchmark.py como pendiente manual (paso 12) porque el directorio está protegido para el implementador. Al cerrar la tarea, la traza de REQ-013 apunta a un archivo inexistente, y la aceptación no vive donde manda DEC-005. El planificador no lo puede resolver dentro de los touches de T-13: hace falta que el usuario decida quién crea el archivo o que acepte otra ubicación.\", \"fix\": \"Que el usuario elija una de estas opciones: (a) crear él (o una tarea kind: spec) tests/acceptance/T-13_benchmark.py con el contenido del paso 12 antes de implementar T-13, y que el plan exija que `scripts/acceptance.sh tests/acceptance/T-13_benchmark.py` pase en la verificación; (b) autorizar a T-13 a escribir ese archivo; o (c) cambiar la traza de SPEC.md:341 y aceptar una excepción a DEC-005 para que la aceptación viva en benchmarks/tests/.\"}, {\"id\": \"bench:generacion-40m-sin-plan-b\", \"severity\": \"P3\", \"evidence_type\": \"opinión\", \"evidence\": \"El CTAS de 40 M filas a partir de UNNEST(GENERATE_ARRAY) sin tabla de entrada puede paralelizarse mal y chocar con 'Resources exceeded' o tardar mucho; las fuentes de práctica recomiendan generar por tramos si ocurre.\", \"summary\": \"Si el CTAS falla, recién se ve en scripts/it/benchmark.sh, y el plan no dice qué hacer en ese caso. No rompe la verificación local.\", \"fix\": \"Que run.py, si falla la creación de una variante, informe el job_id y el error, y que el plan anote como alternativa generar en tramos (p. ej. INSERT por rangos del arreglo externo) sin cambiar generate.sql.\"}], \"summary\": \"En la ronda 2, el diseño técnico del plan es sólido: la generación es determinista con dos GENERATE_ARRAY y ABS(MOD(h,n)); hay un predicado de partición por cada referencia a la tabla; las reescrituras son equivalentes (RANK frente a self-join); los jobs llevan use_query_cache=false, la etiqueta bench_run y maximum_bytes_billed; el presupuesto se descuenta de lo facturado hoy; los dry runs van sin bench_run y rotulados como cota superior; y E1–E4 se prueban localmente con fixtures dentro de la verificación declarada. El problema de la ronda 1 (req-013:sin-prueba-de-aceptacion) sigue en pie: la traza de SPEC.md:341 y DEC-005 piden la prueba en tests/acceptance/T-13*, y el plan la deja como pendiente manual porque ese directorio está protegido. El planificador no puede resolverlo dentro de su alcance; el usuario debe decidir quién crea el archivo o si cambia la traza. Por eso el veredicto es ESCALAR.\"}\n```",
+  "options": {
+    "APROBAR": "no P0/P1 finding: the implementer may start with this plan",
+    "REVISAR": "the planner must fix P0/P1 findings before implementing",
+    "ESCALAR": "it needs a decision of the user"
+  },
+  "answer": "ESCALAR",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule critic_escalates (DEC-051)",
+  "decider": "rule",
+  "rule": "critic_escalates",
+  "facts": {
+    "verdict": "ESCALAR",
+    "effective": "ESCALAR",
+    "assumptions": [
+      {
+        "assumption": "Un único CTAS que genera 40.000.000 filas con CROSS JOIN de dos UNNEST(GENERATE_ARRAY) (40.000 × 1.000) y FARM_FINGERPRINT termina sin 'Resources exceeded' y factura 0 bytes porque no lee tablas.",
+        "practice": "Quienes generan volúmenes grandes en BigQuery evitan las operaciones que concentran los datos en un solo nodo (p. ej. ROW_NUMBER() OVER () sin partición), derivan el id del valor del arreglo y, si el job falla por recursos, generan por tramos o materializan tablas intermedias. El plan ya deriva el id del arreglo; la escala solo se confirma en la integración.",
+        "sources": [
+          "https://community.looker.com/gc/Modeling/Resources-exceeded-during-query-execution-in-BigQuery-because-of/m-p/578360",
+          "https://oneuptime.com/blog/post/2026-02-17-how-to-fix-bigquery-query-exceeded-resource-limits-and-optimize-slot-usage/markdown"
+        ]
+      },
+      {
+        "assumption": "El dry run refleja la poda por partición pero no la poda por clustering, así que sus bytes son una cota superior y sirven para el presupuesto previo y para rotular el informe con --dry-run.",
+        "practice": "Las estadísticas de un dry run traen un campo de precisión (PRECISE/LOWER_BOUND/UPPER_BOUND); en la práctica, el dry run se usa como techo para guardas como maximum_bytes_billed y se compara después con total_bytes_billed real. La poda por bloques del clustering ocurre al ejecutar.",
+        "sources": [
+          "https://googleapis.dev/nodejs/googleapis/latest/bigquery/interfaces/Schema$JobStatistics2.html",
+          "https://oneuptime.com/blog/post/2026-02-17-how-to-estimate-bigquery-query-costs-before-running-with-dry-run/markdown"
+        ]
+      },
+      {
+        "assumption": "La cuota QueryUsagePerUserPerDay se reinicia a medianoche, hora del Pacífico, y se aplica antes de correr la query, así que restar lo facturado desde esa hora (JOBS_BY_USER) da lo disponible.",
+        "practice": "La documentación oficial de cuotas personalizadas dice que las cuotas diarias se reinician a medianoche (hora del Pacífico), que la cuota por usuario alcanza a cada usuario y cuenta de servicio, y que se aplica antes de ejecutar.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/cost-controls"
+        ]
+      },
+      {
+        "assumption": "INFORMATION_SCHEMA.JOBS expone cache_hit, total_bytes_billed, total_bytes_processed, total_slot_ms y labels casi en tiempo real, y se puede filtrar por etiqueta.",
+        "practice": "La vista JOBS trae metadatos casi en tiempo real de los jobs del proyecto, particionados por creation_time; necesita bigquery.jobs.listAll; cache_hit es NULL en el padre de un script de varias sentencias. Se filtra por creation_time para acotar los bytes y se reintenta mientras faltan jobs.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/information-schema-jobs?hl=es-419",
+          "https://docs.cloud.google.com/bigquery/docs/information-schema-jobs-by-user?hl=es-419"
+        ]
+      }
+    ],
+    "findings": [
+      {
+        "id": "req-013:sin-prueba-de-aceptacion",
+        "severity": "P1",
+        "evidence_type": "archivo",
+        "evidence": "spec/SPEC.md:341 — la traza de REQ-013 es «prueba: tests/acceptance/T-13*»; spec/adr/0005-verificacion-local-sin-nube-y-verificacion-de-integracion.md:33 — «Las pruebas de aceptación viven en `tests/acceptance/`».",
+        "summary": "El plan sigue sin dejar un archivo tests/acceptance/T-13*: pone E1–E4 en benchmarks/tests/test_acceptance_req013.py y deja tests/acceptance/T-13_benchmark.py como pendiente manual (paso 12) porque el directorio está protegido para el implementador. Al cerrar la tarea, la traza de REQ-013 apunta a un archivo inexistente, y la aceptación no vive donde manda DEC-005. El planificador no lo puede resolver dentro de los touches de T-13: hace falta que el usuario decida quién crea el archivo o que acepte otra ubicación.",
+        "fix": "Que el usuario elija una de estas opciones: (a) crear él (o una tarea kind: spec) tests/acceptance/T-13_benchmark.py con el contenido del paso 12 antes de implementar T-13, y que el plan exija que `scripts/acceptance.sh tests/acceptance/T-13_benchmark.py` pase en la verificación; (b) autorizar a T-13 a escribir ese archivo; o (c) cambiar la traza de SPEC.md:341 y aceptar una excepción a DEC-005 para que la aceptación viva en benchmarks/tests/."
+      },
+      {
+        "id": "bench:generacion-40m-sin-plan-b",
+        "severity": "P3",
+        "evidence_type": "opinión",
+        "evidence": "El CTAS de 40 M filas a partir de UNNEST(GENERATE_ARRAY) sin tabla de entrada puede paralelizarse mal y chocar con 'Resources exceeded' o tardar mucho; las fuentes de práctica recomiendan generar por tramos si ocurre.",
+        "summary": "Si el CTAS falla, recién se ve en scripts/it/benchmark.sh, y el plan no dice qué hacer en ese caso. No rompe la verificación local.",
+        "fix": "Que run.py, si falla la creación de una variante, informe el job_id y el error, y que el plan anote como alternativa generar en tramos (p. ej. INSERT por rangos del arreglo externo) sin cambiar generate.sql."
+      }
+    ],
+    "blocking": [
+      "req-013:sin-prueba-de-aceptacion"
+    ],
+    "opinion_blockers": [],
+    "repeated": [
+      "req-013:sin-prueba-de-aceptacion"
+    ],
+    "summary": "En la ronda 2, el diseño técnico del plan es sólido: la generación es determinista con dos GENERATE_ARRAY y ABS(MOD(h,n)); hay un predicado de partición por cada referencia a la tabla; las reescrituras son equivalentes (RANK frente a self-join); los jobs llevan use_query_cache=false, la etiqueta bench_run y maximum_bytes_billed; el presupuesto se descuenta de lo facturado hoy; los dry runs van sin bench_run y rotulados como cota superior; y E1–E4 se prueban localmente con fixtures dentro de la verificación declarada. El problema de la ronda 1 (req-013:sin-prueba-de-aceptacion) sigue en pie: la traza de SPEC.md:341 y DEC-005 piden la prueba en tests/acceptance/T-13*, y el plan la deja como pendiente manual porque ese directorio está protegido. El planificador no puede resolverlo dentro de su alcance; el usuario debe decidir quién crea el archivo o si cambia la traza. Por eso el veredicto es ESCALAR."
+  },
+  "timestamp": "2026-10-22T21:44:48.649Z"
+}

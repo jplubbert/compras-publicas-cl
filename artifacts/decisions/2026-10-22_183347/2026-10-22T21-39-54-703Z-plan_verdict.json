@@ -1,0 +1,101 @@
+{
+  "question_id": "plan_verdict",
+  "instructions": "Given this critique of an implementation plan, what is the verdict?",
+  "state": "**Veredicto: REVISAR.** El diseño técnico del plan es correcto, pero tiene un P1 respaldado por una línea de archivo, y según la regla eso bloquea.\n\n- **P1: falta la prueba de aceptación.** REQ-013 traza su prueba a `tests/acceptance/T-13*` (`spec/SPEC.md:341`). DEC-005 dice que las pruebas de aceptación viven en `tests/acceptance/` y que las corre `scripts/acceptance.sh`. El plan cubre E1–E4 solo en `benchmarks/tests/` y no crea ningún archivo en esa ruta. El arreglo es barato: agregar `tests/acceptance/T-13_benchmark.py` que pruebe E1–E4.\n- **Supuestos confirmados en la documentación de Google:**\n  - En una tabla clusterizada, el dry run no descuenta la poda por clustering. Por eso el rótulo «cota superior» es correcto.\n  - `INFORMATION_SCHEMA.JOBS` está particionada por `creation_time`, tiene la columna `labels` y exige el permiso `bigquery.jobs.listAll`.\n- **Supuestos que no pude confirmar:**\n  - Si los dry runs aparecen o no en `INFORMATION_SCHEMA.JOBS`. La documentación no lo dice.\n  - Que el `CREATE TABLE … AS SELECT` sin lectura de tablas facture 0 bytes. No encontré fuente; el plan se apoya en DEC-007.\n  - El límite de `GENERATE_ARRAY`. No está documentado, pero los dos arreglos de 40.000 × 1.000 lo evitan de todos modos.\n- **Hallazgos menores (P2/P3):**\n  - Ninguna prueba exige el filtro de partición dentro de la subconsulta del self-join.\n  - No se ve que las etiquetas de los dry runs estén separadas de `bench_run`.\n  - La cuota diaria es acumulativa y el chequeo de 18 GiB no la descuenta.\n  - Las particiones mensuales quedan cerca del umbral de 64 MB.\n\nNo modifiqué ningún archivo.\n\n```json\n{\"verdict\": \"REVISAR\", \"assumptions\": [{\"assumption\": \"Un dry run sobre la variante particionada y clusterizada sobreestima los bytes porque no aplica la poda por clustering; por eso sirve como cota superior y como base de cap_bytes.\", \"practice\": \"Google documenta que en tablas clusterizadas no se obtiene una estimación exacta antes de ejecutar; la práctica es usar totalBytesProcessed del dry run como techo de presupuesto y medir el ahorro real con total_bytes_billed del job ejecutado.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/clustered-tables\", \"https://oneuptime.com/blog/post/2026-02-17-how-to-estimate-bigquery-query-costs-before-running-with-dry-run/markdown\"]}, {\"assumption\": \"INFORMATION_SCHEMA.JOBS regional expone labels, cache_hit, error_result, total_bytes_billed/processed y total_slot_ms casi en tiempo real; está particionada por creation_time; el usuario que corre el benchmark puede consultarla, y los dry runs no aparecen en ella.\", \"practice\": \"La documentación confirma labels (arreglo clave-valor), la partición por creation_time, una latencia 'near real-time' y que hace falta bigquery.jobs.listAll (roles/bigquery.resourceViewer o dueño). La documentación no dice si los dry runs aparecen en la vista; en la práctica se reintenta la lectura y se filtra por etiqueta.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/information-schema-jobs\"]}, {\"assumption\": \"Un solo GENERATE_ARRAY de 40 M elementos falla, y el producto cruzado de 40.000 × 1.000 funciona.\", \"practice\": \"La referencia de funciones de arreglo no documenta un máximo de elementos. La práctica habitual para generar secuencias grandes es combinar varios GENERATE_ARRAY con UNNEST/CROSS JOIN, que es lo que hace el plan, así que el supuesto da igual en cualquier caso.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/array_functions?authuser=1\"]}, {\"assumption\": \"Un CREATE TABLE ... AS SELECT que no lee ninguna tabla (solo GENERATE_ARRAY/FARM_FINGERPRINT) procesa y factura 0 bytes y no consume la cuota diaria de query.\", \"practice\": \"No encontré una fuente que lo confirme; el mínimo de facturación de 10 MB se aplica por tabla referenciada, así que sin tablas debería ser 0. El plan además limita el job con maximum_bytes_billed de 1 GiB, lo que acota el riesgo.\", \"sources\": []}, {\"assumption\": \"La variante clusterizada con particiones mensuales (~667.000 filas, ~100 MB) muestra un ahorro medible frente a la particionada en al menos una query.\", \"practice\": \"Google indica que el clustering beneficia a tablas o particiones de más de 64 MB y que en particiones menores la mejora es despreciable; las particiones mensuales del plan quedan apenas sobre ese umbral, y q2 filtra por la primera columna de clustering.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/clustered-tables\"]}], \"findings\": [{\"id\": \"req-013:sin-prueba-de-aceptacion\", \"severity\": \"P1\", \"evidence_type\": \"archivo\", \"evidence\": \"spec/SPEC.md:341 — 'Trazas: ... prueba: tests/acceptance/T-13*'\", \"summary\": \"REQ-013 traza su prueba de aceptación a tests/acceptance/T-13*, y DEC-005 dice que las pruebas de aceptación viven en tests/acceptance/ y que las corre scripts/acceptance.sh según la extensión. El plan pone E1–E4 solo en benchmarks/tests/ y no crea ningún archivo tests/acceptance/T-13*; como el test-author está apagado en este repo (Q-05), nadie más lo creará. La traza apunta a un archivo que no existe y scripts/acceptance.sh no tiene nada que correr para T-13.\", \"fix\": \"Agregar tests/acceptance/T-13_benchmark.py (pytest, sin red) que pruebe E1–E4 contra generate.render y report.render con los fixtures de benchmarks/tests/fixtures (o que importe las mismas aserciones), agregarlo a la lista de Archivos y comprobar en la Verificación que 'scripts/env.sh scripts/acceptance.sh tests/acceptance/T-13_benchmark.py' pasa.\"}, {\"id\": \"bench:filtro-particion-subconsulta-r2\", \"severity\": \"P2\", \"evidence_type\": \"opinión\", \"evidence\": \"Paso 5 (r2_self_join_antes) y paso 9 ('cada archivo de queries/ filtra por fecha_publicacion')\", \"summary\": \"La versión 'antes' de r2 lee la tabla dos veces (consulta externa y subconsulta con MAX/GROUP BY). Con require_partition_filter, cada referencia necesita su propio filtro de partición. La prueba local solo comprueba que 'fecha_publicacion' aparece en el archivo, así que no detecta una subconsulta sin filtro; el error saldría recién en la integración.\", \"fix\": \"Exigir en el plan que cada referencia a {tabla} en r2_antes lleve el filtro de fecha, y que la prueba cuente que hay tantos predicados sobre fecha_publicacion como referencias a {tabla}.\"}, {\"id\": \"bench:etiqueta-de-dry-runs\", \"severity\": \"P3\", \"evidence_type\": \"opinión\", \"evidence\": \"Paso 6.2 y paso 7 (JOBS_SQL filtra por bench_run y statement_type = 'SELECT')\", \"summary\": \"El paso 6.2 hace dry runs de los 13 jobs con job_config, que lleva la etiqueta bench_run. La documentación de JOBS no dice si los dry runs aparecen en la vista; si aparecieran, el informe vería 26 filas y mezclaría estimaciones con mediciones.\", \"fix\": \"Hacer los dry runs de presupuesto sin la etiqueta bench_run (o con bench_meta), o descartar en fetch_jobs las filas sin total_slot_ms o sin end_time.\"}, {\"id\": \"dec-003:cuota-diaria-acumulada\", \"severity\": \"P3\", \"evidence_type\": \"opinión\", \"evidence\": \"Paso 6.2 (abortar si la suma de dry runs supera 18 GiB)\", \"summary\": \"La cuota QueryUsagePerUserPerDay de 20 GiB es acumulativa en el día. El chequeo de 18 GiB solo mira la corrida actual, así que una segunda corrida el mismo día (o otras consultas del usuario) puede chocar con la cuota a mitad de camino y dejar un informe incompleto.\", \"fix\": \"Antes de correr, leer el total facturado del día por el usuario desde INFORMATION_SCHEMA.JOBS y descontarlo del presupuesto, o al menos documentar en scripts/it/benchmark.sh que se corre una vez por día.\"}], \"summary\": \"El plan cumple en lo técnico el REQ-013 y respeta DEC-003/DEC-009 (maximum_bytes_billed en cada job y presupuesto por dry run bajo la cuota por usuario) y DEC-007 (SQL determinista con FARM_FINGERPRINT y semilla fija, 40 M filas, creación sin lectura de tablas). Además, en tablas clusterizadas el dry run es efectivamente una cota superior, como confirma la documentación de Google. El problema que bloquea es de trazabilidad y verificación: REQ-013 y DEC-005 sitúan la prueba de aceptación en tests/acceptance/T-13*, y el plan no la crea. Hay además hallazgos menores: ninguna prueba exige el filtro de partición en la subconsulta del self-join, las etiquetas de los dry runs no están separadas de bench_run y la cuota diaria es acumulativa. Quedan sin fuente que lo confirme que el CTAS sin lectura de tablas factura 0 bytes y si los dry runs aparecen en INFORMATION_SCHEMA.JOBS. Con la prueba de aceptación agregada, el plan se puede aprobar.\"}\n```\n\nSources:\n- [Clustered tables (BigQuery)](https://docs.cloud.google.com/bigquery/docs/clustered-tables)\n- [INFORMATION_SCHEMA.JOBS view](https://docs.cloud.google.com/bigquery/docs/information-schema-jobs)\n- [Array functions (BigQuery)](https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/array_functions?authuser=1)\n- [How to Estimate BigQuery Query Costs with Dry Run (OneUptime)](https://oneuptime.com/blog/post/2026-02-17-how-to-estimate-bigquery-query-costs-before-running-with-dry-run/markdown)",
+  "options": {
+    "APROBAR": "no P0/P1 finding: the implementer may start with this plan",
+    "REVISAR": "the planner must fix P0/P1 findings before implementing",
+    "ESCALAR": "it needs a decision of the user"
+  },
+  "answer": "REVISAR",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule critic_revises_with_blocking (DEC-051)",
+  "decider": "rule",
+  "rule": "critic_revises_with_blocking",
+  "facts": {
+    "verdict": "REVISAR",
+    "effective": "REVISAR",
+    "assumptions": [
+      {
+        "assumption": "Un dry run sobre la variante particionada y clusterizada sobreestima los bytes porque no aplica la poda por clustering; por eso sirve como cota superior y como base de cap_bytes.",
+        "practice": "Google documenta que en tablas clusterizadas no se obtiene una estimación exacta antes de ejecutar; la práctica es usar totalBytesProcessed del dry run como techo de presupuesto y medir el ahorro real con total_bytes_billed del job ejecutado.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/clustered-tables",
+          "https://oneuptime.com/blog/post/2026-02-17-how-to-estimate-bigquery-query-costs-before-running-with-dry-run/markdown"
+        ]
+      },
+      {
+        "assumption": "INFORMATION_SCHEMA.JOBS regional expone labels, cache_hit, error_result, total_bytes_billed/processed y total_slot_ms casi en tiempo real; está particionada por creation_time; el usuario que corre el benchmark puede consultarla, y los dry runs no aparecen en ella.",
+        "practice": "La documentación confirma labels (arreglo clave-valor), la partición por creation_time, una latencia 'near real-time' y que hace falta bigquery.jobs.listAll (roles/bigquery.resourceViewer o dueño). La documentación no dice si los dry runs aparecen en la vista; en la práctica se reintenta la lectura y se filtra por etiqueta.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/information-schema-jobs"
+        ]
+      },
+      {
+        "assumption": "Un solo GENERATE_ARRAY de 40 M elementos falla, y el producto cruzado de 40.000 × 1.000 funciona.",
+        "practice": "La referencia de funciones de arreglo no documenta un máximo de elementos. La práctica habitual para generar secuencias grandes es combinar varios GENERATE_ARRAY con UNNEST/CROSS JOIN, que es lo que hace el plan, así que el supuesto da igual en cualquier caso.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/array_functions?authuser=1"
+        ]
+      },
+      {
+        "assumption": "Un CREATE TABLE ... AS SELECT que no lee ninguna tabla (solo GENERATE_ARRAY/FARM_FINGERPRINT) procesa y factura 0 bytes y no consume la cuota diaria de query.",
+        "practice": "No encontré una fuente que lo confirme; el mínimo de facturación de 10 MB se aplica por tabla referenciada, así que sin tablas debería ser 0. El plan además limita el job con maximum_bytes_billed de 1 GiB, lo que acota el riesgo.",
+        "sources": []
+      },
+      {
+        "assumption": "La variante clusterizada con particiones mensuales (~667.000 filas, ~100 MB) muestra un ahorro medible frente a la particionada en al menos una query.",
+        "practice": "Google indica que el clustering beneficia a tablas o particiones de más de 64 MB y que en particiones menores la mejora es despreciable; las particiones mensuales del plan quedan apenas sobre ese umbral, y q2 filtra por la primera columna de clustering.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/clustered-tables"
+        ]
+      }
+    ],
+    "findings": [
+      {
+        "id": "req-013:sin-prueba-de-aceptacion",
+        "severity": "P1",
+        "evidence_type": "archivo",
+        "evidence": "spec/SPEC.md:341 — 'Trazas: ... prueba: tests/acceptance/T-13*'",
+        "summary": "REQ-013 traza su prueba de aceptación a tests/acceptance/T-13*, y DEC-005 dice que las pruebas de aceptación viven en tests/acceptance/ y que las corre scripts/acceptance.sh según la extensión. El plan pone E1–E4 solo en benchmarks/tests/ y no crea ningún archivo tests/acceptance/T-13*; como el test-author está apagado en este repo (Q-05), nadie más lo creará. La traza apunta a un archivo que no existe y scripts/acceptance.sh no tiene nada que correr para T-13.",
+        "fix": "Agregar tests/acceptance/T-13_benchmark.py (pytest, sin red) que pruebe E1–E4 contra generate.render y report.render con los fixtures de benchmarks/tests/fixtures (o que importe las mismas aserciones), agregarlo a la lista de Archivos y comprobar en la Verificación que 'scripts/env.sh scripts/acceptance.sh tests/acceptance/T-13_benchmark.py' pasa."
+      },
+      {
+        "id": "bench:filtro-particion-subconsulta-r2",
+        "severity": "P2",
+        "evidence_type": "opinión",
+        "evidence": "Paso 5 (r2_self_join_antes) y paso 9 ('cada archivo de queries/ filtra por fecha_publicacion')",
+        "summary": "La versión 'antes' de r2 lee la tabla dos veces (consulta externa y subconsulta con MAX/GROUP BY). Con require_partition_filter, cada referencia necesita su propio filtro de partición. La prueba local solo comprueba que 'fecha_publicacion' aparece en el archivo, así que no detecta una subconsulta sin filtro; el error saldría recién en la integración.",
+        "fix": "Exigir en el plan que cada referencia a {tabla} en r2_antes lleve el filtro de fecha, y que la prueba cuente que hay tantos predicados sobre fecha_publicacion como referencias a {tabla}."
+      },
+      {
+        "id": "bench:etiqueta-de-dry-runs",
+        "severity": "P3",
+        "evidence_type": "opinión",
+        "evidence": "Paso 6.2 y paso 7 (JOBS_SQL filtra por bench_run y statement_type = 'SELECT')",
+        "summary": "El paso 6.2 hace dry runs de los 13 jobs con job_config, que lleva la etiqueta bench_run. La documentación de JOBS no dice si los dry runs aparecen en la vista; si aparecieran, el informe vería 26 filas y mezclaría estimaciones con mediciones.",
+        "fix": "Hacer los dry runs de presupuesto sin la etiqueta bench_run (o con bench_meta), o descartar en fetch_jobs las filas sin total_slot_ms o sin end_time."
+      },
+      {
+        "id": "dec-003:cuota-diaria-acumulada",
+        "severity": "P3",
+        "evidence_type": "opinión",
+        "evidence": "Paso 6.2 (abortar si la suma de dry runs supera 18 GiB)",
+        "summary": "La cuota QueryUsagePerUserPerDay de 20 GiB es acumulativa en el día. El chequeo de 18 GiB solo mira la corrida actual, así que una segunda corrida el mismo día (o otras consultas del usuario) puede chocar con la cuota a mitad de camino y dejar un informe incompleto.",
+        "fix": "Antes de correr, leer el total facturado del día por el usuario desde INFORMATION_SCHEMA.JOBS y descontarlo del presupuesto, o al menos documentar en scripts/it/benchmark.sh que se corre una vez por día."
+      }
+    ],
+    "blocking": [
+      "req-013:sin-prueba-de-aceptacion"
+    ],
+    "opinion_blockers": [],
+    "repeated": [],
+    "summary": "El plan cumple en lo técnico el REQ-013 y respeta DEC-003/DEC-009 (maximum_bytes_billed en cada job y presupuesto por dry run bajo la cuota por usuario) y DEC-007 (SQL determinista con FARM_FINGERPRINT y semilla fija, 40 M filas, creación sin lectura de tablas). Además, en tablas clusterizadas el dry run es efectivamente una cota superior, como confirma la documentación de Google. El problema que bloquea es de trazabilidad y verificación: REQ-013 y DEC-005 sitúan la prueba de aceptación en tests/acceptance/T-13*, y el plan no la crea. Hay además hallazgos menores: ninguna prueba exige el filtro de partición en la subconsulta del self-join, las etiquetas de los dry runs no están separadas de bench_run y la cuota diaria es acumulativa. Quedan sin fuente que lo confirme que el CTAS sin lectura de tablas factura 0 bytes y si los dry runs aparecen en INFORMATION_SCHEMA.JOBS. Con la prueba de aceptación agregada, el plan se puede aprobar."
+  },
+  "timestamp": "2026-10-22T21:39:54.703Z"
+}
