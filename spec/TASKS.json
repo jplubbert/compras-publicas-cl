@@ -891,9 +891,9 @@
         "T-04",
         "T-07"
       ],
-      "status": "ready",
+      "status": "verified_auto",
       "blocked_by": null,
-      "notes": "",
+      "notes": "Las pruebas de T-08 están en ingest/tests (test_load.py, test_dockerfile.py), infra/main/tests y infra/bootstrap/tests (t08_*) y scripts/ci/tests (E5, dataform-ci, run-jobs, reintento de tf-apply), como en T-03 a T-07; no hay tests/acceptance/. El mensaje de reintento de tf-apply.sh va en inglés ('tf-apply: actAs not propagated yet, retry N/M') por la regla de idioma de AGENTS.md, en lugar del texto en español del plan. El nombre del paso de Dataform en deploy.yml repite --schema-suffix=ci y --vars=raw_dataset=raw_ci para que E5 se lea en deploy.yml (hallazgo P2 de la crítica, ronda 2). T-14 debe agregar policy_tag_rut a --vars de scripts/ci/dataform-ci.sh (hallazgo P3 de la crítica). En run-jobs.sh, una corrida sin archivos de mindicador se omite con aviso (fuente secundaria sin SLA, REQ-005).",
       "touches": [
         "ingest/",
         "infra/",
@@ -910,6 +910,20 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:23:37.208Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "apply-result",
+          "at": "2026-10-22T19:45:06.513Z",
+          "reason": "resultado del implementador de T-08 vía autopilot (claude)"
+        },
+        {
+          "from": "in_progress",
+          "to": "verified_auto",
+          "by": "record_evidence.py",
+          "at": "2026-10-22T19:45:19+00:00",
+          "reason": "verify con código 0: 175/175 pasan, 0 fallan"
         }
       ],
       "plan_review": {
@@ -945,6 +959,21 @@
         ],
         "opinion_blockers": [],
         "date": "2026-10-22"
+      },
+      "claims": {
+        "manual_pending": "1) Reaplicar infra/bootstrap a mano antes del merge (roles/run.admin y roles/artifactregistry.admin para compras-ci); sin eso falla el job apply de deploy.yml. 2) Tras el merge, el job release de deploy.yml en verde (imagen con la etiqueta del commit, jobs actualizados, Dataform en ci). 3) GOOGLE_CLOUD_PROJECT=<proyecto> GCP_REGION=us-central1 scripts/it/run-jobs.sh <fecha AAAA-MM-DD> con ADC: debe imprimir 'run-jobs: ok …' y salir 0 (carga real a raw y E3 en raw_ci). 4) bash -n scripts/it/run-jobs.sh scripts/it/tf-apply.sh (la sesión no pudo ejecutarlo)."
+      },
+      "evidence": {
+        "command": "scripts/env.sh bash -c 'npm run test:ingest && npm run test:infra && npm run test:workflows && npm run check:spec'",
+        "exit_code": 0,
+        "passed": 175,
+        "failed": 0,
+        "total": 175,
+        "log_path": "artifacts/T-08/verify.log",
+        "log_sha256": "e1ef30d964d9838cb456be9279b154d294b17acdf5f5990b8ec10abe9594e8cb",
+        "commit": "7c86bfdf75ddf8c39b521270019f452e98480863",
+        "timestamp": "2026-10-22T19:45:19+00:00",
+        "result": "175/175 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-08/verify.log)"
       }
     },
     {

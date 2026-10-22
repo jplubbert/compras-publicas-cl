@@ -1,0 +1,72 @@
+
+> test:ingest
+> scripts/env.sh uv run --frozen pytest ingest/tests
+
+........................................................................ [ 66%]
+.....................................                                    [100%]
+Tests: 0 failed, 109 passed, 109 total
+109 passed in 1.61s
+
+> test:infra
+> scripts/ci/tf-test.sh
+
+Success! The configuration is valid.
+
+tests/bootstrap.tftest.hcl... in progress
+  run "state_bucket_and_wif"... pass
+  run "ci_account_without_billing"... pass
+  run "t08_ci_run_y_artifact_registry"... pass
+  run "e2_without_project_id"... pass
+  run "e2_without_region"... pass
+  run "e2_without_github_repository"... pass
+  run "e3_region_outside_us"... pass
+  run "e5_presupuesto_y_desvinculadora"... pass
+  run "rol_billing_admin"... pass
+  run "presupuesto_de_simulacro"... pass
+  run "sin_billing_account"... pass
+  run "billing_account_mal_formado"... pass
+  run "sin_alert_email"... pass
+  run "presupuesto_cero"... pass
+  run "rol_billing_no_permitido"... pass
+  run "e1_bucket_de_respaldo"... pass
+  run "e2_ci_solo_crea_objetos"... pass
+  run "sin_backup_project_id"... pass
+  run "backup_igual_al_proyecto"... pass
+tests/bootstrap.tftest.hcl... tearing down
+tests/bootstrap.tftest.hcl... pass
+
+Success! 19 passed, 0 failed.
+Success! The configuration is valid.
+
+tests/main.tftest.hcl... in progress
+  run "e1_bronze_y_datasets"... pass
+  run "e2_sin_project_id"... pass
+  run "e2_sin_region"... pass
+  run "e2_sin_github_repository"... pass
+  run "e3_region_fuera_de_eeuu"... pass
+  run "e5_ingesta"... pass
+  run "e6_lectura_restringida"... pass
+  run "e6_cuotas_bigquery"... pass
+  run "e6_cuota_no_positiva"... pass
+  run "secretos_sin_versiones"... pass
+  run "t08_ingest_jobs"... pass
+  run "t08_raw_tables"... pass
+  run "t08_ci_actas"... pass
+  run "t08_apis"... pass
+tests/main.tftest.hcl... tearing down
+tests/main.tftest.hcl... pass
+
+Success! 14 passed, 0 failed.
+Tests: 0 failed, 0 skipped, 33 passed, 33 total
+
+> test:workflows
+> scripts/env.sh uv run --frozen pytest scripts/ci/tests
+
+.................................                                        [100%]
+Tests: 0 failed, 33 passed, 33 total
+33 passed in 0.28s
+
+> check:spec
+> node scripts/check-spec.mjs
+
+check:spec: ok
