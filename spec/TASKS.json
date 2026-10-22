@@ -516,33 +516,26 @@
       ],
       "plan_review": {
         "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
-        "verdict": "REVISAR",
-        "effective": "REVISAR",
-        "round": 1,
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 2,
         "plan": "plans/T-05.md",
-        "plan_sha": "614d9cc242a30ac803b064c19909bed529e24eba",
-        "plan_commit": "6817b08",
+        "plan_sha": "a6b7feac390660a478cb61dfbe8a85f1dde57116",
+        "plan_commit": "1db5aa4",
         "findings": [
           {
-            "id": "drill:e4-real-sin-billing",
-            "severity": "P1",
-            "evidence_type": "fuente",
-            "evidence": "https://docs.cloud.google.com/billing/docs/how-to/disable-billing-with-notifications — al desactivar el billing se detienen todos los servicios de Google Cloud del proyecto, incluidos los del free tier.",
-            "summary": "El paso 15 publica otra vez el mensaje E1 con el billing ya quitado y busca en los registros que no haya errores. Sin billing, gcloud pubsub topics publish falla (BILLING_DISABLED) y, con set -euo pipefail, el simulacro sale con 1 aunque la desvinculación haya funcionado; aunque la publicación pasara, la función no correría, y la búsqueda de registros no probaría nada. El verify_integration de T-05 (DEC-003, DEC-009) quedaría fallando o sin probar nada."
-          },
-          {
-            "id": "drill:e2-real-vacuo",
+            "id": "drill:cuotas-no-aplicadas-en-simulacro",
             "severity": "P2",
             "evidence_type": "opinión",
-            "evidence": "Paso 15 del plan: E2 real espera 90 s y solo comprueba billingEnabled == True.",
-            "summary": "El E2 real pasa también si la función no se desplegó, si el disparador no entrega mensajes o si la función falla al arrancar; no demuestra que el camino tema → función se ejecutó y decidió 'under_budget'."
+            "evidence": "El paso 15 solo lee quotaInfos/QueryUsagePerDay; las quota_preference de infra/main las crea recién CI en deploy.yml.",
+            "summary": "Ninguna verificación de integración de T-05 crea las dos preferencias de cuota de verdad. Un rechazo de Cloud Quotas (dimensiones de la cuota por usuario, safety checks) aparecería recién en deploy.yml."
           },
           {
-            "id": "req-003:unidad-cuota-no-confirmada",
-            "severity": "P2",
-            "evidence_type": "fuente",
-            "evidence": "https://docs.cloud.google.com/bigquery/docs/custom-quotas — la cuota se describe en TiB (200 TiB por defecto) y no se documenta la unidad de la API.",
-            "summary": "E6 en terraform test comprueba 51200/20480 suponiendo MiB; si la unidad real fuera otra, el verify local pasa con un tope que no corresponde a S-07. Solo el simulacro lo detecta, y lo corre el usuario después."
+            "id": "drill:diagnostico-ingress-interno",
+            "severity": "P3",
+            "evidence_type": "opinión",
+            "evidence": "Paso 9: ingress_settings = ALLOW_INTERNAL_ONLY; paso 15: E2 solo informa 'sin registro de la función'.",
+            "summary": "Si el ingreso interno resultara incompatible con la entrega de Eventarc, el simulacro fallaría en E2 sin decir por qué."
           }
         ],
         "opinion_blockers": [],
