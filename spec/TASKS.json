@@ -1440,7 +1440,7 @@
       "depends_on": [
         "T-10"
       ],
-      "status": "verified_auto",
+      "status": "reviewed",
       "blocked_by": null,
       "notes": "2026-10-22: escalada por el orquestador (DEC-005): el planificador no escribió plans/T-12.md (ronda 1, código 0); sin informe; bloqueada por Q-08. Implementado siguiendo plans/T-12.md sin desvíos. La comprobación offline del generador de fixtures de scripts/it/dataform-ci.sh (serie() con saltos y fijo, búsqueda del domingo) fue denegada por la guarda; se revisó por lectura y con bash -n. El grafo compilado confirma que dependOnDependencyAssertions agrega las assertions de silver (incluidas las de continuidad y reconciliación) a los dependencyTargets de los hechos, y assert_fct_licitaciones a los de mart_organismo_mes.",
       "touches": [
@@ -1484,6 +1484,13 @@
           "by": "record_evidence.py",
           "at": "2026-10-22T21:32:50+00:00",
           "reason": "verify con código 0: 89/89 pasan, 0 fallan"
+        },
+        {
+          "from": "verified_auto",
+          "to": "reviewed",
+          "by": "set-review",
+          "at": "2026-10-22T21:33:29.701Z",
+          "reason": "veredicto approved confirmado por el decisor"
         }
       ],
       "plan_review": {
@@ -1541,6 +1548,21 @@
         "commit": "665c8a299d61dd9aa362b2aa18d25f078b31d042",
         "timestamp": "2026-10-22T21:32:50+00:00",
         "result": "89/89 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-12/verify.log)"
+      },
+      "review": {
+        "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "El hash de artifacts/T-12/verify.log coincide (a6546ff6…) y el log muestra 89/89 pruebas en verde. El patrón T-12 no selecciona ninguna prueba individual porque los nombres no citan T-12; la corrida filtrada solo confirmó que gold.test.mjs carga, y para los resultados me apoyé en el log. REQ-012 E1 y E5 se prueban localmente sobre el grafo compilado; E5 se comprueba por el texto del SQLX y por los dependencyTargets (incluye silver_licitaciones_assertions_uniqueKey_0, que sostiene E6). E2, E3, E4 y E6 quedan solo en scripts/it/dataform-ci.sh y no se pudieron correr sin GCP; está pendiente el verify_integration del usuario. Comprobé que indicadores_diarios.valor es NUMERIC, así que las igualdades exactas de E2 y E3 no deberían fallar por redondeo de FLOAT64. Los hechos usan assertions propias con filtro de partición en vez de las integradas, por require_partition_filter; queda cubierto en assertions.test.mjs. No hay cambios fuera de dataform/ y scripts/it/ en el commit de implementación. Ni DEC-001 ni DEC-008 se violan: no hay policy tags y proveedor_key es provisional en una sola función para T-14.",
+        "date": "2026-10-22",
+        "decision": {
+          "question_id": "review_verdict",
+          "decider": "rule",
+          "confidence": 1,
+          "threshold": 0.8,
+          "timestamp": "2026-10-22T21:33:28.742Z",
+          "rule": "review_approved_without_findings"
+        }
       }
     },
     {

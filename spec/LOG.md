@@ -734,3 +734,8 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Pendiente manual: correr `GCP_PROJECT_ID=… GCP_REGION=us-central1 scripts/env.sh scripts/it/dataform-ci.sh` tras un deploy.yml en verde y comprobar que termina con `dataform-ci: ok … req012-e1 req012-e2 req012-e3 req012-e4 req012-e6 gold-descripciones mart …`.
 - Verificado y cómo: `scripts/env.sh bash -c 'npm run test:dataform && npm run check:descriptions && npm run check:spec'` → 89/89 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-12/verify.log), commit 665c8a2.
 - Próxima acción autorizada: revisión independiente de T-12; el usuario corre el verify_integration de T-12 (scripts/it/dataform-ci.sh) cuando apruebe.
+
+## 2026-10-22 18:33 · revisor independiente (claude -p 2.1.295 (Claude Code)) vía autopilot
+- Hecho: revisión independiente de T-12 con contexto limpio (solo diff + REQ/DEC de la tarea). Veredicto: **approved** → estado `reviewed`. Hallazgos: sin hallazgos bloqueantes.
+- Verificado y cómo: veredicto completo en TASKS.json (`review` de T-12); salida íntegra en .autopilot/2026-10-22_181332/T-12-review-output.txt.
+- Próxima acción autorizada: continúa el autopilot; el usuario decide accepted después de la corrida.
