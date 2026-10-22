@@ -1,0 +1,57 @@
+config {
+  type: "table",
+  schema: "gold",
+  tags: ["gold"],
+  dependOnDependencyAssertions: true,
+  bigquery: {
+    partitionBy: "DATE_TRUNC(fecha_documento, MONTH)",
+    clusterBy: ["codigo_organismo", "proveedor_key"],
+    requirePartitionFilter: true
+  },
+  description: "Hecho de licitaciones de Mercado Público, una fila por licitación y proveedor adjudicado (una sola fila con proveedor nulo si no hay adjudicación), con el monto adjudicado en CLP, en UF de la fecha de publicación y en USD al dólar observado (REQ-012). Particionado por mes de fecha_documento: toda consulta debe filtrar por fecha_documento.",
+  columns: {
+    codigo_licitacion: "Código externo de la licitación (clave natural, con proveedor_key)",
+    proveedor_key: "Clave del proveedor adjudicado; nula si la licitación no tiene ítems adjudicados. En este corte es el RUT normalizado y T-14 la cambia por el hash con sal (DEC-008)",
+    fecha_documento: "Fecha de publicación de la licitación (hora de Chile); columna de partición por mes, filtro obligatorio",
+    codigo_organismo: "Código del organismo comprador (primera columna de clustering)",
+    estado: "Estado de la licitación traducido del código (Publicada, Cerrada, Desierta, Adjudicada, Revocada, Suspendida)",
+    tipo: "Tipo de licitación según la API (por ejemplo L1, LE, LP)",
+    moneda: "Código de la moneda de la licitación, en mayúsculas",
+    monto_adjudicado: "Suma de cantidad adjudicada por monto unitario de los ítems adjudicados al proveedor, en la moneda de la licitación",
+    monto_adjudicado_clp: "Monto adjudicado en pesos chilenos; nulo si la moneda no tiene tasa (UTM, EUR) o falta la tasa",
+    monto_adjudicado_uf: "Monto adjudicado en UF de la fecha del documento; nulo si no hay UF publicada ese día",
+    monto_adjudicado_usd: "Monto adjudicado en dólares al dólar observado de la fecha, o al último publicado antes",
+    valor_uf: "Valor de la UF de la BDE en la fecha del documento; nulo si no se publicó",
+    dolar_observado: "Dólar observado de la BDE usado para la conversión: el de la fecha o el último publicado antes",
+    fecha_dolar: "Fecha del dólar observado usado en la conversión",
+    fx_imputado: "Verdadero si no había dólar observado en la fecha del documento y se usó el último publicado antes"
+  }
+}
+
+WITH adjudicaciones AS (
+  SELECT
+    codigo_licitacion,
+    rut_proveedor_adjudicado AS rut,
+    SUM(cantidad_adjudicada * monto_unitario) AS monto_adjudicado
+  FROM ${ref("licitacion_items")}
+  WHERE rut_proveedor_adjudicado IS NOT NULL
+  GROUP BY codigo_licitacion, rut_proveedor_adjudicado
+),
+tasas AS (${gold.tasasSql(ref("indicadores_diarios"), reglas.FECHA_MINIMA)})
+SELECT
+  l.codigo_licitacion,
+  ${gold.proveedorKeySql("a.rut")} AS proveedor_key,
+  l.fecha_publicacion AS fecha_documento,
+  l.codigo_organismo,
+  l.estado,
+  l.tipo,
+  l.moneda,
+  a.monto_adjudicado,
+  ${gold.montosSql({ monto: "a.monto_adjudicado", moneda: "l.moneda", uf: "t.valor_uf", dolar: "t.dolar_observado", prefijo: "monto_adjudicado" })},
+  t.valor_uf,
+  t.dolar_observado,
+  t.fecha_dolar,
+  ${gold.fxImputadoSql("t.fecha_dolar", "l.fecha_publicacion")} AS fx_imputado
+FROM ${ref({ schema: "silver", name: "licitaciones" })} l
+LEFT JOIN adjudicaciones a ON a.codigo_licitacion = l.codigo_licitacion
+LEFT JOIN tasas t ON t.fecha = l.fecha_publicacion

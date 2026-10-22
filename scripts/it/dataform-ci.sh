@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
-# Silver in the isolated CI run (verify_integration of T-09 and T-10; only the user runs it, with their own ADC
-# credentials, after a green deploy.yml). It loads fixtures into raw_ci, runs Dataform with scripts/ci/dataform-ci.sh
-# (outputs in silver_ci, quarantine and assertions in quarantine_ci) and checks the examples marked «en `ci`»:
+# Silver and gold in the isolated CI run (verify_integration of T-09, T-10 and T-12; only the user runs it, with their
+# own ADC credentials, after a green deploy.yml). It loads fixtures into raw_ci, runs Dataform with
+# scripts/ci/dataform-ci.sh (outputs in silver_ci and gold_ci, quarantine and assertions in quarantine_ci) and checks
+# the examples marked «en `ci`»:
 # REQ-008 E2 (one tender loaded as state 5 and then 8, twice as in REQ-006 E3, ends as one Adjudicada row), E3 (an
 # older version of that tender loaded afterwards does not overwrite it in an incremental run), E4 (a UF day with ND
 # has valor NULL and es_nd), REQ-011 E4 (every column of silver_ci.licitaciones has a description in BigQuery),
 # REQ-009 E2 (11 consecutive UF days pass the continuity assertion), E3 (a repeated key makes the run fail and the
 # uniqueKey assertion returns it), E4 (a UF that differs from mindicador by 1 CLP fails the reconciliation), E5 (a
 # 4-day dollar gap passes, a 5-day one fails) and REQ-010 (a tender with a negative amount and an unknown currency and
-# an order with a wrong RUT check digit land in quarantine with their reasons and not in silver). Each negative case
-# undoes its change and a last run must pass, so raw_ci stays valid for deploy.yml. raw_ci is CI only: its tables are
-# replaced.
+# an order with a wrong RUT check digit land in quarantine with their reasons and not in silver), REQ-012 E1 (the facts
+# require a partition filter and are partitioned by fecha_documento and clustered by organismo and proveedor in
+# BigQuery), E2 (an order of 1,000,000 CLP on a day with UF 40,000 is 25 UF), E3 (an order on a Sunday takes Friday's
+# dollar with fx_imputado), E4 (an order on a day without UF keeps its row with monto_uf NULL) and E6 (a run whose
+# silver assertion fails does not rewrite gold_ci.fct_licitaciones), plus the gold descriptions and the mart. Each
+# negative case undoes its change and a last run must pass, so raw_ci stays valid for deploy.yml. raw_ci is CI only:
+# its tables are replaced.
 #
 #   GCP_PROJECT_ID=… GCP_REGION=us-central1 scripts/env.sh scripts/it/dataform-ci.sh
 #
@@ -63,15 +68,15 @@ licitacion() {
 EOF
 }
 
-# Purchase order: code, total, currency, RUT of the supplier branch.
+# Purchase order: code, total, currency, RUT of the supplier branch, creation date.
 orden() {
-  local codigo=${1:-$OC} total=${2:-1000000} moneda=${3:-CLP} rut=${4:-$RUT}
+  local codigo=${1:-$OC} total=${2:-1000000} moneda=${3:-CLP} rut=${4:-$RUT} fecha=${5:-$D}
   cat <<EOF | tr -d '\n'
 {"Cantidad":1,"Listado":[{"Codigo":"$codigo","Nombre":"Orden de CI","CodigoEstado":6,"CodigoLicitacion":"$LIC",
 "TipoMoneda":"$moneda","TotalNeto":840336,"Total":$total,
 "Comprador":{"CodigoOrganismo":"7248","NombreOrganismo":"Organismo de CI"},
 "Proveedor":{"Codigo":"17793","Nombre":"Proveedor de CI","RutSucursal":"$rut"},
-"Fechas":{"FechaCreacion":"${D}T11:00:00","FechaEnvio":"${D}T11:30:00","FechaAceptacion":"${D}T12:00:00",
+"Fechas":{"FechaCreacion":"${fecha}T11:00:00","FechaEnvio":"${D}T11:30:00","FechaAceptacion":"${D}T12:00:00",
 "FechaUltimaModificacion":"${D}T12:00:00"}}]}
 EOF
 }
@@ -80,16 +85,20 @@ EOF
 dia() { date -u -d "$D -$(($1 - $2)) day" "+${3:-%F}"; }
 
 # BDE GetSeries with n daily observations ending yesterday, valued (base + i).55; the observation at index nd (if any)
-# is ND (T-02) and the indexes in [salto_desde, salto_desde + salto_largo) have no observation.
+# is ND (T-02) and the indexes in [salto_desde, salto_desde + salto_largo) have no observation, nor the indexes in
+# saltos (space-separated); fijo (i=value) sets the value of index i.
 serie() {
-  local codigo=$1 n=$2 nd=$3 base=$4 desde=${5:--1} largo=${6:-0} obs="" i f
+  local codigo=$1 n=$2 nd=$3 base=$4 desde=${5:--1} largo=${6:-0} saltos=" ${7:-} " fijo=${8:-} obs="" i f v
   for ((i = 0; i < n; i++)); do
     if [ "$i" -ge "$desde" ] && [ "$i" -lt $((desde + largo)) ]; then continue; fi
+    if [[ "$saltos" == *" $i "* ]]; then continue; fi
     f=$(dia "$n" "$i" %d-%m-%Y)
+    v="$((base + i)).55"
+    if [ -n "$fijo" ] && [ "${fijo%%=*}" = "$i" ]; then v=${fijo#*=}; fi
     if [ "$i" -eq "$nd" ]; then
       obs+="{\"indexDateString\":\"$f\",\"value\":\"NaN\",\"statusCode\":\"ND\"},"
     else
-      obs+="{\"indexDateString\":\"$f\",\"value\":\"$((base + i)).55\",\"statusCode\":\"OK\"},"
+      obs+="{\"indexDateString\":\"$f\",\"value\":\"$v\",\"statusCode\":\"OK\"},"
     fi
   done
   printf '{"Codigo":0,"Descripcion":"Success","Series":{"seriesId":"%s","Obs":[%s]},"SeriesInfos":[]}' "$codigo" "${obs%,}"
@@ -102,9 +111,27 @@ mindicador() {
 
 UF_ND=4
 ND_FECHA=$(dia 11 "$UF_ND")
+# REQ-012 E2: the UF of index 2 is 40,000.
+UF_40K=2
+UF40_FECHA=$(dia 11 "$UF_40K")
 AYER=$(date -u -d "$D -1 day" +%F)
-# Dollar: 12 days, indexes 4-7 without observations (a 4-day gap, REQ-009 E5); the 5-day case also drops index 8.
-DOLAR_INDICE_8=$(dia 12 8)
+# Dollar: 26 days valued (936 + i).55, so yesterday (index 25) is 961.55 as in mindicador; indexes 18-21 without
+# observations (a 4-day gap, REQ-009 E5); the 5-day case also drops index 22. A weekend among indexes 2-13 has no
+# observations either (REQ-012 E3), apart from the 4-day gap because index 14 has a value.
+DOLAR_INDICE_8=$(dia 26 22)
+DOM_IDX=""
+for ((j = 13; j >= 2; j--)); do
+  if [ "$(dia 26 "$j" %u)" = 7 ]; then DOM_IDX=$j; break; fi
+done
+[ -n "$DOM_IDX" ] || fail "no Sunday among the dollar indexes 2-13"
+VIE_IDX=$((DOM_IDX - 2))
+DOMINGO=$(dia 26 "$DOM_IDX")
+VIERNES=$(dia 26 "$VIE_IDX")
+SALTOS_FDS="$((DOM_IDX - 1)) $DOM_IDX"
+DOLAR_VIERNES="$((936 + VIE_IDX)).55"
+OC_UF=CI-T12-OC-UF
+OC_DOM=CI-T12-OC-DOM
+OC_SIN_UF=CI-T12-OC-SINUF
 {
   line "$RUN1" "${D}T00:00:20Z" licitaciones detalle "$LIC" "$(licitacion 5)"
   line "$RUN1" "${D}T00:00:30Z" licitaciones detalle "$LIC" "$(licitacion 8)"
@@ -113,17 +140,20 @@ DOLAR_INDICE_8=$(dia 12 8)
 {
   line "$RUN1" "${D}T00:00:40Z" ordenes_compra detalle "$OC" "$(orden)"
   line "$RUN1" "${D}T00:00:45Z" ordenes_compra detalle "$OC_Q" "$(orden "$OC_Q" 1000000 CLP 12.345.678-0)"
+  line "$RUN1" "${D}T00:00:46Z" ordenes_compra detalle "$OC_UF" "$(orden "$OC_UF" 1000000 CLP "$RUT" "$UF40_FECHA")"
+  line "$RUN1" "${D}T00:00:47Z" ordenes_compra detalle "$OC_DOM" "$(orden "$OC_DOM" 1000000 CLP "$RUT" "$DOMINGO")"
+  line "$RUN1" "${D}T00:00:48Z" ordenes_compra detalle "$OC_SIN_UF" "$(orden "$OC_SIN_UF" 1000000 CLP "$RUT" "$ND_FECHA")"
 } >"$dir/mercadopublico_ordenes_compra.jsonl"
-line "$RUN1" "${D}T00:01:00Z" uf GetSeries F073.UFF.PRE.Z.D "$(serie F073.UFF.PRE.Z.D 11 "$UF_ND" 39000)" >"$dir/bcentral_uf.jsonl"
-line "$RUN1" "${D}T00:01:01Z" dolar GetSeries F073.TCO.PRE.Z.D "$(serie F073.TCO.PRE.Z.D 12 -1 950 4 4)" >"$dir/bcentral_dolar.jsonl"
+line "$RUN1" "${D}T00:01:00Z" uf GetSeries F073.UFF.PRE.Z.D "$(serie F073.UFF.PRE.Z.D 11 "$UF_ND" 39000 -1 0 "" "$UF_40K=40000")" >"$dir/bcentral_uf.jsonl"
+line "$RUN1" "${D}T00:01:01Z" dolar GetSeries F073.TCO.PRE.Z.D "$(serie F073.TCO.PRE.Z.D 26 -1 936 18 4 "$SALTOS_FDS")" >"$dir/bcentral_dolar.jsonl"
 line "$RUN1" "${D}T00:01:02Z" ipc GetSeries G073.IPC.IND.2018.M "$(serie G073.IPC.IND.2018.M 2 -1 39000)" >"$dir/bcentral_ipc.jsonl"
 line "$RUN1" "${D}T00:01:03Z" uf indicador uf "$(mindicador uf 39010.55 "$AYER")" >"$dir/mindicador_uf.jsonl"
 line "$RUN1" "${D}T00:01:04Z" dolar indicador dolar "$(mindicador dolar 961.55 "$AYER")" >"$dir/mindicador_dolar.jsonl"
 line "$RUN2" "${D}T00:00:10Z" licitaciones detalle "$LIC" "$(licitacion 5)" >"$dir/licitacion_vieja.jsonl"
 line "$RUN3" "${D}T00:02:00Z" uf indicador uf "$(mindicador uf 39011.55 "$AYER")" >"$dir/mindicador_uf_distinta.jsonl"
 line "$RUN3" "${D}T00:03:00Z" uf indicador uf "$(mindicador uf 39010.55 "$AYER")" >"$dir/mindicador_uf_igual.jsonl"
-line "$RUN3" "${D}T00:04:00Z" dolar GetSeries F073.TCO.PRE.Z.D "$(serie F073.TCO.PRE.Z.D 12 -1 950 4 5)" >"$dir/bcentral_dolar_hueco.jsonl"
-line "$RUN3" "${D}T00:05:00Z" dolar GetSeries F073.TCO.PRE.Z.D "$(serie F073.TCO.PRE.Z.D 12 -1 950 4 4)" >"$dir/bcentral_dolar_base.jsonl"
+line "$RUN3" "${D}T00:04:00Z" dolar GetSeries F073.TCO.PRE.Z.D "$(serie F073.TCO.PRE.Z.D 26 -1 936 18 5 "$SALTOS_FDS")" >"$dir/bcentral_dolar_hueco.jsonl"
+line "$RUN3" "${D}T00:05:00Z" dolar GetSeries F073.TCO.PRE.Z.D "$(serie F073.TCO.PRE.Z.D 26 -1 936 18 4 "$SALTOS_FDS")" >"$dir/bcentral_dolar_base.jsonl"
 
 load() {
   local table=$1 file=$2
@@ -166,8 +196,10 @@ process.stdin.on("data", (c) => (s += c)).on("end", () => {
 });') || fail "the uniqueKey assertion of licitaciones is not in the compiled graph"
 
 MODELS="licitaciones ordenes_compra licitacion_items compradores proveedores indicadores_diarios"
-# The first run must be a full one.
-for t in $(for m in $MODELS; do echo "silver_ci.$m"; done) quarantine_ci.licitaciones quarantine_ci.ordenes_compra; do
+GOLD="fct_licitaciones fct_ordenes_compra dim_comprador dim_proveedor mart_organismo_mes"
+# The first run must be a full one (and a changed partition spec cannot be replaced in place).
+for t in $(for m in $MODELS; do echo "silver_ci.$m"; done) quarantine_ci.licitaciones quarantine_ci.ordenes_compra \
+  $(for m in $GOLD; do echo "gold_ci.$m"; done); do
   if bq show --project_id="$project" "$project:$t" >/dev/null 2>&1; then
     bq rm -f -t "$project:$t" >/dev/null || fail "could not drop $t"
   fi
@@ -179,9 +211,17 @@ done
 # REQ-006 E3: the same run loaded twice.
 load mercadopublico_licitaciones "$dir/mercadopublico_licitaciones.jsonl"
 
+# lastModifiedTime (ms) of gold_ci.fct_licitaciones: it only changes when a run rewrites the fact.
+modificada() {
+  bq show --project_id="$project" --format=json "$project:gold_ci.fct_licitaciones" \
+    | node -e 'let s = ""; process.stdin.on("data", (c) => (s += c)).on("end", () => console.log(JSON.parse(s).lastModifiedTime));' \
+    || fail "could not read gold_ci.fct_licitaciones"
+}
+
 "$ROOT/scripts/ci/dataform-ci.sh" || fail "Dataform run 1 failed"
 S="\`$project.silver_ci"
 Q="\`$project.quarantine_ci"
+G="\`$project.gold_ci"
 expect "REQ-008 E2" "SELECT FORMAT('%d|%s', COUNT(*), IFNULL(MAX(estado), '')) FROM $S.licitaciones\` WHERE codigo_licitacion = '$LIC'" "1|Adjudicada"
 
 expect "REQ-009 E2" "SELECT COUNT(DISTINCT fecha) FROM $S.indicadores_diarios\` WHERE serie = 'bcentral_uf'" "11"
@@ -196,11 +236,25 @@ expect "REQ-010 $OC_Q not in silver" "SELECT COUNT(*) FROM $S.ordenes_compra\` W
 expect "REQ-010 wrong RUT not in silver" "SELECT COUNT(*) FROM $S.proveedores\` WHERE rut_proveedor = '12345678-0'" "0"
 expect "REQ-010 valid rows not in quarantine" "SELECT (SELECT COUNT(*) FROM $Q.licitaciones\` WHERE codigo_licitacion = '$LIC') + (SELECT COUNT(*) FROM $Q.ordenes_compra\` WHERE codigo_oc = '$OC')" "0"
 
+# REQ-012: every query on a fact filters fecha_documento (requirePartitionFilter).
+expect "REQ-012 E2" "SELECT FORMAT('%d|%s|%t', COUNT(*), IFNULL(CAST(MAX(monto_uf) AS STRING), 'NULL'), LOGICAL_AND(fx_imputado)) FROM $G.fct_ordenes_compra\` WHERE fecha_documento = DATE '$UF40_FECHA' AND codigo_oc = '$OC_UF'" "1|25|false"
+expect "REQ-012 E3" "SELECT FORMAT('%d|%t|%s|%s|%t', COUNT(*), LOGICAL_AND(fx_imputado), IFNULL(CAST(MAX(fecha_dolar) AS STRING), ''), IFNULL(CAST(MAX(dolar_observado) AS STRING), ''), LOGICAL_AND(monto_usd = NUMERIC '1000000' / NUMERIC '$DOLAR_VIERNES')) FROM $G.fct_ordenes_compra\` WHERE fecha_documento = DATE '$DOMINGO' AND codigo_oc = '$OC_DOM'" "1|true|$VIERNES|$DOLAR_VIERNES|true"
+expect "REQ-012 E4" "SELECT FORMAT('%d|%t|%t', COUNT(*), LOGICAL_AND(monto_uf IS NULL), LOGICAL_AND(monto_clp = 1000000)) FROM $G.fct_ordenes_compra\` WHERE fecha_documento = DATE '$ND_FECHA' AND codigo_oc = '$OC_SIN_UF'" "1|true|true"
+expect "REQ-012 E1 (partition filter)" "SELECT COUNT(*) FROM $G.INFORMATION_SCHEMA.TABLE_OPTIONS\` WHERE table_name IN ('fct_licitaciones', 'fct_ordenes_compra') AND option_name = 'require_partition_filter' AND option_value = 'true'" "2"
+expect "REQ-012 E1 (partitioning and clustering)" "SELECT STRING_AGG(FORMAT('%s:%s:%s', table_name, column_name, IFNULL(CAST(clustering_ordinal_position AS STRING), 'p')), ',' ORDER BY table_name, column_name) FROM $G.INFORMATION_SCHEMA.COLUMNS\` WHERE table_name LIKE 'fct_%' AND (is_partitioning_column = 'YES' OR clustering_ordinal_position IS NOT NULL)" \
+  "fct_licitaciones:codigo_organismo:1,fct_licitaciones:fecha_documento:p,fct_licitaciones:proveedor_key:2,fct_ordenes_compra:codigo_organismo:1,fct_ordenes_compra:fecha_documento:p,fct_ordenes_compra:proveedor_key:2"
+expect "gold descriptions" "SELECT FORMAT('%d|%d', COUNT(DISTINCT table_name), COUNTIF(IFNULL(description, '') = '')) FROM $G.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\`" "5|0"
+M1=$(modificada)
+
 # REQ-008 E3: an older version (state 5, earlier ingested_at) arrives after the newer one.
 load mercadopublico_licitaciones "$dir/licitacion_vieja.jsonl"
 "$ROOT/scripts/ci/dataform-ci.sh" || fail "Dataform run 2 failed"
 expect "REQ-008 E3" "SELECT FORMAT('%d|%s', COUNT(*), IFNULL(MAX(estado), '')) FROM $S.licitaciones\` WHERE codigo_licitacion = '$LIC'" "1|Adjudicada"
 expect "REQ-010 incremental" "SELECT COUNT(*) FROM $Q.licitaciones\` WHERE codigo_licitacion = '$LIC_Q'" "1"
+# A passing run rewrites the fact, so the REQ-012 E6 check below is not trivial.
+M2=$(modificada)
+[ "$M2" -gt "$M1" ] || fail "REQ-012 E6: a passing run did not rewrite gold_ci.fct_licitaciones ($M1, $M2)"
+expect "mart" "SELECT FORMAT('%d|%d', SUM(n_licitaciones), SUM(n_desiertas)) FROM $G.mart_organismo_mes\` WHERE codigo_organismo = '7248' AND mes = DATE_TRUNC(DATE '$D', MONTH)" "1|0"
 
 expect "REQ-008 E4" "SELECT COUNT(*) FROM $S.indicadores_diarios\` WHERE serie = 'bcentral_uf' AND fecha = DATE '$ND_FECHA' AND valor IS NULL AND es_nd" "1"
 expect "REQ-011 E4" "SELECT FORMAT('%t|%d', COUNT(*) > 0, COUNTIF(IFNULL(description, '') = '')) FROM $S.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS\` WHERE table_name = 'licitaciones'" "true|0"
@@ -224,6 +278,9 @@ for _ in 1 2; do q "$dup" >/dev/null || fail "REQ-009 E3: the duplicate insert f
 must_fail req009-e3
 got=$(q "SELECT COUNT(*) FROM \`$project.${UNIQUE_LIC}\`")
 [ "$got" -ge 1 ] || fail "REQ-009 E3: expected rows in $UNIQUE_LIC, got $got"
+# REQ-012 E6: the failed silver assertion leaves gold untouched.
+[ "$(modificada)" = "$M2" ] || fail "REQ-012 E6: gold_ci.fct_licitaciones changed"
+expect "REQ-012 E6" "SELECT COUNT(*) FROM $G.fct_licitaciones\` WHERE fecha_documento >= DATE '2000-01-01' AND codigo_licitacion = 'CI-T10-DUP'" "0"
 q "DELETE FROM $S.licitaciones\` WHERE codigo_licitacion = 'CI-T10-DUP'" >/dev/null || fail "REQ-009 E3: the cleanup failed"
 
 # REQ-009 E4: mindicador differs from the BDE UF by 1 CLP on D-1.
@@ -243,4 +300,4 @@ expect "REQ-009 E5 reconciliation" "SELECT COUNT(*) FROM $Q.assert_reconciliacio
 load bcentral_dolar "$dir/bcentral_dolar_base.jsonl" --replace
 "$ROOT/scripts/ci/dataform-ci.sh" >"$dir/restore.log" 2>&1 || { cat "$dir/restore.log" >&2; fail "the restoring Dataform run failed"; }
 
-echo "dataform-ci: ok e2 e3 e4 descriptions req009-e2 req009-e3 req009-e4 req009-e5 cuarentena$summary"
+echo "dataform-ci: ok e2 e3 e4 descriptions req009-e2 req009-e3 req009-e4 req009-e5 cuarentena req012-e1 req012-e2 req012-e3 req012-e4 req012-e6 gold-descripciones mart$summary"

@@ -1,0 +1,19 @@
+config {
+  type: "table",
+  schema: "gold",
+  tags: ["gold"],
+  dependOnDependencyAssertions: true,
+  assertions: {
+    uniqueKey: ["codigo_organismo"],
+    nonNull: ["codigo_organismo"]
+  },
+  description: "Dimensión de organismos compradores de Mercado Público, una fila por código con su versión más reciente (REQ-012).",
+  columns: {
+    codigo_organismo: "Código del organismo comprador (clave natural)",
+    nombre_organismo: "Nombre del organismo comprador en su versión más reciente",
+    fecha_cambio: "Momento de la versión más reciente del organismo en silver"
+  }
+}
+
+SELECT codigo_organismo, nombre_organismo, fecha_cambio
+FROM ${ref("compradores")}

@@ -1,0 +1,50 @@
+config {
+  type: "table",
+  schema: "gold",
+  tags: ["gold"],
+  dependOnDependencyAssertions: true,
+  assertions: {
+    uniqueKey: ["codigo_organismo", "mes"],
+    nonNull: ["codigo_organismo", "mes"],
+    rowConditions: [
+      "n_licitaciones > 0",
+      "tasa_desiertas BETWEEN 0 AND 1",
+      "tasa_revocadas BETWEEN 0 AND 1",
+      "monto_adjudicado_uf IS NULL OR monto_adjudicado_uf >= 0"
+    ]
+  },
+  description: "Mart por organismo comprador y mes de publicación: monto adjudicado en UF, número de licitaciones y tasas de licitaciones desiertas y revocadas (REQ-012).",
+  columns: {
+    codigo_organismo: "Código del organismo comprador (clave, con el mes)",
+    mes: "Primer día del mes de publicación de las licitaciones (clave, con el organismo)",
+    n_licitaciones: "Número de licitaciones distintas publicadas por el organismo en el mes",
+    n_desiertas: "Número de esas licitaciones en estado Desierta",
+    n_revocadas: "Número de esas licitaciones en estado Revocada",
+    tasa_desiertas: "Fracción de las licitaciones del mes que quedaron desiertas (entre 0 y 1)",
+    tasa_revocadas: "Fracción de las licitaciones del mes que fueron revocadas (entre 0 y 1)",
+    monto_adjudicado_uf: "Suma del monto adjudicado en UF de la fecha de publicación; nulo si ninguna licitación tiene monto en UF"
+  }
+}
+
+WITH por_mes AS (
+  SELECT
+    codigo_organismo,
+    DATE_TRUNC(fecha_documento, MONTH) AS mes,
+    COUNT(DISTINCT codigo_licitacion) AS n_licitaciones,
+    COUNT(DISTINCT IF(estado = 'Desierta', codigo_licitacion, NULL)) AS n_desiertas,
+    COUNT(DISTINCT IF(estado = 'Revocada', codigo_licitacion, NULL)) AS n_revocadas,
+    SUM(monto_adjudicado_uf) AS monto_adjudicado_uf
+  FROM ${ref("fct_licitaciones")}
+  WHERE ${gold.filtroParticionSql(reglas.FECHA_MINIMA)} AND codigo_organismo IS NOT NULL
+  GROUP BY codigo_organismo, mes
+)
+SELECT
+  codigo_organismo,
+  mes,
+  n_licitaciones,
+  n_desiertas,
+  n_revocadas,
+  SAFE_DIVIDE(n_desiertas, n_licitaciones) AS tasa_desiertas,
+  SAFE_DIVIDE(n_revocadas, n_licitaciones) AS tasa_revocadas,
+  monto_adjudicado_uf
+FROM por_mes

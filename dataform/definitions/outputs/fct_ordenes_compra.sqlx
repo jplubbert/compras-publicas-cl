@@ -1,0 +1,47 @@
+config {
+  type: "table",
+  schema: "gold",
+  tags: ["gold"],
+  dependOnDependencyAssertions: true,
+  bigquery: {
+    partitionBy: "DATE_TRUNC(fecha_documento, MONTH)",
+    clusterBy: ["codigo_organismo", "proveedor_key"],
+    requirePartitionFilter: true
+  },
+  description: "Hecho de órdenes de compra de Mercado Público, una fila por orden, con el monto total en CLP, en UF de la fecha de creación y en USD al dólar observado (REQ-012). Particionado por mes de fecha_documento: toda consulta debe filtrar por fecha_documento.",
+  columns: {
+    codigo_oc: "Código de la orden de compra (clave natural)",
+    fecha_documento: "Fecha de creación de la orden (hora de Chile); columna de partición por mes, filtro obligatorio",
+    codigo_organismo: "Código del organismo comprador (primera columna de clustering)",
+    proveedor_key: "Clave del proveedor; en este corte es el RUT normalizado de la sucursal y T-14 la cambia por el hash con sal (DEC-008)",
+    codigo_licitacion: "Código de la licitación de origen, si la hay",
+    estado: "Estado de la orden de compra traducido del código",
+    moneda: "Código de la moneda de la orden, en mayúsculas",
+    total: "Monto total de la orden en su moneda, con impuestos",
+    monto_clp: "Monto total de la orden en pesos chilenos; nulo si la moneda no tiene tasa (UTM, EUR) o falta la tasa",
+    monto_uf: "Monto total de la orden en UF de la fecha del documento; nulo si no hay UF publicada ese día",
+    monto_usd: "Monto total de la orden en dólares al dólar observado de la fecha, o al último publicado antes",
+    valor_uf: "Valor de la UF de la BDE en la fecha del documento; nulo si no se publicó",
+    dolar_observado: "Dólar observado de la BDE usado para la conversión: el de la fecha o el último publicado antes",
+    fecha_dolar: "Fecha del dólar observado usado en la conversión",
+    fx_imputado: "Verdadero si no había dólar observado en la fecha del documento y se usó el último publicado antes"
+  }
+}
+
+WITH tasas AS (${gold.tasasSql(ref("indicadores_diarios"), reglas.FECHA_MINIMA)})
+SELECT
+  o.codigo_oc,
+  o.fecha_creacion AS fecha_documento,
+  o.codigo_organismo,
+  ${gold.proveedorKeySql("o.rut_proveedor")} AS proveedor_key,
+  o.codigo_licitacion,
+  o.estado,
+  o.moneda,
+  o.total,
+  ${gold.montosSql({ monto: "o.total", moneda: "o.moneda", uf: "t.valor_uf", dolar: "t.dolar_observado", prefijo: "monto" })},
+  t.valor_uf,
+  t.dolar_observado,
+  t.fecha_dolar,
+  ${gold.fxImputadoSql("t.fecha_dolar", "o.fecha_creacion")} AS fx_imputado
+FROM ${ref({ schema: "silver", name: "ordenes_compra" })} o
+LEFT JOIN tasas t ON t.fecha = o.fecha_creacion

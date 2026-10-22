@@ -1,0 +1,31 @@
+config {
+  type: "table",
+  schema: "gold",
+  tags: ["gold"],
+  dependOnDependencyAssertions: true,
+  assertions: {
+    uniqueKey: ["proveedor_key"],
+    nonNull: ["proveedor_key"],
+    rowConditions: [
+      "(rut_empresa IS NULL) != (rut_persona_natural IS NULL)"
+    ]
+  },
+  description: "Dimensión de proveedores de Mercado Público, una fila por proveedor con su versión más reciente; el RUT va en rut_empresa o en rut_persona_natural según la regla de S-04 (REQ-012, DEC-008).",
+  columns: {
+    proveedor_key: "Clave del proveedor; en este corte es el RUT normalizado y T-14 la cambia por el hash con sal de pii.sal (DEC-008)",
+    rut_empresa: "RUT del proveedor si es persona jurídica (cuerpo del RUT de 50.000.000 o más, S-04); nulo si es persona natural",
+    rut_persona_natural: "RUT del proveedor si es persona natural (cuerpo del RUT menor que 50.000.000 o no numérico, S-04); nulo si es empresa",
+    nombre_proveedor: "Nombre del proveedor en su versión más reciente",
+    codigo_proveedor: "Código del proveedor en Mercado Público; nulo si la versión viene de una adjudicación de ítem",
+    fecha_cambio: "Momento de la versión más reciente del proveedor en silver"
+  }
+}
+
+SELECT
+  ${gold.proveedorKeySql("rut_proveedor")} AS proveedor_key,
+  IF(${reglas.esPersonaNaturalSql("rut_proveedor")}, NULL, rut_proveedor) AS rut_empresa,
+  IF(${reglas.esPersonaNaturalSql("rut_proveedor")}, rut_proveedor, NULL) AS rut_persona_natural,
+  nombre_proveedor,
+  codigo_proveedor,
+  fecha_cambio
+FROM ${ref("proveedores")}
