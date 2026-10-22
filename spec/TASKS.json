@@ -1440,9 +1440,9 @@
       "depends_on": [
         "T-10"
       ],
-      "status": "ready",
+      "status": "verified_auto",
       "blocked_by": null,
-      "notes": "2026-10-22: escalada por el orquestador (DEC-005): el planificador no escribió plans/T-12.md (ronda 1, código 0); sin informe; bloqueada por Q-08.",
+      "notes": "2026-10-22: escalada por el orquestador (DEC-005): el planificador no escribió plans/T-12.md (ronda 1, código 0); sin informe; bloqueada por Q-08. Implementado siguiendo plans/T-12.md sin desvíos. La comprobación offline del generador de fixtures de scripts/it/dataform-ci.sh (serie() con saltos y fijo, búsqueda del domingo) fue denegada por la guarda; se revisó por lectura y con bash -n. El grafo compilado confirma que dependOnDependencyAssertions agrega las assertions de silver (incluidas las de continuidad y reconciliación) a los dependencyTargets de los hechos, y assert_fct_licitaciones a los de mart_organismo_mes.",
       "touches": [
         "dataform/",
         "scripts/it/"
@@ -1470,6 +1470,20 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T21:13:24.564Z",
           "reason": "Q-08 respondida en sesión con la regla del usuario (decisión reversible con opción recomendada): reintentar el planificador"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "apply-result",
+          "at": "2026-10-22T21:32:46.678Z",
+          "reason": "resultado del implementador de T-12 vía autopilot (claude)"
+        },
+        {
+          "from": "in_progress",
+          "to": "verified_auto",
+          "by": "record_evidence.py",
+          "at": "2026-10-22T21:32:50+00:00",
+          "reason": "verify con código 0: 89/89 pasan, 0 fallan"
         }
       ],
       "plan_review": {
@@ -1512,6 +1526,21 @@
         ],
         "opinion_blockers": [],
         "date": "2026-10-22"
+      },
+      "claims": {
+        "manual_pending": "verify_integration de T-12: GCP_PROJECT_ID=… GCP_REGION=us-central1 scripts/env.sh scripts/it/dataform-ci.sh, tras un deploy.yml en verde; debe terminar en 0 con req012-e1 req012-e2 req012-e3 req012-e4 req012-e6 gold-descripciones mart en la línea final. Solo se comprobó su sintaxis con bash -n."
+      },
+      "evidence": {
+        "command": "scripts/env.sh bash -c 'npm run test:dataform && npm run check:descriptions && npm run check:spec'",
+        "exit_code": 0,
+        "passed": 89,
+        "failed": 0,
+        "total": 89,
+        "log_path": "artifacts/T-12/verify.log",
+        "log_sha256": "a6546ff612ac5007082a1929379061838d4e1efe4346c0ff0e9e9670cc8d123f",
+        "commit": "665c8a299d61dd9aa362b2aa18d25f078b31d042",
+        "timestamp": "2026-10-22T21:32:50+00:00",
+        "result": "89/89 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-12/verify.log)"
       }
     },
     {
