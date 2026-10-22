@@ -428,3 +428,13 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Bloqueos nuevos: T-06 (Q-06).
 - Motivo de parada: presupuesto de tareas alcanzado (1).
 - Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.
+
+## 2026-10-22 · Claude (claude-opus-5-5) · sesión: upgrade a sdd-base 5e44412; T-06 en ready
+- Upgrade a sdd-base 5e44412 en la rama `sdd-base-upgrade-2`, integrado al lote con merge. Trae T-97, T-102, T-103 y
+  T-117 de sdd-base, todas `reviewed`. Lo más relevante aquí: el orquestador descarta las líneas «Verificado» y los
+  conteos del resultado del implementador (con aviso) en vez de rechazarlo. Se copió desde un worktree de sdd-base en
+  5e44412, porque el checkout de sdd-base ya traía una tarea sin revisar (regla del usuario: un upgrade solo lleva código
+  revisado). check:spec y lint ok.
+- José Pedro Lübbert pasó T-06 a `ready` y respondió Q-06: su fallo fue un rechazo de formato del resultado, no de la
+  implementación. Los commits del intento anterior quedan en `autopilot/2026-10-22_113849/T-06-1`.
+- Próxima acción autorizada: relanzar el encadenado (T-06).

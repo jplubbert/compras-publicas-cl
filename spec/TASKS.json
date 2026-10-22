@@ -610,8 +610,8 @@
         "T-01",
         "T-02"
       ],
-      "status": "blocked",
-      "blocked_by": "Q-06",
+      "status": "ready",
+      "blocked_by": null,
       "notes": "2026-10-22: escalada por el orquestador (DEC-005): el decisor (jev) no resolvió la causa del fallo (confidence 0.45 < 0.8 (threshold)); sin informe; bloqueada por Q-06.",
       "touches": [
         "ingest/",
@@ -633,6 +633,13 @@
           "by": "escalate",
           "at": "2026-10-22T14:52:48.561Z",
           "reason": "escalada al usuario por Q-06"
+        },
+        {
+          "from": "blocked",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-22T16:08:24.597Z",
+          "reason": "Q-06 respondida en sesión, 2026-10-22: el fallo fue un rechazo de formato del resultado (líneas «Verificado» en log), no de la implementación; con sdd-base 5e44412 (T-117) esas líneas se descartan; reintentar"
         }
       ],
       "plan_review": {
