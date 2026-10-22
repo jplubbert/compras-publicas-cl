@@ -100,54 +100,19 @@
       ],
       "plan_review": {
         "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
-        "verdict": "REVISAR",
-        "effective": "REVISAR",
-        "round": 1,
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 2,
         "plan": "plans/T-02.md",
-        "plan_sha": "a5cd6cb7ef49c4708d146d9e926edf478f8bff72",
-        "plan_commit": "d73e3d2",
+        "plan_sha": "f00e9715c825b740631fbcde901140ef5bd88dc2",
+        "plan_commit": "de6b566",
         "findings": [
           {
-            "id": "req-003:dataform-sin-maximum-bytes-billed",
-            "severity": "P1",
-            "evidence_type": "fuente",
-            "evidence": "https://github.com/dataform-co/dataform/blob/main/protos/configs.proto — el mensaje WorkflowSettings no tiene ningún campo de bytes facturados y las configuraciones por acción tampoco; en conflicto con spec/SPEC.md:145 (REQ-003 E6: «workflow_settings.yaml fija maximumBytesBilled») y con DEC-003.",
-            "summary": "El paso 6 da por hecho que existe un argumento de Dataform («defaultMaximumBytesBilled, o el que sea») y el paso 13 solo admite correcciones a S-06 y S-07. Si el campo no existe, el spike no tiene dónde proponer la corrección de REQ-003 E6 y DEC-003, y T-05 se escribe contra un REQ imposible de cumplir."
-          },
-          {
-            "id": "req-005:updatedat-sin-correccion",
-            "severity": "P2",
-            "evidence_type": "archivo",
-            "evidence": "spec/SPEC.md:179 — REQ-005 pide la ventana D−10 a D «usando `updatedAt`».",
-            "summary": "El paso 11 verifica si la BDE trae updatedAt, pero el paso 13 no prevé proponer una corrección si no existe. REQ-005 quedaría apoyado en un campo inexistente sin que el usuario lo sepa."
-          },
-          {
-            "id": "t-14:iam-policy-tag-faltante",
-            "severity": "P2",
-            "evidence_type": "archivo",
-            "evidence": "spec/SPEC.md:342 — REQ-014 concede roles/datacatalog.categoryFineGrainedReader sobre la tag.",
-            "summary": "El paso 5 no documenta el recurso IAM de la policy tag (p. ej. google_data_catalog_policy_tag_iam_member) ni si el rol sigue vigente tras el apagado de Data Catalog, y T-14 lo necesita."
-          },
-          {
-            "id": "paso-1:registro-renderizado-js",
-            "severity": "P2",
-            "evidence_type": "opinión",
-            "evidence": "registry.terraform.io carga sus datos con JavaScript; un fetch sin navegador puede devolver una página vacía aunque haya acceso web.",
-            "summary": "El paso 1 podría bloquear la tarea por «sin acceso web» cuando solo falla el renderizado del registro."
-          },
-          {
-            "id": "paso-14:dominio-github-docs",
+            "id": "paso-14:dominio-docs-cloud-google-com",
             "severity": "P3",
             "evidence_type": "opinión",
-            "evidence": "Los permisos del token fine-grained y de OIDC están documentados en docs.github.com, que no figura en la lista del paso 14.",
-            "summary": "Una fuente oficial quedaría rotulada como secundaria o se omitiría."
-          },
-          {
-            "id": "verify:conteo-encabezados-en-codigo",
-            "severity": "P3",
-            "evidence_type": "opinión",
-            "evidence": "grep -c '^## ' cuenta también las líneas que empiezan con '## ' dentro de los bloques de código.",
-            "summary": "Un comentario «## » dentro de un ejemplo cambiaría el conteo esperado de 10."
+            "evidence": "La lista de dominios oficiales del paso 14 nombra cloud.google.com, pero la documentación de Google hoy se sirve en docs.cloud.google.com (lo muestran los resultados de búsqueda).",
+            "summary": "Leída de forma literal, la regla podría marcar como «fuente secundaria» enlaces oficiales de docs.cloud.google.com."
           }
         ],
         "opinion_blockers": [],
