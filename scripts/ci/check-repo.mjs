@@ -94,7 +94,7 @@ export function checkRepo(root) {
       text = readFileSync(join(root, path), 'utf8');
     } catch { continue; }
     if (/^infra\/.*(\.tf|\.tfvars\.example)$/.test(path)) checkInfra(path, text, findings);
-    if (/^(spec|plans|research)\//.test(path) || path.endsWith('.md')) continue;
+    if (/^(spec|plans|research|artifacts)\//.test(path) || path.endsWith('.md')) continue;
     checkSecrets(path, text, findings);
   }
   return findings;

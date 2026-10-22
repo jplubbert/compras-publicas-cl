@@ -59,3 +59,8 @@ test('a secret version without secret_data and the credentials input named in a 
   });
   assert.equal(r.code, 0, r.out);
 });
+
+test('protocol records in artifacts/ that name the credentials input pass', () => {
+  const r = run({ ...clean, 'artifacts/decisions/r/verdict.json': `{"state": "DEC-004 (\`${CREDS}\`) is enforced"}\n` });
+  assert.equal(r.code, 0, r.out);
+});
