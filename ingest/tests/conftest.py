@@ -130,3 +130,12 @@ def detalle_ok(codigo):
 def mp(capsys):
     with respx.mock(assert_all_called=False, assert_all_mocked=True) as router:
         yield Env(router=router, storage=FakeStorageClient(), capsys=capsys)
+
+
+def pytest_terminal_summary(terminalreporter):
+    """Jest-style count line ("Tests: F failed, P passed, T total") that scripts/record_evidence.py can parse."""
+    stats = terminalreporter.stats
+    passed = len(stats.get("passed", []))
+    failed = len(stats.get("failed", [])) + len(stats.get("error", []))
+    total = passed + failed + len(stats.get("skipped", []))
+    terminalreporter.write_line(f"Tests: {failed} failed, {passed} passed, {total} total")
