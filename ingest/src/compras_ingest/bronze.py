@@ -14,6 +14,7 @@ class GcsStore:
             from google.cloud import storage
 
             client = storage.Client()
+        self.client = client
         self.bucket_name = bucket
         self.bucket = client.bucket(bucket)
 
@@ -38,6 +39,9 @@ class GcsStore:
         except NotFound:
             pass
 
+    def list(self, match_glob: str) -> list[str]:
+        return [blob.name for blob in self.client.list_blobs(self.bucket_name, match_glob=match_glob)]
+
     def uri(self, path: str) -> str:
         return f"gs://{self.bucket_name}/{path}"
 
@@ -50,6 +54,11 @@ def new_run_id(now: datetime) -> str:
     return now.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + _secrets.token_hex(4)
 
 
+def ingest_date(run_id: str) -> str:
+    """UTC start date of the run (`AAAAMMDDThhmmssZ-<hex>`): the raw partition of every line of the run (REQ-006)."""
+    return f"{run_id[0:4]}-{run_id[4:6]}-{run_id[6:8]}"
+
+
 def prefix(entidad: str, fecha: date, run_id: str, fuente: str = "mercadopublico") -> str:
     return f"{fuente}/{entidad}/fecha={fecha.isoformat()}/run={run_id}/"
 
@@ -59,6 +68,7 @@ def record(
 ) -> dict:
     return {
         "run_id": run_id,
+        "_ingest_date": ingest_date(run_id),
         "ingested_at": utc_iso(now),
         "source_url": fetched.url,
         "http_status": fetched.status,

@@ -121,3 +121,86 @@ def test_tf_apply_with_argument_exits_2():
     code, _, err = run(TF_APPLY, ["main"], env=clean_env())
     assert code == 2
     assert "usage" in err
+
+
+ACTAS_ERROR = "Error: Error creating Job: googleapi: Error 403: Permission 'iam.serviceaccounts.actAs' denied"
+FAKE_TERRAFORM = """#!/bin/bash
+[ "$2" = init ] && exit 0
+n=$(( $(cat "$FAKE_TF_COUNT" 2>/dev/null || echo 0) + 1 ))
+echo "$n" > "$FAKE_TF_COUNT"
+case "$FAKE_TF_MODE" in
+  once) [ "$n" -ge 2 ] && { echo "Apply complete!"; exit 0; }; echo "$ACTAS_ERROR" >&2; exit 1 ;;
+  always) echo "$ACTAS_ERROR" >&2; exit 1 ;;
+  *) echo "Error: Error creating Bucket: googleapi: Error 409: already exists" >&2; exit 1 ;;
+esac
+"""
+
+
+def tf_apply_with_fake(tmp_path, mode, **extra):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    tf = bin_dir / "terraform"
+    tf.write_text(FAKE_TERRAFORM)
+    tf.chmod(0o755)
+    count = tmp_path / "count"
+    env = clean_env(
+        PATH=f"{bin_dir}:/usr/bin:/bin",
+        COMPRAS_ENV="1",
+        TF_PLUGIN_DIR=str(tmp_path),
+        TF_APPLY_RETRY_WAIT="0",
+        TF_VAR_project_id="demo-proj",
+        TF_VAR_region="us-central1",
+        TF_VAR_github_repository="owner/repo",
+        FAKE_TF_MODE=mode,
+        FAKE_TF_COUNT=str(count),
+        ACTAS_ERROR=ACTAS_ERROR,
+        **extra,
+    )
+    code, out, err = run(TF_APPLY, env=env)
+    return code, int(count.read_text()), out + err
+
+
+def test_tf_apply_retries_while_actas_propagates(tmp_path):
+    code, applies, out = tf_apply_with_fake(tmp_path, "once")
+    assert code == 0, out
+    assert applies == 2
+    assert "actAs not propagated yet, retry 2/5" in out
+
+
+def test_tf_apply_does_not_retry_other_errors(tmp_path):
+    code, applies, _ = tf_apply_with_fake(tmp_path, "other")
+    assert code == 1
+    assert applies == 1
+
+
+def test_tf_apply_gives_up_after_the_attempts(tmp_path):
+    code, applies, _ = tf_apply_with_fake(tmp_path, "always", TF_APPLY_ATTEMPTS="3")
+    assert code == 1
+    assert applies == 3
+
+
+DATAFORM_CI = ROOT / "scripts" / "ci" / "dataform-ci.sh"
+RUN_JOBS = ROOT / "scripts" / "it" / "run-jobs.sh"
+
+
+def test_dataform_ci_names_the_missing_variable():
+    env = {k: v for k, v in os.environ.items() if k not in ("GCP_PROJECT_ID", "GCP_REGION")}
+    code, _, err = run(DATAFORM_CI, env={**env, "GCP_REGION": "us-central1"})
+    assert code == 1
+    assert "GCP_PROJECT_ID" in err
+    code, _, err = run(DATAFORM_CI, env={**env, "GCP_PROJECT_ID": "demo-proj"})
+    assert code == 1
+    assert "GCP_REGION" in err
+
+
+def test_dataform_ci_with_argument_exits_2():
+    code, _, err = run(DATAFORM_CI, ["x"])
+    assert code == 2
+    assert "usage" in err
+
+
+def test_run_jobs_without_a_valid_date_exits_2():
+    for args in ([], ["2026-1-02"], ["ayer"]):
+        code, _, err = run(RUN_JOBS, args)
+        assert code == 2, args
+        assert "usage" in err

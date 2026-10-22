@@ -14,3 +14,18 @@ output "datasets" {
     }
   }
 }
+
+output "raw_tables" {
+  description = "Raw tables: dataset.table => {partition_field, expiration_ms, deletion_protection, labels, schema}."
+  value = {
+    for k, t in google_bigquery_table.raw : k => {
+      partition_field     = t.time_partitioning[0].field
+      partition_type      = t.time_partitioning[0].type
+      expiration_ms       = t.time_partitioning[0].expiration_ms
+      deletion_protection = t.deletion_protection
+      labels              = t.labels
+      description         = t.description
+      schema              = jsondecode(t.schema)
+    }
+  }
+}

@@ -1,12 +1,15 @@
 import json
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
+from fnmatch import fnmatch
+from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
 import respx
 from google.api_core.exceptions import NotFound, PreconditionFailed
+from google.cloud import bigquery
 
 from compras_ingest import bcentral, cli, mindicador
 from compras_ingest.mercadopublico import BASE_URL, ENDPOINT
@@ -55,6 +58,53 @@ class FakeStorageClient:
         assert name == BUCKET
         return FakeBucket(self.objects)
 
+    def list_blobs(self, bucket, match_glob=None):
+        assert bucket == BUCKET
+        return [SimpleNamespace(name=p) for p in sorted(self.objects) if match_glob is None or fnmatch(p, match_glob)]
+
+
+class FakeLoadJob:
+    def __init__(self, job_id: str, rows: int, error: Exception | None):
+        self.job_id = job_id
+        self.output_rows = rows
+        self.errors = None
+        self._error = error
+
+    def result(self):
+        if self._error is not None:
+            raise self._error
+        return self
+
+
+@dataclass
+class LoadCall:
+    uris: list[str]
+    destination: str
+    job_config: object
+    job_id_prefix: str
+
+
+class FakeBigQueryClient:
+    """Records every load_table_from_uri; `fail` maps a destination table to the error its job raises."""
+
+    def __init__(self, storage: FakeStorageClient | None = None):
+        self.storage = storage
+        self.loads: list[LoadCall] = []
+        self.fail: dict[str, Exception] = {}
+
+    def schema_from_json(self, path):
+        with open(path, encoding="utf-8") as fh:
+            return [bigquery.SchemaField.from_api_repr(f) for f in json.load(fh)]
+
+    def load_table_from_uri(self, uris, destination, job_config=None, job_id_prefix=None):
+        self.loads.append(LoadCall(list(uris), destination, job_config, job_id_prefix))
+        rows = 0
+        if self.storage is not None:
+            for uri in uris:
+                path = uri.removeprefix(f"gs://{BUCKET}/")
+                rows += len(self.storage.objects.get(path, b"").decode().splitlines())
+        return FakeLoadJob(f"{job_id_prefix}{len(self.loads)}", rows, self.fail.get(destination))
+
 
 @dataclass
 class Outcome:
@@ -69,6 +119,7 @@ class Env:
     router: respx.MockRouter
     storage: FakeStorageClient
     capsys: pytest.CaptureFixture
+    bq: FakeBigQueryClient
     sleeps: list = field(default_factory=list)
 
     def run(self, argv=("mercadopublico",), env_extra=None) -> Outcome:
@@ -81,6 +132,7 @@ class Env:
             sleep=self.sleeps.append,
             now=lambda: NOW,
             storage_client=self.storage,
+            bq_client=self.bq,
         )
         out, err = self.capsys.readouterr()
         lines = [line for line in out.splitlines() if line.strip()]
@@ -163,7 +215,8 @@ def detalle_ok(codigo):
 @pytest.fixture
 def mp(capsys):
     with respx.mock(assert_all_called=False, assert_all_mocked=True) as router:
-        yield Env(router=router, storage=FakeStorageClient(), capsys=capsys)
+        storage = FakeStorageClient()
+        yield Env(router=router, storage=storage, capsys=capsys, bq=FakeBigQueryClient(storage))
 
 
 def pytest_terminal_summary(terminalreporter):

@@ -8,6 +8,9 @@ locals {
     "roles/serviceusage.serviceUsageAdmin",
     # infra/main sets the BigQuery query quotas (S-07).
     "roles/cloudquotas.admin",
+    # infra/main creates the ingest Cloud Run Jobs and their image repository; deploy.yml updates them (REQ-006).
+    "roles/run.admin",
+    "roles/artifactregistry.admin",
   ]
   # Project-level roles CI may grant to the pipeline accounts; anything else (billing included) is denied.
   ci_grantable_project_roles = ["roles/bigquery.jobUser"]

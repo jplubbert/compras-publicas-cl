@@ -1,0 +1,10 @@
+# Build context of ingest/Dockerfile (BuildKit reads <Dockerfile>.dockerignore): only what the image copies.
+*
+!pyproject.toml
+!uv.lock
+!ingest/pyproject.toml
+!finops/killswitch/pyproject.toml
+!benchmarks/pyproject.toml
+!ingest/src
+!ingest/schemas
+**/__pycache__

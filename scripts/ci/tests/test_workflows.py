@@ -150,3 +150,39 @@ def test_id_token_violations_flags_workflow_level_token():
 def test_id_token_violations_flags_job_token_without_auth():
     doc = {"jobs": {"x": {"permissions": {"id-token": "write"}, "steps": [{"run": "true"}]}}}
     assert len(id_token_violations(doc)) == 1
+
+
+DATAFORM_CI = ROOT / "scripts" / "ci" / "dataform-ci.sh"
+
+
+def test_e5_release_publishes_the_image_updates_the_jobs_and_runs_dataform_in_ci():
+    release = load("deploy.yml")["jobs"]["release"]
+    assert "apply" in needs(release)
+    assert release["permissions"]["id-token"] == "write"
+    auth = auth_steps(release)
+    assert auth and auth[0]["with"]["workload_identity_provider"]
+    assert release["env"]["IMAGE"].endswith("/compras/ingest:${{ github.sha }}")
+    text = "\n".join(runs(release))
+    for literal in [
+        'docker build -f ingest/Dockerfile -t "$IMAGE"',
+        'docker push "$IMAGE"',
+        'gcloud run jobs update compras-mercadopublico --image="$IMAGE"',
+        'gcloud run jobs update compras-indicadores --image="$IMAGE"',
+        "scripts/ci/dataform-ci.sh",
+    ]:
+        assert literal in text, literal
+    steps = release["steps"]
+    order = [
+        next(i for i, s in enumerate(steps) if literal in s.get("run", ""))
+        for literal in ["docker push", "jobs update", "dataform-ci.sh"]
+    ]
+    assert order == sorted(order)
+    [df] = [s for s in steps if "dataform-ci.sh" in s.get("run", "")]
+    assert "--schema-suffix=ci" in df["name"] and "--vars=raw_dataset=raw_ci" in df["name"]
+
+
+def test_e5_dataform_ci_runs_every_action_in_ci_reading_raw_ci():
+    text = DATAFORM_CI.read_text()
+    assert "dataform run" in text
+    assert "--schema-suffix=ci" in text and "--vars=raw_dataset=raw_ci" in text
+    assert "--tags" not in text and "--disable-assertions" not in text

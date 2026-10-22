@@ -1,0 +1,14 @@
+[
+  {"name": "run_id", "type": "STRING", "mode": "REQUIRED", "description": "Identificador de la corrida de ingesta (AAAAMMDDThhmmssZ-<hex>)"},
+  {"name": "_ingest_date", "type": "DATE", "mode": "REQUIRED", "description": "Fecha UTC de inicio de la corrida; columna de partición"},
+  {"name": "ingested_at", "type": "TIMESTAMP", "mode": "REQUIRED", "description": "Momento UTC en que se recibió la respuesta"},
+  {"name": "source_url", "type": "STRING", "mode": "REQUIRED", "description": "URL pedida, con el ticket o token redactado como ***"},
+  {"name": "http_status", "type": "INTEGER", "mode": "NULLABLE", "description": "Código HTTP de la respuesta; nulo si hubo timeout"},
+  {"name": "fecha", "type": "DATE", "mode": "REQUIRED", "description": "Fecha D de los datos pedidos"},
+  {"name": "entidad", "type": "STRING", "mode": "REQUIRED", "description": "Entidad, serie o indicador de la fuente"},
+  {"name": "tipo", "type": "STRING", "mode": "REQUIRED", "description": "Tipo de pedido (listado, detalle, GetSeries, indicador)"},
+  {"name": "codigo", "type": "STRING", "mode": "NULLABLE", "description": "Código del documento o de la serie pedida"},
+  {"name": "payload", "type": "JSON", "mode": "NULLABLE", "description": "Cuerpo JSON de la respuesta, tal como llegó"},
+  {"name": "body", "type": "STRING", "mode": "NULLABLE", "description": "Cuerpo de la respuesta cuando no es JSON"},
+  {"name": "error", "type": "STRING", "mode": "NULLABLE", "description": "Descripción del error del pedido, si lo hubo"}
+]

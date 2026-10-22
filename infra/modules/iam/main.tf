@@ -42,3 +42,11 @@ resource "google_service_account_iam_member" "workflow_actas_dataform" {
   role               = "roles/iam.serviceAccountUser"
   member             = local.members["workflow"]
 }
+
+# CI creates and updates the Cloud Run Jobs that run as the ingest account, which needs actAs on it (REQ-006). It
+# lives here, not in infra/bootstrap, because this root creates compras-ingest.
+resource "google_service_account_iam_member" "ci_actas_ingest" {
+  service_account_id = google_service_account.this["ingest"].name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:compras-ci@${var.project_id}.iam.gserviceaccount.com"
+}

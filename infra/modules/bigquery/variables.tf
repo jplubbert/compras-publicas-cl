@@ -15,3 +15,9 @@ variable "dataset_access" {
     member = string
   })))
 }
+
+variable "raw_tables" {
+  description = "Raw tables created in raw and raw_ci; each one reads its schema from ingest/schemas/<table>.json."
+  type        = list(string)
+  default     = []
+}

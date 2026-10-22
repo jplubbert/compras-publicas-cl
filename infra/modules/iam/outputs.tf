@@ -42,3 +42,12 @@ output "secret_accessors" {
     "dataform-github-token" = {}
   }
 }
+
+output "ci_actas" {
+  description = "actAs grant of the CI account on the ingest account."
+  value = {
+    role            = google_service_account_iam_member.ci_actas_ingest.role
+    member          = google_service_account_iam_member.ci_actas_ingest.member
+    service_account = google_service_account_iam_member.ci_actas_ingest.service_account_id
+  }
+}

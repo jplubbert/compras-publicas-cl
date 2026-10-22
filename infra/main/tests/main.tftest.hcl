@@ -168,3 +168,80 @@ run "secretos_sin_versiones" {
     error_message = "the three secrets of DEC-004/DEC-009 must exist"
   }
 }
+
+# REQ-006 / REQ-007: the two ingest jobs, 7 h timeout, no retries, the ingest account and no secret env vars.
+run "t08_ingest_jobs" {
+  command = apply
+
+  assert {
+    condition     = output.ingest_jobs["mercadopublico"].name == "compras-mercadopublico" && output.ingest_jobs["indicadores"].name == "compras-indicadores"
+    error_message = "the jobs must be compras-mercadopublico and compras-indicadores"
+  }
+  assert {
+    condition = alltrue([for j in values(output.ingest_jobs) :
+    j.location == "us-central1" && j.timeout == "25200s" && j.max_retries == 0 && j.service_account == output.service_accounts["ingest"]])
+    error_message = "every job runs in var.region for up to 7 h, without retries, as the ingest account"
+  }
+  assert {
+    condition     = output.ingest_jobs["mercadopublico"].args == tolist(["mercadopublico"]) && output.ingest_jobs["indicadores"].args == tolist(["indicadores"])
+    error_message = "each job runs its own subcommand"
+  }
+  assert {
+    condition = alltrue([for j in values(output.ingest_jobs) :
+    alltrue([for e in ["BRONZE_BUCKET", "GOOGLE_CLOUD_PROJECT", "RAW_DATASET"] : contains(j.env_names, e)]) && length(j.secret_env) == 0])
+    error_message = "the jobs need the bucket, project and raw dataset, and no secret env var (DEC-004)"
+  }
+  assert {
+    condition     = contains(output.ingest_jobs["mercadopublico"].env_names, "MP_DAILY_REQUEST_BUDGET")
+    error_message = "the Mercado Público job sets its request budget"
+  }
+  assert {
+    condition     = output.ingest_repository.format == "DOCKER" && output.ingest_repository.location == "us-central1" && output.ingest_repository.repository_id == "compras"
+    error_message = "the image repository is Docker in var.region"
+  }
+}
+
+# REQ-006 / DEC-006: 7 raw tables in raw and raw_ci, partitioned by _ingest_date, with the load job schema.
+run "t08_raw_tables" {
+  command = plan
+
+  assert {
+    condition     = length(output.raw_tables) == 14
+    error_message = "there must be 7 raw tables in raw and in raw_ci"
+  }
+  assert {
+    condition     = alltrue([for t in values(output.raw_tables) : t.partition_field == "_ingest_date" && t.partition_type == "DAY" && t.expiration_ms == 34560000000])
+    error_message = "raw tables are partitioned by day on _ingest_date and expire after 400 days"
+  }
+  assert {
+    condition     = alltrue([for k, t in output.raw_tables : t.schema == jsondecode(file("../../ingest/schemas/${split(".", k)[1]}.json"))])
+    error_message = "each raw table uses its ingest/schemas file"
+  }
+  assert {
+    condition     = alltrue([for k, t in output.raw_tables : t.deletion_protection == (split(".", k)[0] == "raw") && t.labels["layer"] == "raw" && t.description != ""])
+    error_message = "raw tables are protected (raw_ci is not), labelled layer=raw and described"
+  }
+}
+
+# REQ-006: CI may act as the ingest account to create and update its jobs.
+run "t08_ci_actas" {
+  command = apply
+
+  assert {
+    condition     = output.ci_actas.role == "roles/iam.serviceAccountUser" && output.ci_actas.member == "serviceAccount:compras-ci@demo-proj.iam.gserviceaccount.com"
+    error_message = "the CI account must hold serviceAccountUser"
+  }
+  assert {
+    condition     = endswith(output.ci_actas.service_account, "/serviceAccounts/compras-mock@demo-proj.iam.gserviceaccount.com")
+    error_message = "the actAs grant must be on the ingest service account"
+  }
+}
+
+run "t08_apis" {
+  command = plan
+
+  assert {
+    condition     = contains(output.enabled_apis, "run.googleapis.com") && contains(output.enabled_apis, "artifactregistry.googleapis.com")
+    error_message = "the Run and Artifact Registry APIs must be enabled"
+  }
+}

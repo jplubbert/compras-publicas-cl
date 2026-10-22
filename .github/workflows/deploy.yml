@@ -2,7 +2,10 @@
 # protected environment production, authenticated with WIF (DEC-004, no service account keys).
 # After a successful apply the state is backed up to a bucket in a separate project (REQ-016); the upload uses the
 # Cloud Storage JSON API because the CI service account only holds roles/storage.objectCreator on that bucket.
-# T-08 (REQ-006) adds here the images and the Dataform run in ci.
+# The first apply that creates the ingest Cloud Run Jobs may wait for the CI actAs grant on compras-ingest to
+# propagate: scripts/it/tf-apply.sh retries only that error (REQ-006).
+# Then the release job (REQ-006 E5) publishes the ingest image tagged with the commit, points the two Cloud Run Jobs at
+# it and runs Dataform in the isolated CI run (schemaSuffix "ci", raw_dataset=raw_ci) with its assertions.
 name: deploy
 
 on:
@@ -77,3 +80,36 @@ jobs:
             -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
             --data-binary @"$state" \
             "https://storage.googleapis.com/upload/storage/v1/b/${STATE_BACKUP_BUCKET}/o?uploadType=media&ifGenerationMatch=0&name=${name}"
+
+  release:
+    needs: apply
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/compras/ingest:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up tools
+        run: scripts/setup.sh
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Build and push the ingest image
+        run: |
+          gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+          docker build -f ingest/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+      - name: Update the ingest jobs
+        run: |
+          gcloud run jobs update compras-mercadopublico --image="$IMAGE" --region="$GCP_REGION" --project="$GCP_PROJECT_ID"
+          gcloud run jobs update compras-indicadores --image="$IMAGE" --region="$GCP_REGION" --project="$GCP_PROJECT_ID"
+      # dataform run --schema-suffix=ci --vars=raw_dataset=raw_ci, every action with its assertions (no --tags).
+      - name: Dataform run in ci (--schema-suffix=ci --vars=raw_dataset=raw_ci)
+        run: scripts/env.sh scripts/ci/dataform-ci.sh

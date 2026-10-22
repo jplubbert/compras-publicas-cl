@@ -73,6 +73,16 @@ run "ci_account_without_billing" {
   }
 }
 
+# REQ-006: CI creates the ingest Cloud Run Jobs and the image repository in infra/main.
+run "t08_ci_run_y_artifact_registry" {
+  command = plan
+
+  assert {
+    condition     = contains(output.ci_project_roles, "roles/run.admin") && contains(output.ci_project_roles, "roles/artifactregistry.admin")
+    error_message = "the CI account needs run.admin and artifactregistry.admin"
+  }
+}
+
 run "e2_without_project_id" {
   command = plan
   variables {

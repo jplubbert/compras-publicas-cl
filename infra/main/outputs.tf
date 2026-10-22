@@ -48,3 +48,28 @@ output "secret_bindings" {
   description = "Secret grants."
   value       = module.secrets.secret_bindings
 }
+
+output "raw_tables" {
+  description = "Raw tables of raw and raw_ci (REQ-006)."
+  value       = module.bigquery.raw_tables
+}
+
+output "ingest_jobs" {
+  description = "Ingest Cloud Run Jobs."
+  value       = module.ingest_job.ingest_jobs
+}
+
+output "ingest_repository" {
+  description = "Artifact Registry repository of the ingest image."
+  value       = module.ingest_job.repository
+}
+
+output "ci_actas" {
+  description = "actAs grant of the CI account on the ingest account."
+  value       = module.iam.ci_actas
+}
+
+output "enabled_apis" {
+  description = "APIs enabled by this root."
+  value       = module.apis.services
+}

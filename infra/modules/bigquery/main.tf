@@ -21,6 +21,16 @@ locals {
     "roles/bigquery.dataEditor" = "WRITER"
     "roles/bigquery.dataViewer" = "READER"
   }
+
+  # Raw tables in raw and raw_ci, with the same schema file the load job uses (REQ-006).
+  raw_tables = {
+    for pair in setproduct(["raw", "raw_ci"], var.raw_tables) : "${pair[0]}.${pair[1]}" => {
+      dataset = pair[0]
+      table   = pair[1]
+    }
+  }
+  # Raw partitions expire after 400 days (DEC-006).
+  raw_partition_expiration_ms = 34560000000
 }
 
 resource "google_bigquery_dataset" "this" {
@@ -53,5 +63,23 @@ resource "google_bigquery_dataset" "this" {
       role          = local.basic_role[access.value.role]
       user_by_email = trimprefix(access.value.member, "serviceAccount:")
     }
+  }
+}
+
+resource "google_bigquery_table" "raw" {
+  for_each = local.raw_tables
+
+  project             = var.project_id
+  dataset_id          = google_bigquery_dataset.this[each.value.dataset].dataset_id
+  table_id            = each.value.table
+  description         = "Tabla raw ${each.value.table}: líneas de bronze cargadas sin transformar, con su run_id."
+  labels              = { layer = "raw" }
+  schema              = file("${path.module}/../../../ingest/schemas/${each.value.table}.json")
+  deletion_protection = each.value.dataset == "raw"
+
+  time_partitioning {
+    type          = "DAY"
+    field         = "_ingest_date"
+    expiration_ms = local.raw_partition_expiration_ms
   }
 }
