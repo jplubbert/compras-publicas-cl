@@ -513,7 +513,41 @@
           "at": "2026-10-22T02:23:36.971Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
         }
-      ]
+      ],
+      "plan_review": {
+        "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "REVISAR",
+        "effective": "REVISAR",
+        "round": 1,
+        "plan": "plans/T-05.md",
+        "plan_sha": "614d9cc242a30ac803b064c19909bed529e24eba",
+        "plan_commit": "6817b08",
+        "findings": [
+          {
+            "id": "drill:e4-real-sin-billing",
+            "severity": "P1",
+            "evidence_type": "fuente",
+            "evidence": "https://docs.cloud.google.com/billing/docs/how-to/disable-billing-with-notifications — al desactivar el billing se detienen todos los servicios de Google Cloud del proyecto, incluidos los del free tier.",
+            "summary": "El paso 15 publica otra vez el mensaje E1 con el billing ya quitado y busca en los registros que no haya errores. Sin billing, gcloud pubsub topics publish falla (BILLING_DISABLED) y, con set -euo pipefail, el simulacro sale con 1 aunque la desvinculación haya funcionado; aunque la publicación pasara, la función no correría, y la búsqueda de registros no probaría nada. El verify_integration de T-05 (DEC-003, DEC-009) quedaría fallando o sin probar nada."
+          },
+          {
+            "id": "drill:e2-real-vacuo",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "Paso 15 del plan: E2 real espera 90 s y solo comprueba billingEnabled == True.",
+            "summary": "El E2 real pasa también si la función no se desplegó, si el disparador no entrega mensajes o si la función falla al arrancar; no demuestra que el camino tema → función se ejecutó y decidió 'under_budget'."
+          },
+          {
+            "id": "req-003:unidad-cuota-no-confirmada",
+            "severity": "P2",
+            "evidence_type": "fuente",
+            "evidence": "https://docs.cloud.google.com/bigquery/docs/custom-quotas — la cuota se describe en TiB (200 TiB por defecto) y no se documenta la unidad de la API.",
+            "summary": "E6 en terraform test comprueba 51200/20480 suponiendo MiB; si la unidad real fuera otra, el verify local pasa con un tope que no corresponde a S-07. Solo el simulacro lo detecta, y lo corre el usuario después."
+          }
+        ],
+        "opinion_blockers": [],
+        "date": "2026-10-22"
+      }
     },
     {
       "id": "T-06",
