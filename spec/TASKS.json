@@ -1735,7 +1735,48 @@
           "at": "2026-10-22T02:23:37.690Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
         }
-      ]
+      ],
+      "plan_review": {
+        "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "REVISAR",
+        "effective": "REVISAR",
+        "round": 1,
+        "plan": "plans/T-14.md",
+        "plan_sha": "c85b0335222ef4352a49532b18810779fe96edba",
+        "plan_commit": "5df8086",
+        "findings": [
+          {
+            "id": "req-014:dataform-sin-setcategory",
+            "severity": "P1",
+            "evidence_type": "fuente",
+            "evidence": "https://docs.cloud.google.com/iam/docs/roles-permissions/bigquery — roles/bigquery.dataEditor no incluye bigquery.tables.setCategory, que sí está en roles/bigquery.dataOwner (bigquery.tables.*). https://docs.cloud.google.com/bigquery/docs/column-level-security exige además datacatalog.taxonomies.get, y categoryFineGrainedReader solo trae datacatalog.categories.fineGrainedGet (https://docs.cloud.google.com/iam/docs/roles-permissions/datacatalog). El supuesto contrario está en plans/T-14.md:318.",
+            "summary": "El plan da a compras-dataform solo dataEditor sobre silver y gold y categoryFineGrainedReader sobre la tag. Sin bigquery.tables.setCategory ni datacatalog.taxonomies.get, la invocación de Dataform falla al asignar bigqueryPolicyTags a rut_persona_natural: E7 no termina SUCCEEDED y E4 no se puede comprobar. El verify local no lo detecta porque usa mock_provider."
+          },
+          {
+            "id": "req-014:tags-en-incremental-sin-respaldo",
+            "severity": "P2",
+            "evidence_type": "fuente",
+            "evidence": "https://docs.cloud.google.com/dataform/docs/policy-tags — la guía solo muestra bigqueryPolicyTags con type: \"table\"; plans/T-14.md:325 supone que también se aplica a tablas incrementales.",
+            "summary": "silver.proveedores es incremental. Si Dataform no aplica o no actualiza la tag en el MERGE de una tabla incremental ya existente, el RUT de persona natural queda sin tag en silver. Solo policy-tags.sh lo detectaría, después del deploy."
+          },
+          {
+            "id": "req-014:sal-legible-por-ci",
+            "severity": "P2",
+            "evidence_type": "archivo",
+            "evidence": "plans/T-14.md:319 — «compras-ci tiene roles/bigquery.admin… «legible solo por Dataform» se cumple en el ACL del dataset pii, no frente a ese rol de proyecto».",
+            "summary": "REQ-014 dice que pii.sal es «legible solo por la cuenta de servicio de Dataform». El plan reinterpreta el requisito como el ACL del dataset: compras-ci la lee y además la corrida de ci ejecuta generar_sal sobre la pii.sal de producción. Es una desviación del texto del REQ que el plan acepta sin decisión del usuario."
+          },
+          {
+            "id": "req-014:e4-mensaje-403-no-documentado",
+            "severity": "P3",
+            "evidence_type": "opinión",
+            "evidence": "plans/T-14.md:253 exige HTTP 403 y que el cuerpo mencione la policy tag; la documentación de BigQuery no fija el código ni el texto del error.",
+            "summary": "Si BigQuery devuelve el error con otro código o con otro texto (por ejemplo, en el estado del job y no en el HTTP), E4 daría un falso fallo."
+          }
+        ],
+        "opinion_blockers": [],
+        "date": "2026-10-23"
+      }
     },
     {
       "id": "T-15",
