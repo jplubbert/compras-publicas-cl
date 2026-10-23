@@ -8,8 +8,14 @@ import { fileURLToPath } from 'node:url';
 const project = join(dirname(fileURLToPath(import.meta.url)), '..');
 const reglas = createRequire(import.meta.url)(join(project, 'includes/reglas.js'));
 
+const TAG = 'projects/p/locations/us-central1/taxonomies/1/policyTags/2';
+
+// One --vars flag: the test's variables plus policy_tag_rut, which every compilation needs (REQ-014 E5).
 function compile(...args) {
-  const out = execFileSync(join(project, 'node_modules/.bin/dataform'), ['compile', '--json', ...args], {
+  const vars = args.filter((a) => a.startsWith('--vars=')).map((a) => a.slice('--vars='.length));
+  const rest = args.filter((a) => !a.startsWith('--vars='));
+  const flags = [...rest, `--vars=${[...vars, `policy_tag_rut=${TAG}`].join(',')}`];
+  const out = execFileSync(join(project, 'node_modules/.bin/dataform'), ['compile', '--json', ...flags], {
     cwd: project,
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,

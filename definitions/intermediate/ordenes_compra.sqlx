@@ -2,6 +2,7 @@ config {
   type: "incremental",
   schema: "silver",
   tags: ["silver"],
+  dependencies: ["generar_sal"],
   uniqueKey: ["codigo_oc"],
   assertions: {
     uniqueKey: ["codigo_oc"],
@@ -21,7 +22,7 @@ config {
     codigo_licitacion: "Código de la licitación de origen, si la hay",
     codigo_organismo: "Código del organismo comprador",
     nombre_organismo: "Nombre del organismo comprador",
-    rut_proveedor: "RUT de la sucursal del proveedor, sin puntos ni espacios y con el dígito verificador en mayúscula",
+    proveedor_key: "Clave de la sucursal del proveedor: hash SHA-256 en hex de la sal de pii.sal y el RUT normalizado (DEC-008); el RUT queda solo en silver.proveedores",
     nombre_proveedor: "Nombre del proveedor",
     moneda: "Código de la moneda de la orden, en mayúsculas",
     total_neto: "Monto total neto de la orden en su moneda",
@@ -39,7 +40,7 @@ config {
 js {
   const columnas = [
     "codigo_oc", "nombre", "codigo_estado", "estado", "codigo_licitacion", "codigo_organismo", "nombre_organismo",
-    "rut_proveedor", "nombre_proveedor", "moneda", "total_neto", "total", "fecha_creacion", "fecha_envio",
+    "proveedor_key", "nombre_proveedor", "moneda", "total_neto", "total", "fecha_creacion", "fecha_envio",
     "fecha_aceptacion", "run_id", "_ingest_date", "ingested_at", "fecha_cambio"
   ];
 }
@@ -53,7 +54,7 @@ WITH nuevas AS (
     JSON_VALUE(doc, '$.CodigoLicitacion') AS codigo_licitacion,
     JSON_VALUE(doc, '$.Comprador.CodigoOrganismo') AS codigo_organismo,
     JSON_VALUE(doc, '$.Comprador.NombreOrganismo') AS nombre_organismo,
-    ${silver.rutSql("JSON_VALUE(doc, '$.Proveedor.RutSucursal')")} AS rut_proveedor,
+    ${gobierno.proveedorKeySql(silver.rutSql("JSON_VALUE(doc, '$.Proveedor.RutSucursal')"), ref("sal"))} AS proveedor_key,
     JSON_VALUE(doc, '$.Proveedor.Nombre') AS nombre_proveedor,
     UPPER(TRIM(JSON_VALUE(doc, '$.TipoMoneda'))) AS moneda,
     ${silver.numericSql("JSON_VALUE(doc, '$.TotalNeto')")} AS total_neto,

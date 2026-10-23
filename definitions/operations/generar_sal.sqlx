@@ -1,0 +1,10 @@
+config {
+  type: "operations",
+  tags: ["silver"],
+  description: "Genera una sola vez la sal de proveedor_key en pii.sal (DEC-008): inserta una fila solo si la tabla está vacía; el valor nunca sale de BigQuery."
+}
+
+INSERT INTO ${ref("sal")} (sal)
+SELECT TO_HEX(SHA256(CONCAT(GENERATE_UUID(), GENERATE_UUID())))
+FROM UNNEST([1])
+WHERE NOT EXISTS (SELECT 1 FROM ${ref("sal")})

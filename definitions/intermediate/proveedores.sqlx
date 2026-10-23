@@ -2,14 +2,23 @@ config {
   type: "incremental",
   schema: "silver",
   tags: ["silver"],
-  uniqueKey: ["rut_proveedor"],
+  dependencies: ["generar_sal"],
+  uniqueKey: ["proveedor_key"],
   assertions: {
-    uniqueKey: ["rut_proveedor"],
-    nonNull: ["rut_proveedor", "fecha_cambio"]
+    uniqueKey: ["proveedor_key"],
+    nonNull: ["proveedor_key", "fecha_cambio"],
+    rowConditions: [
+      "(rut_empresa IS NULL) != (rut_persona_natural IS NULL)"
+    ]
   },
-  description: "Proveedores vistos en las órdenes de compra y en las adjudicaciones de ítems de licitación de Mercado Público, una fila por RUT con su versión más reciente (REQ-008; T-14 cambia la clave por proveedor_key).",
+  description: "Proveedores vistos en las órdenes de compra y en las adjudicaciones de ítems de licitación de Mercado Público, una fila por proveedor_key con su versión más reciente; el RUT va en rut_empresa o en rut_persona_natural (con policy tag) según la regla de S-04 (REQ-008, REQ-014, DEC-008).",
   columns: {
-    rut_proveedor: "RUT del proveedor, sin puntos ni espacios y con el dígito verificador en mayúscula (clave natural)",
+    proveedor_key: "Hash SHA-256 en hex de la sal de pii.sal y el RUT normalizado; clave del proveedor, sin policy tag (DEC-008)",
+    rut_empresa: "RUT del proveedor si es persona jurídica (cuerpo del RUT de 50.000.000 o más, S-04); nulo si es persona natural",
+    rut_persona_natural: {
+      description: "RUT del proveedor si es persona natural (cuerpo del RUT menor que 50.000.000 o no numérico, S-04); nulo si es empresa. Protegido por la policy tag dato_personal.rut (REQ-014)",
+      bigqueryPolicyTags: [gobierno.policyTagRut(dataform.projectConfig.vars)]
+    },
     nombre_proveedor: "Nombre del proveedor en su versión más reciente",
     codigo_proveedor: "Código del proveedor en Mercado Público; nulo si la versión viene de una adjudicación de ítem",
     run_id: "Identificador de la corrida de ingesta que trajo esta versión",
@@ -21,13 +30,14 @@ config {
 
 js {
   const columnas = [
-    "rut_proveedor", "nombre_proveedor", "codigo_proveedor", "run_id", "_ingest_date", "ingested_at", "fecha_cambio"
+    "proveedor_key", "rut_empresa", "rut_persona_natural", "nombre_proveedor", "codigo_proveedor", "run_id",
+    "_ingest_date", "ingested_at", "fecha_cambio"
   ];
 }
 
 WITH documentos AS (
   SELECT
-    ${silver.rutSql("JSON_VALUE(doc, '$.Proveedor.RutSucursal')")} AS rut_proveedor,
+    ${silver.rutSql("JSON_VALUE(doc, '$.Proveedor.RutSucursal')")} AS rut,
     JSON_VALUE(doc, '$.Proveedor.Nombre') AS nombre_proveedor,
     JSON_VALUE(doc, '$.Proveedor.Codigo') AS codigo_proveedor,
     run_id,
@@ -40,7 +50,7 @@ WITH documentos AS (
     ${when(incremental(), `AND ${silver.ventanaIncremental(self())}`)}
   UNION ALL
   SELECT
-    ${silver.rutSql("JSON_VALUE(item, '$.Adjudicacion.RutProveedor')")} AS rut_proveedor,
+    ${silver.rutSql("JSON_VALUE(item, '$.Adjudicacion.RutProveedor')")} AS rut,
     JSON_VALUE(item, '$.Adjudicacion.NombreProveedor') AS nombre_proveedor,
     CAST(NULL AS STRING) AS codigo_proveedor,
     run_id,
@@ -55,13 +65,24 @@ WITH documentos AS (
     ${when(incremental(), `AND ${silver.ventanaIncremental(self())}`)}
 ),
 nuevas AS (
-  SELECT ${columnas.join(", ")} FROM documentos WHERE rut_proveedor IS NOT NULL
+  SELECT
+    ${gobierno.proveedorKeySql("rut", ref("sal"))} AS proveedor_key,
+    IF(${reglas.esPersonaNaturalSql("rut")}, NULL, rut) AS rut_empresa,
+    IF(${reglas.esPersonaNaturalSql("rut")}, rut, NULL) AS rut_persona_natural,
+    nombre_proveedor,
+    codigo_proveedor,
+    run_id,
+    _ingest_date,
+    ingested_at,
+    fecha_cambio
+  FROM documentos
+  WHERE rut IS NOT NULL
 ),
 candidatas AS (
   SELECT ${columnas.join(", ")} FROM nuevas
   ${when(incremental(), `UNION ALL
   SELECT ${columnas.join(", ")} FROM ${self()}
-  WHERE rut_proveedor IN (SELECT rut_proveedor FROM nuevas)`)}
+  WHERE proveedor_key IN (SELECT proveedor_key FROM nuevas)`)}
 )
 SELECT ${columnas.join(", ")} FROM candidatas
-QUALIFY ROW_NUMBER() OVER (PARTITION BY rut_proveedor ORDER BY fecha_cambio DESC, ingested_at DESC) = 1
+QUALIFY ROW_NUMBER() OVER (PARTITION BY proveedor_key ORDER BY fecha_cambio DESC, ingested_at DESC) = 1

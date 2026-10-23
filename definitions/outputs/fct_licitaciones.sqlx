@@ -11,7 +11,7 @@ config {
   description: "Hecho de licitaciones de Mercado Público, una fila por licitación y proveedor adjudicado (una sola fila con proveedor nulo si no hay adjudicación), con el monto adjudicado en CLP, en UF de la fecha de publicación y en USD al dólar observado (REQ-012). Particionado por mes de fecha_documento: toda consulta debe filtrar por fecha_documento.",
   columns: {
     codigo_licitacion: "Código externo de la licitación (clave natural, con proveedor_key)",
-    proveedor_key: "Clave del proveedor adjudicado; nula si la licitación no tiene ítems adjudicados. En este corte es el RUT normalizado y T-14 la cambia por el hash con sal (DEC-008)",
+    proveedor_key: "Clave del proveedor adjudicado: hash SHA-256 en hex de la sal de pii.sal y el RUT normalizado (DEC-008); nula si la licitación no tiene ítems adjudicados",
     fecha_documento: "Fecha de publicación de la licitación (hora de Chile); columna de partición por mes, filtro obligatorio",
     codigo_organismo: "Código del organismo comprador (primera columna de clustering)",
     estado: "Estado de la licitación traducido del código (Publicada, Cerrada, Desierta, Adjudicada, Revocada, Suspendida)",
@@ -31,16 +31,16 @@ config {
 WITH adjudicaciones AS (
   SELECT
     codigo_licitacion,
-    rut_proveedor_adjudicado AS rut,
+    proveedor_key_adjudicado AS proveedor_key,
     SUM(cantidad_adjudicada * monto_unitario) AS monto_adjudicado
   FROM ${ref("licitacion_items")}
-  WHERE rut_proveedor_adjudicado IS NOT NULL
-  GROUP BY codigo_licitacion, rut_proveedor_adjudicado
+  WHERE proveedor_key_adjudicado IS NOT NULL
+  GROUP BY codigo_licitacion, proveedor_key_adjudicado
 ),
 tasas AS (${gold.tasasSql(ref("indicadores_diarios"), reglas.FECHA_MINIMA)})
 SELECT
   l.codigo_licitacion,
-  ${gold.proveedorKeySql("a.rut")} AS proveedor_key,
+  a.proveedor_key,
   l.fecha_publicacion AS fecha_documento,
   l.codigo_organismo,
   l.estado,
