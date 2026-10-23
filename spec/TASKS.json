@@ -2161,7 +2161,7 @@
       "reqs": [
         "REQ-014"
       ],
-      "status": "verified_auto",
+      "status": "reviewed",
       "blocked_by": null,
       "evidence": {
         "command": "scripts/env.sh bash -c 'npm run test:infra && npm run test:dataform && uv run --frozen pytest scripts/ci/tests/test_workflows.py && npm run check:spec'",
@@ -2175,7 +2175,21 @@
         "timestamp": "2026-10-23T04:48:30+00:00",
         "result": "174/174 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-20/verify.log)"
       },
-      "review": null,
+      "review": {
+        "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "sha256 de artifacts/T-20/verify.log coincide (38e97994…); el log muestra 174/174, con las pruebas E8 de gobierno.test.mjs y los runs t20_sal_ci y t20_pii_ci_acl en verde. `node --test --test-name-pattern=T-20` no selecciona ninguna prueba (los nombres citan REQ-014, no T-20); no se pudo correr con el patrón E8 por permisos, así que el resultado de esas pruebas sale del log. Pendientes reconocidos fuera de los touches: scripts/it/dataform-ci.sh (líneas 240-241) sigue calculando proveedor_key y contando filas con pii.sal tras la corrida de CI, y S-17 de SPEC.md no lista pii_ci; conviene una tarea de seguimiento para que la integración compruebe E8. Las descripciones de columnas proveedor_key en varios .sqlx siguen diciendo 'pii.sal' (solo texto, sin efecto en el SQL).",
+        "date": "2026-10-23",
+        "decision": {
+          "question_id": "review_verdict",
+          "decider": "rule",
+          "confidence": 1,
+          "threshold": 0.8,
+          "timestamp": "2026-10-23T04:49:12.353Z",
+          "rule": "review_approved_without_findings"
+        }
+      },
       "touches": [
         "dataform/",
         "infra/",
@@ -2219,6 +2233,13 @@
           "by": "record_evidence.py",
           "at": "2026-10-23T04:48:30+00:00",
           "reason": "verify con código 0: 174/174 pasan, 0 fallan"
+        },
+        {
+          "from": "verified_auto",
+          "to": "reviewed",
+          "by": "set-review",
+          "at": "2026-10-23T04:49:13.778Z",
+          "reason": "veredicto approved confirmado por el decisor"
         }
       ],
       "plan_review": {

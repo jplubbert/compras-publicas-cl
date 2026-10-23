@@ -1043,3 +1043,8 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Pendiente manual: tras el merge a `main`, confirmar en GCP que `pii_ci.sal` tiene una fila después de la corrida de CI y que `pii.sal` no cambió.
 - Verificado y cómo: `scripts/env.sh bash -c 'npm run test:infra && npm run test:dataform && uv run --frozen pytest scripts/ci/tests/test_workflows.py && npm run check:spec'` → 174/174 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-20/verify.log), commit 2ffbca4.
 - Próxima acción autorizada: revisión independiente de T-20; el merge a `main` aplica `pii_ci` antes de la corrida de CI (el job release depende de apply).
+
+## 2026-10-23 01:49 · revisor independiente (claude -p 2.1.295 (Claude Code)) vía autopilot
+- Hecho: revisión independiente de T-20 con contexto limpio (solo diff + REQ/DEC de la tarea). Veredicto: **approved** → estado `reviewed`. Hallazgos: sin hallazgos bloqueantes.
+- Verificado y cómo: veredicto completo en TASKS.json (`review` de T-20); salida íntegra en .autopilot/2026-10-23_013749/T-20-review-output.txt.
+- Próxima acción autorizada: continúa el autopilot; el usuario decide accepted después de la corrida.
