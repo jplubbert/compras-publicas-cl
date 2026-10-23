@@ -1691,7 +1691,7 @@
         "T-12",
         "T-18"
       ],
-      "status": "verified_auto",
+      "status": "reviewed",
       "blocked_by": null,
       "notes": "2026-10-22: escalada por el orquestador (DEC-005): el crítico escaló el plan en la ronda 2; informe en plans/T-13.md; bloqueada por Q-09. 2026-10-22: Q-09 respondida por el usuario, opción (a): la prueba de aceptación tests/acceptance/T-13_benchmark.py la escribe antes T-18 (kind: spec); T-13 depende de ella y su verify exige que pase. El plan se rehace sin el paso 12 (sin archivo puente ni pendiente manual). Detalles internos dentro del plan: JOBS_SQL toma la región de client.location; plan_jobs recibe el dataset calificado con el proyecto (`proyecto.bench`); con --dry-run, run.py comprueba que existen las variantes antes de los dry runs (no después), porque un dry run sobre una tabla ausente falla; el control de presupuesto del paso 7.3 aplica también con --dry-run, como dice el plan. Los errores de jobs se capturan como GoogleAPIError. No se pudo correr `bash -n scripts/it/benchmark.sh` (la guarda de acceso lo negó); no se corrió scripts/it/ (solo el usuario). benchmarks/tests/conftest.py imprime la línea «Tests: F failed, P passed, T total» que parsea record_evidence.py, como ingest/ y orchestration/; la corrida de tests/acceptance/T-13_benchmark.py no imprime esa línea (tests/acceptance/ no se toca), así que la evidencia cuenta solo las pruebas de benchmarks/tests.",
       "touches": [
@@ -1736,6 +1736,13 @@
           "by": "record_evidence.py",
           "at": "2026-10-23T03:56:39+00:00",
           "reason": "verify con código 0: 35/35 pasan, 0 fallan"
+        },
+        {
+          "from": "verified_auto",
+          "to": "reviewed",
+          "by": "set-review",
+          "at": "2026-10-23T03:57:21.641Z",
+          "reason": "veredicto approved confirmado por el decisor"
         }
       ],
       "plan_review": {
@@ -1772,6 +1779,21 @@
         "commit": "165a63d8f7416975a19736dec1bbef604900a020",
         "timestamp": "2026-10-23T03:56:39+00:00",
         "result": "35/35 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-13/verify.log)"
+      },
+      "review": {
+        "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Verificado: sha256 de artifacts/T-13/verify.log coincide (a6e96f9a…); scripts/acceptance.sh tests/acceptance/T-13_benchmark.py → 4 passed (E1–E4); node scripts/check-spec.mjs → ok. No se pudieron correr npm run test:benchmarks ni npm test (permiso denegado); se apoya en el log de evidencia (35/35). El diff de implementación solo toca benchmarks/, scripts/it/benchmark.sh y package.json (más artifacts/ y spec/ del orquestador); nada bajo tests/acceptance/. Todas las consultas de los scripts llevan maximum_bytes_billed (DEC-003/DEC-009): 1 GiB en creación de variantes y metadatos, cap_bytes ≤ 20 GiB en los jobs medidos. La semántica SQL real (CTAS de 40 M filas, require_partition_filter, JOBS_BY_USER) solo se valida en scripts/it/benchmark.sh, pendiente manual del usuario; bash -n de ese script tampoco se corrió.",
+        "date": "2026-10-23",
+        "decision": {
+          "question_id": "review_verdict",
+          "decider": "rule",
+          "confidence": 1,
+          "threshold": 0.8,
+          "timestamp": "2026-10-23T03:57:21.007Z",
+          "rule": "review_approved_without_findings"
+        }
       }
     },
     {
