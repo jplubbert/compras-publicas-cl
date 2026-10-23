@@ -5,7 +5,8 @@
 //
 //   node scripts/ci/check-descriptions.mjs [--graph FILE] [--project DIR]
 //
-// Without --graph it runs `<DIR>/node_modules/.bin/dataform compile --json` (DIR defaults to the repo's dataform/).
+// Without --graph it runs `<DIR>/node_modules/.bin/dataform compile --json --vars=policy_tag_rut=…` (DIR defaults to
+// the repo's dataform/).
 // Prints one line per finding and exits 1 (also when the compilation fails), or "check:descriptions: ok (<n> modelos)"
 // and exits 0. Exit 2 on an unknown argument or a missing Dataform binary.
 import { execFileSync } from 'node:child_process';
@@ -14,6 +15,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SCHEMAS = new Set(['silver', 'gold', 'quarantine']);
+// A placeholder shaped like a policy tag: compilation requires policy_tag_rut (REQ-014 E5).
+const POLICY_TAG_RUT = 'projects/p/locations/us-central1/taxonomies/1/policyTags/2';
 
 function baseSchema(schema, suffix) {
   return suffix && schema.endsWith(`_${suffix}`) ? schema.slice(0, -(suffix.length + 1)) : schema;
@@ -62,7 +65,11 @@ function compile(project) {
   const bin = join(project, 'node_modules/.bin/dataform');
   if (!existsSync(bin)) fail(2, `missing Dataform binary ${bin} (run npm ci --prefix dataform)`);
   try {
-    return execFileSync(bin, ['compile', '--json'], { cwd: project, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    return execFileSync(bin, ['compile', '--json', `--vars=policy_tag_rut=${POLICY_TAG_RUT}`], {
+      cwd: project,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    });
   } catch (err) {
     fail(1, `dataform compile failed\n${err.stdout ?? ''}${err.stderr ?? ''}`);
   }

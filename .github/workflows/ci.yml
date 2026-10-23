@@ -36,8 +36,10 @@ jobs:
         run: scripts/env.sh npm run check:spec
       - name: Check descriptions
         run: scripts/env.sh npm run check:descriptions
+      # A placeholder shaped like a policy tag: compilation requires it (REQ-014 E5); only the ci run of deploy.yml
+      # uses the real name.
       - name: Dataform compile
-        run: scripts/env.sh bash -c 'cd dataform && node_modules/.bin/dataform compile'
+        run: scripts/env.sh bash -c 'cd dataform && node_modules/.bin/dataform compile --vars=policy_tag_rut=projects/p/locations/us-central1/taxonomies/1/policyTags/2'
 
   plan:
     needs: checks
@@ -51,6 +53,9 @@ jobs:
       TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
       TF_VAR_region: ${{ vars.GCP_REGION }}
       TF_VAR_github_repository: ${{ github.repository }}
+      # REQ-014: HCL lists such as ["group:analistas@example.com"]; empty when the variable is not set.
+      TF_VAR_pii_readers: ${{ vars.PII_READERS || '[]' }}
+      TF_VAR_lector_impersonators: ${{ vars.LECTOR_IMPERSONATORS || '[]' }}
     steps:
       - uses: actions/checkout@v5
       - name: Set up tools

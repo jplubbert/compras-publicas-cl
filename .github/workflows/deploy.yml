@@ -40,8 +40,10 @@ jobs:
         run: scripts/env.sh npm run check:repo
       - name: Check spec
         run: scripts/env.sh npm run check:spec
+      # A placeholder shaped like a policy tag: compilation requires it (REQ-014 E5); only the ci run of deploy.yml
+      # uses the real name.
       - name: Dataform compile
-        run: scripts/env.sh bash -c 'cd dataform && node_modules/.bin/dataform compile'
+        run: scripts/env.sh bash -c 'cd dataform && node_modules/.bin/dataform compile --vars=policy_tag_rut=projects/p/locations/us-central1/taxonomies/1/policyTags/2'
 
   apply:
     needs: checks

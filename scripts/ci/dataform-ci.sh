@@ -4,14 +4,16 @@
 # runs it after publishing the image, authenticated with WIF: the credentials file carries no key, so the CLI uses
 # Application Default Credentials (DEC-004).
 #
-#   GCP_PROJECT_ID=… GCP_REGION=… scripts/env.sh scripts/ci/dataform-ci.sh
+# POLICY_TAG_RUT is the compilation variable policy_tag_rut (REQ-014), the Terraform output that the apply job exports.
+#
+#   GCP_PROJECT_ID=… GCP_REGION=… POLICY_TAG_RUT=… scripts/env.sh scripts/ci/dataform-ci.sh
 #
 # Exit 2 on any argument, 1 when a variable is missing, otherwise dataform's code.
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 
 [ $# -eq 0 ] || { echo "usage: scripts/ci/dataform-ci.sh" >&2; exit 2; }
-for v in GCP_PROJECT_ID GCP_REGION; do
+for v in GCP_PROJECT_ID GCP_REGION POLICY_TAG_RUT; do
   [ -n "${!v:-}" ] || { echo "dataform-ci: $v is required" >&2; exit 1; }
 done
 
@@ -21,4 +23,4 @@ printf '{"projectId": "%s", "location": "%s"}\n' "$GCP_PROJECT_ID" "$GCP_REGION"
 
 cd "$ROOT/dataform"
 node_modules/.bin/dataform run . --credentials="$creds" --default-database="$GCP_PROJECT_ID" \
-  --default-location="$GCP_REGION" --schema-suffix=ci --vars=raw_dataset=raw_ci
+  --default-location="$GCP_REGION" --schema-suffix=ci "--vars=raw_dataset=raw_ci,policy_tag_rut=$POLICY_TAG_RUT"

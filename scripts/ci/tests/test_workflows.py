@@ -1,5 +1,7 @@
 """Static checks of the GitHub Actions workflows (REQ-002, DEC-004): no network, no credentials (DEC-005)."""
 
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -196,3 +198,31 @@ def test_e5_dataform_ci_runs_every_action_in_ci_reading_raw_ci():
     assert "dataform run" in text
     assert "--schema-suffix=ci" in text and "--vars=raw_dataset=raw_ci" in text
     assert "--tags" not in text and "--disable-assertions" not in text
+
+
+POLICY_TAG_VARS = "--vars=policy_tag_rut=projects/p/locations/us-central1/taxonomies/1/policyTags/2"
+
+
+@pytest.mark.parametrize("name", ["ci.yml", "deploy.yml"])
+def test_req014_dataform_compile_passes_policy_tag_rut(name):
+    [compile_run] = [r for r in runs(load(name)["jobs"]["checks"]) if "dataform compile" in r]
+    assert POLICY_TAG_VARS in compile_run
+
+
+def test_req014_dataform_ci_requires_and_passes_policy_tag_rut():
+    text = DATAFORM_CI.read_text()
+    assert "policy_tag_rut=$POLICY_TAG_RUT" in text
+    [loop] = [line for line in text.splitlines() if line.startswith("for v in")]
+    assert "POLICY_TAG_RUT" in loop
+    env = {k: v for k, v in os.environ.items() if k != "POLICY_TAG_RUT"}
+    env.update(GCP_PROJECT_ID="p", GCP_REGION="us-central1")
+    result = subprocess.run(["bash", str(DATAFORM_CI)], env=env, capture_output=True, text=True, check=False)
+    assert result.returncode == 1
+    assert "POLICY_TAG_RUT" in result.stderr
+
+
+def test_req014_plan_gets_the_same_pii_lists_as_apply():
+    plan = load("ci.yml")["jobs"]["plan"]["env"]
+    apply = load("deploy.yml")["jobs"]["apply"]["env"]
+    for var in ["TF_VAR_pii_readers", "TF_VAR_lector_impersonators"]:
+        assert plan[var] == apply[var], var
