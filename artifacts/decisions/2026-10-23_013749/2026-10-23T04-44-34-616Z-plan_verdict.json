@@ -1,0 +1,77 @@
+{
+  "question_id": "plan_verdict",
+  "instructions": "Given this critique of an implementation plan, what is the verdict?",
+  "state": "**Veredicto: APROBAR.** No encontré ningún P0 ni P1 respaldado por una fuente o por una línea de archivo. El plan cubre REQ-014 E8 en sus tres frentes: el grafo compilado con `sal_dataset=pii_ci`, el script de CI y el ACL de `pii_ci` en Terraform. Todo se prueba sin red, como pide DEC-005.\n\n**Supuestos riesgosos**\n- **Combinación de `vars`:** el plan supone que el release config de T-11 agrega o pisa claves sobre las de `workflow_settings.yaml`, sin reemplazar el mapa entero. La documentación de Google dice que `code_compilation_config` pisa la configuración por defecto campo a campo. No aclara si `vars` se combina clave a clave. La evidencia más fuerte es el `Object.assign` que el planificador vio en `bundle.js`. Si el supuesto falla, la corrida diaria fallaría al compilar; eso se ve en la integración, no en local.\n- **El sufijo de esquema no toca las declaraciones:** no encontré documentación explícita en la web. Lo sostienen el comportamiento conocido de `declare` y la prueba `silver.test.mjs` que cita el plan.\n- **El bloque `access` del dataset manda sobre todo el ACL:** las entradas no declaradas se quitan al aplicar. Eso juega a favor del plan, que exige que `pii_ci` solo tenga a `projectOwners` y a `compras-ci`.\n- **`compras-ci` puede leer `pii.sal` por `roles/bigquery.admin`:** el ACL no puede impedirlo. Es un riesgo que el usuario ya aceptó en REQ-014, y el plan solo garantiza que el grafo y el ACL de `pii` no lo usan.\n\n**Hallazgos (ninguno bloquea)**\n- **P2:** `scripts/it/dataform-ci.sh` (líneas 240-241, según el propio plan) sigue usando `pii.sal` después de la corrida de CI. La integración daría resultados falsos o fallaría, y E8 queda sin prueba de integración. El plan lo reconoce pero no lo registra como tarea. No pude leer ese archivo, así que esto es una opinión.\n- **P3:** el supuesto S-17 de `spec/SPEC.md` (línea 431) enumera los datasets restringidos sin `pii_ci`, que este cambio agrega.\n\n```json\n{\"verdict\": \"APROBAR\", \"assumptions\": [{\"assumption\": \"Las variables de compilación del release config (code_compilation_config.vars) y de --vars se combinan clave a clave con las de workflow_settings.yaml, así que el release config de T-11 hereda sal_dataset=pii sin pasarla.\", \"practice\": \"La documentación de Google dice que los campos de code_compilation_config pisan la configuración por defecto del proyecto campo a campo; no aclara si el mapa vars se combina clave a clave. En la práctica se comprueba en el código de @dataform/core (Object.assign de vars, que el planificador vio en bundle.js) o compilando con y sin la clave e inspeccionando el resultado.\", \"sources\": [\"https://docs.cloud.google.com/ruby/docs/reference/google-cloud-dataform-v1/latest/Google-Cloud-Dataform-V1-CompilationResult\", \"https://discuss.google.dev/t/executing-specific-single-dataform-pipeline-from-cloud-workflows/122471\"]}, {\"assumption\": \"--schema-suffix no se aplica a las declaraciones (declare), así que con sal_dataset=pii_ci el destino es pii_ci.sal y no pii_ci_ci.sal.\", \"practice\": \"Una declaración apunta al esquema literal que recibe; para entornos se pasa el esquema completo por variable de compilación. No encontré documentación explícita en la web; lo respalda la prueba silver.test.mjs que cita el plan.\", \"sources\": [\"https://cloud.google.com/dataform/docs/reference/dataform-core-reference?hl=zh-cn\"]}, {\"assumption\": \"El ACL que Terraform declara en google_bigquery_dataset es autoritativo, así que pii_ci tiene solo projectOwners y compras-ci, sin entradas implícitas de compras-dataform.\", \"practice\": \"El bloque access de google_bigquery_dataset reemplaza todo el ACL del dataset; para mezclar con concesiones sueltas se usa google_bigquery_dataset_access con ignore_changes. Conviene usar los roles en formato legado (WRITER, OWNER) para evitar diferencias permanentes en el plan.\", \"sources\": [\"https://github.com/terraform-providers/terraform-provider-google/blob/master/website/docs/r/bigquery_dataset_access.html.markdown\", \"https://discuss.hashicorp.com/t/terraform-with-gcp-bigquery-explicit-dataset-access-issue/5166\"]}, {\"assumption\": \"La corrida de CI nunca lee pii.sal aunque compras-ci tenga roles/bigquery.admin en el proyecto.\", \"practice\": \"Los roles de BigQuery a nivel de proyecto se heredan en cada dataset y el ACL del dataset no puede quitarlos; el aislamiento solo se garantiza en el grafo compilado. El riesgo ya lo aceptó el usuario en REQ-014.\", \"sources\": []}], \"findings\": [{\"id\": \"req-014:integracion-it-sigue-en-pii-sal\", \"severity\": \"P2\", \"evidence_type\": \"opinión\", \"evidence\": \"El plan (Riesgos) reconoce que scripts/it/dataform-ci.sh, líneas 240-241, calcula proveedor_key con pii.sal y cuenta filas de pii.sal después de la corrida de CI; no puedo leer ese archivo.\", \"summary\": \"Después de T-20, la verificación de integración de la corrida de CI compararía contra la sal equivocada: daría falsos fallos o comprobaría lo contrario de E8. El plan lo difiere sin crear una tarea, así que E8 queda sin prueba de integración.\", \"fix\": \"Registrar en el plan, en el LOG o en las preguntas abiertas una tarea de seguimiento que pase scripts/it/dataform-ci.sh (y el nombre del paso de deploy.yml) a pii_ci.sal, o pedir al usuario que amplíe los touches de T-20.\"}, {\"id\": \"spec:s-17-sin-pii-ci\", \"severity\": \"P3\", \"evidence_type\": \"archivo\", \"evidence\": \"spec/SPEC.md:431 — S-17 enumera los datasets restringidos (raw, raw_ci, quarantine, quarantine_ci, pii) sin pii_ci.\", \"summary\": \"El nuevo dataset restringido pii_ci no aparece en el supuesto S-17, que describe qué cuentas acceden a cada capa restringida.\", \"fix\": \"Anotar en el LOG o en una tarea de spec que S-17 debe incluir pii_ci (accesible solo por compras-ci y projectOwners).\"}], \"summary\": \"El plan cumple REQ-014 E8 y el texto de REQ-014 sobre la sal. La variable sal_dataset tiene pii por defecto en workflow_settings.yaml, la declaración de la sal la usa, y generar_sal y proveedor_key apuntan a <sal_dataset>.sal vía ref. dataform-ci.sh pasa sal_dataset=pii_ci conservando las subcadenas que ya se prueban. En Terraform se agregan el dataset pii_ci y la tabla sal con el mismo esquema; el ACL da WRITER solo a compras-ci, sin compras-dataform, y el ACL de pii no gana entradas de compras-ci. Las pruebas son locales (grafo compilado, pytest, terraform test con mock_provider) según DEC-005, y mantienen el orden de chequeos que exige E5. El supuesto más débil, que el release config combina vars clave a clave, se apoya en el código de @dataform/core y solo se confirma en la integración. Quedan dos hallazgos menores que no bloquean: el script de integración scripts/it/dataform-ci.sh sigue usando pii.sal, y S-17 no nombra pii_ci. Veredicto: APROBAR.\"}\n```\n\nFuentes:\n- https://docs.cloud.google.com/ruby/docs/reference/google-cloud-dataform-v1/latest/Google-Cloud-Dataform-V1-CompilationResult\n- https://discuss.google.dev/t/executing-specific-single-dataform-pipeline-from-cloud-workflows/122471\n- https://cloud.google.com/dataform/docs/reference/dataform-core-reference?hl=zh-cn\n- https://github.com/terraform-providers/terraform-provider-google/blob/master/website/docs/r/bigquery_dataset_access.html.markdown\n- https://discuss.hashicorp.com/t/terraform-with-gcp-bigquery-explicit-dataset-access-issue/5166",
+  "options": {
+    "APROBAR": "no P0/P1 finding: the implementer may start with this plan",
+    "REVISAR": "the planner must fix P0/P1 findings before implementing",
+    "ESCALAR": "it needs a decision of the user"
+  },
+  "answer": "APROBAR",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule critic_approves_without_p0_p1 (DEC-051)",
+  "decider": "rule",
+  "rule": "critic_approves_without_p0_p1",
+  "facts": {
+    "verdict": "APROBAR",
+    "effective": "APROBAR",
+    "assumptions": [
+      {
+        "assumption": "Las variables de compilación del release config (code_compilation_config.vars) y de --vars se combinan clave a clave con las de workflow_settings.yaml, así que el release config de T-11 hereda sal_dataset=pii sin pasarla.",
+        "practice": "La documentación de Google dice que los campos de code_compilation_config pisan la configuración por defecto del proyecto campo a campo; no aclara si el mapa vars se combina clave a clave. En la práctica se comprueba en el código de @dataform/core (Object.assign de vars, que el planificador vio en bundle.js) o compilando con y sin la clave e inspeccionando el resultado.",
+        "sources": [
+          "https://docs.cloud.google.com/ruby/docs/reference/google-cloud-dataform-v1/latest/Google-Cloud-Dataform-V1-CompilationResult",
+          "https://discuss.google.dev/t/executing-specific-single-dataform-pipeline-from-cloud-workflows/122471"
+        ]
+      },
+      {
+        "assumption": "--schema-suffix no se aplica a las declaraciones (declare), así que con sal_dataset=pii_ci el destino es pii_ci.sal y no pii_ci_ci.sal.",
+        "practice": "Una declaración apunta al esquema literal que recibe; para entornos se pasa el esquema completo por variable de compilación. No encontré documentación explícita en la web; lo respalda la prueba silver.test.mjs que cita el plan.",
+        "sources": [
+          "https://cloud.google.com/dataform/docs/reference/dataform-core-reference?hl=zh-cn"
+        ]
+      },
+      {
+        "assumption": "El ACL que Terraform declara en google_bigquery_dataset es autoritativo, así que pii_ci tiene solo projectOwners y compras-ci, sin entradas implícitas de compras-dataform.",
+        "practice": "El bloque access de google_bigquery_dataset reemplaza todo el ACL del dataset; para mezclar con concesiones sueltas se usa google_bigquery_dataset_access con ignore_changes. Conviene usar los roles en formato legado (WRITER, OWNER) para evitar diferencias permanentes en el plan.",
+        "sources": [
+          "https://github.com/terraform-providers/terraform-provider-google/blob/master/website/docs/r/bigquery_dataset_access.html.markdown",
+          "https://discuss.hashicorp.com/t/terraform-with-gcp-bigquery-explicit-dataset-access-issue/5166"
+        ]
+      },
+      {
+        "assumption": "La corrida de CI nunca lee pii.sal aunque compras-ci tenga roles/bigquery.admin en el proyecto.",
+        "practice": "Los roles de BigQuery a nivel de proyecto se heredan en cada dataset y el ACL del dataset no puede quitarlos; el aislamiento solo se garantiza en el grafo compilado. El riesgo ya lo aceptó el usuario en REQ-014.",
+        "sources": []
+      }
+    ],
+    "findings": [
+      {
+        "id": "req-014:integracion-it-sigue-en-pii-sal",
+        "severity": "P2",
+        "evidence_type": "opinión",
+        "evidence": "El plan (Riesgos) reconoce que scripts/it/dataform-ci.sh, líneas 240-241, calcula proveedor_key con pii.sal y cuenta filas de pii.sal después de la corrida de CI; no puedo leer ese archivo.",
+        "summary": "Después de T-20, la verificación de integración de la corrida de CI compararía contra la sal equivocada: daría falsos fallos o comprobaría lo contrario de E8. El plan lo difiere sin crear una tarea, así que E8 queda sin prueba de integración.",
+        "fix": "Registrar en el plan, en el LOG o en las preguntas abiertas una tarea de seguimiento que pase scripts/it/dataform-ci.sh (y el nombre del paso de deploy.yml) a pii_ci.sal, o pedir al usuario que amplíe los touches de T-20."
+      },
+      {
+        "id": "spec:s-17-sin-pii-ci",
+        "severity": "P3",
+        "evidence_type": "archivo",
+        "evidence": "spec/SPEC.md:431 — S-17 enumera los datasets restringidos (raw, raw_ci, quarantine, quarantine_ci, pii) sin pii_ci.",
+        "summary": "El nuevo dataset restringido pii_ci no aparece en el supuesto S-17, que describe qué cuentas acceden a cada capa restringida.",
+        "fix": "Anotar en el LOG o en una tarea de spec que S-17 debe incluir pii_ci (accesible solo por compras-ci y projectOwners)."
+      }
+    ],
+    "blocking": [],
+    "opinion_blockers": [],
+    "repeated": [],
+    "summary": "El plan cumple REQ-014 E8 y el texto de REQ-014 sobre la sal. La variable sal_dataset tiene pii por defecto en workflow_settings.yaml, la declaración de la sal la usa, y generar_sal y proveedor_key apuntan a <sal_dataset>.sal vía ref. dataform-ci.sh pasa sal_dataset=pii_ci conservando las subcadenas que ya se prueban. En Terraform se agregan el dataset pii_ci y la tabla sal con el mismo esquema; el ACL da WRITER solo a compras-ci, sin compras-dataform, y el ACL de pii no gana entradas de compras-ci. Las pruebas son locales (grafo compilado, pytest, terraform test con mock_provider) según DEC-005, y mantienen el orden de chequeos que exige E5. El supuesto más débil, que el release config combina vars clave a clave, se apoya en el código de @dataform/core y solo se confirma en la integración. Quedan dos hallazgos menores que no bloquean: el script de integración scripts/it/dataform-ci.sh sigue usando pii.sal, y S-17 no nombra pii_ci. Veredicto: APROBAR."
+  },
+  "timestamp": "2026-10-23T04:44:34.616Z"
+}

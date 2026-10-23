@@ -1,0 +1,25 @@
+{
+  "question_id": "review_verdict",
+  "instructions": "Does this independent review approve the change? Approve only if it reports no blocking finding.",
+  "state": "**Veredicto: aprobada.** No encontré hallazgos bloqueantes en T-20.\n\n**1. Requisitos (REQ-014 E8):** están implementados y probados.\n- **Dataform:** `workflow_settings.yaml` define `sal_dataset: pii` por defecto. `pii.js` valida `policy_tag_rut` primero, así que E5 se mantiene, y declara la sal en `<sal_dataset>.sal`. `generar_sal` y `proveedorKeySql` llegan a la sal mediante `ref(\"sal\")`.\n- **Pruebas del grafo:** el grafo compilado con `sal_dataset=pii_ci` no menciona `pii.sal` en el SQL de tablas, operaciones ni aserciones, ni en sus dependencias o declaraciones. Las pruebas comprueban `INSERT INTO`/`SELECT 1 FROM` de `pii_ci.sal` y el `CONCAT((SELECT sal FROM …pii_ci.sal)` en los tres modelos de silver. Otra prueba cubre el valor por defecto `pii`.\n- **Script de CI:** `scripts/ci/dataform-ci.sh` pasa `sal_dataset=pii_ci`, y lo comprueba una prueba nueva en `test_workflows.py`.\n- **Terraform:** se crea el dataset `pii_ci` y una tabla `sal` con el mismo esquema que `pii.sal`. El ACL da WRITER solo a `compras-ci`, aparte de `projectOwners`. `compras-dataform` no entra en `pii_ci` y `compras-ci` no gana ninguna entrada en `pii`. Lo cubren los runs `t20_sal_ci` y `t20_pii_ci_acl`.\n\n**2. Alcance:** el commit de implementación solo cambia archivos de `dataform/`, `infra/` y `scripts/ci/`.\n\n**3. Decisiones:** no se viola ninguna. Todo se prueba en local (DEC-005), y la fórmula de `proveedor_key` y las columnas con tag siguen igual (DEC-008).\n\n**Lo que ejecuté:**\n- `sha256sum artifacts/T-20/verify.log` coincide con el hash de la evidencia. El log muestra 174/174 pruebas pasando, entre ellas las tres E8 y los dos runs t20.\n- `node --test --test-name-pattern=T-20` terminó sin fallos, pero no seleccionó ninguna prueba, porque los nombres citan REQ-014 y no T-20.\n- Me negaron el permiso para correr esas pruebas con el patrón E8, así que su resultado sale solo del log.\n\n```json\n{\"verdict\": \"approved\", \"findings\": [], \"notes\": \"sha256 de artifacts/T-20/verify.log coincide (38e97994…); el log muestra 174/174, con las pruebas E8 de gobierno.test.mjs y los runs t20_sal_ci y t20_pii_ci_acl en verde. `node --test --test-name-pattern=T-20` no selecciona ninguna prueba (los nombres citan REQ-014, no T-20); no se pudo correr con el patrón E8 por permisos, así que el resultado de esas pruebas sale del log. Pendientes reconocidos fuera de los touches: scripts/it/dataform-ci.sh (líneas 240-241) sigue calculando proveedor_key y contando filas con pii.sal tras la corrida de CI, y S-17 de SPEC.md no lista pii_ci; conviene una tarea de seguimiento para que la integración compruebe E8. Las descripciones de columnas proveedor_key en varios .sqlx siguen diciendo 'pii.sal' (solo texto, sin efecto en el SQL).\"}\n```",
+  "options": {
+    "approved": "the review finds no blocking problem: the change can be accepted",
+    "rejected": "the review reports at least one blocking problem"
+  },
+  "answer": "approved",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule review_approved_without_findings (DEC-051)",
+  "decider": "rule",
+  "rule": "review_approved_without_findings",
+  "facts": {
+    "verdict": "approved",
+    "findings": [],
+    "notes": "sha256 de artifacts/T-20/verify.log coincide (38e97994…); el log muestra 174/174, con las pruebas E8 de gobierno.test.mjs y los runs t20_sal_ci y t20_pii_ci_acl en verde. `node --test --test-name-pattern=T-20` no selecciona ninguna prueba (los nombres citan REQ-014, no T-20); no se pudo correr con el patrón E8 por permisos, así que el resultado de esas pruebas sale del log. Pendientes reconocidos fuera de los touches: scripts/it/dataform-ci.sh (líneas 240-241) sigue calculando proveedor_key y contando filas con pii.sal tras la corrida de CI, y S-17 de SPEC.md no lista pii_ci; conviene una tarea de seguimiento para que la integración compruebe E8. Las descripciones de columnas proveedor_key en varios .sqlx siguen diciendo 'pii.sal' (solo texto, sin efecto en el SQL)."
+  },
+  "timestamp": "2026-10-23T04:49:12.353Z"
+}
