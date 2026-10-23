@@ -1691,9 +1691,9 @@
         "T-12",
         "T-18"
       ],
-      "status": "ready",
+      "status": "verified_auto",
       "blocked_by": null,
-      "notes": "2026-10-22: escalada por el orquestador (DEC-005): el crítico escaló el plan en la ronda 2; informe en plans/T-13.md; bloqueada por Q-09. 2026-10-22: Q-09 respondida por el usuario, opción (a): la prueba de aceptación tests/acceptance/T-13_benchmark.py la escribe antes T-18 (kind: spec); T-13 depende de ella y su verify exige que pase. El plan se rehace sin el paso 12 (sin archivo puente ni pendiente manual).",
+      "notes": "2026-10-22: escalada por el orquestador (DEC-005): el crítico escaló el plan en la ronda 2; informe en plans/T-13.md; bloqueada por Q-09. 2026-10-22: Q-09 respondida por el usuario, opción (a): la prueba de aceptación tests/acceptance/T-13_benchmark.py la escribe antes T-18 (kind: spec); T-13 depende de ella y su verify exige que pase. El plan se rehace sin el paso 12 (sin archivo puente ni pendiente manual). Detalles internos dentro del plan: JOBS_SQL toma la región de client.location; plan_jobs recibe el dataset calificado con el proyecto (`proyecto.bench`); con --dry-run, run.py comprueba que existen las variantes antes de los dry runs (no después), porque un dry run sobre una tabla ausente falla; el control de presupuesto del paso 7.3 aplica también con --dry-run, como dice el plan. Los errores de jobs se capturan como GoogleAPIError. No se pudo correr `bash -n scripts/it/benchmark.sh` (la guarda de acceso lo negó); no se corrió scripts/it/ (solo el usuario). benchmarks/tests/conftest.py imprime la línea «Tests: F failed, P passed, T total» que parsea record_evidence.py, como ingest/ y orchestration/; la corrida de tests/acceptance/T-13_benchmark.py no imprime esa línea (tests/acceptance/ no se toca), así que la evidencia cuenta solo las pruebas de benchmarks/tests.",
       "touches": [
         "benchmarks/",
         "scripts/it/",
@@ -1722,6 +1722,20 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-23T00:47:56.120Z",
           "reason": "Q-09 respondida, opción (a); depende de T-18"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "apply-result",
+          "at": "2026-10-23T03:56:36.416Z",
+          "reason": "resultado del implementador de T-13 vía autopilot (claude)"
+        },
+        {
+          "from": "in_progress",
+          "to": "verified_auto",
+          "by": "record_evidence.py",
+          "at": "2026-10-23T03:56:39+00:00",
+          "reason": "verify con código 0: 35/35 pasan, 0 fallan"
         }
       ],
       "plan_review": {
@@ -1743,6 +1757,21 @@
         ],
         "opinion_blockers": [],
         "date": "2026-10-23"
+      },
+      "claims": {
+        "manual_pending": "Correr GCP_PROJECT_ID=… GCP_REGION=us-central1 scripts/env.sh scripts/it/benchmark.sh (usa GCP y factura algunos GiB): debe imprimir «benchmark: ok» y dejar benchmarks/results/<fecha>.md con las tres variantes, las dos reescrituras y «Excluidos»."
+      },
+      "evidence": {
+        "command": "scripts/env.sh bash -c 'npm run test:benchmarks && scripts/acceptance.sh tests/acceptance/T-13_benchmark.py && npm run check:spec'",
+        "exit_code": 0,
+        "passed": 35,
+        "failed": 0,
+        "total": 35,
+        "log_path": "artifacts/T-13/verify.log",
+        "log_sha256": "a6e96f9a85f842de7aaf31c7287d149fa6b6418f4ba0c8f2dca331bba2c588bc",
+        "commit": "165a63d8f7416975a19736dec1bbef604900a020",
+        "timestamp": "2026-10-23T03:56:39+00:00",
+        "result": "35/35 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-13/verify.log)"
       }
     },
     {

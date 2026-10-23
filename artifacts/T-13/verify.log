@@ -1,0 +1,14 @@
+
+> test:benchmarks
+> scripts/env.sh uv run --frozen pytest benchmarks/tests
+
+...................................                                      [100%]
+Tests: 0 failed, 35 passed, 35 total
+35 passed in 0.26s
+....                                                                     [100%]
+4 passed in 0.04s
+
+> check:spec
+> node scripts/check-spec.mjs
+
+check:spec: ok
