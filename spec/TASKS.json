@@ -2079,7 +2079,27 @@
           "at": "2026-10-23T03:40:05.328Z",
           "reason": "pedido del usuario"
         }
-      ]
+      ],
+      "plan_review": {
+        "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 1,
+        "plan": "plans/T-19.md",
+        "plan_sha": "da40941d5a378165a62f6f9785bdf33064e9f259",
+        "plan_commit": "4179883",
+        "findings": [
+          {
+            "id": "dataform-ci:comentario-job-exportador",
+            "severity": "P3",
+            "evidence_type": "opinión",
+            "evidence": "El paso 5 dice que POLICY_TAG_RUT es «output de Terraform que exporta el job apply»; la tarea dice que «deploy.yml ya exporta POLICY_TAG_RUT en el job release», y la sección Supuestos del plan dice lo mismo.",
+            "summary": "El comentario de cabecera nombraría como exportador al job apply, que produce el output, y no al job release, que define la variable de entorno que lee dataform-ci.sh. Es una imprecisión de documentación."
+          }
+        ],
+        "opinion_blockers": [],
+        "date": "2026-10-23"
+      }
     },
     {
       "id": "T-20",
