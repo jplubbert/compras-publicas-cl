@@ -1585,8 +1585,8 @@
         "DEC-005"
       ],
       "depends_on": [],
-      "status": "blocked",
-      "blocked_by": "Q-10",
+      "status": "ready",
+      "blocked_by": null,
       "evidence": null,
       "review": null,
       "touches": [
@@ -1616,6 +1616,13 @@
           "by": "escalate",
           "at": "2026-10-23T02:57:32.048Z",
           "reason": "escalada al usuario por Q-10"
+        },
+        {
+          "from": "blocked",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-23T03:34:16.014Z",
+          "reason": "Q-10 respondida y diff de tests/acceptance/T-13_benchmark.py aprobado por el usuario"
         }
       ],
       "claims": {
@@ -1717,7 +1724,7 @@
       ],
       "status": "in_progress",
       "blocked_by": null,
-      "notes": "Implementado según plans/T-14.md (commit 494dfd2). Pregunta abierta para el usuario (no es supuesto ni se resolvió en la tarea): REQ-014 dice que pii.sal es «legible solo por la cuenta de servicio de Dataform»; el ACL del dataset pii lo cumple (compras-dataform y projectOwners), pero compras-ci tiene roles/bigquery.admin de proyecto (T-03, DEC-003) y lee pii.sal, y la corrida de ci ejecuta generar_sal sobre la pii.sal de producción porque el sufijo de esquema no se aplica a la declaración. Opciones: (1) ajustar REQ-014 para incluir a CI y a los dueños y aceptar el riesgo; (2) tarea nueva con una sal propia de ci (pii_ci.sal y una variable de compilación para su dataset). Cambios fuera de touches pendientes: ci.yml (Dataform compile y TF_VAR_pii_readers/TF_VAR_lector_impersonators en el plan), el job checks de deploy.yml junto con ci.yml, scripts/ci/check-descriptions.mjs, scripts/ci/dataform-ci.sh y scripts/ci/tests/test_workflows.py (texto exacto en claims.manual_pending); sin ellos ci.yml y el job release fallan tras el merge, aunque el verify local queda verde. Detalles internos: el test REQ-011 E1 de check-descriptions compila con la variable y usa --graph; el paso de deploy.yml que exporta policy_tag_rut corre `terraform output -raw` después de tf-apply.sh, en el mismo job; migrar-proveedor-key.sh da por migrada licitacion_items si tiene proveedor_key_adjudicado; un override_resource en main.tftest.hcl le da a dato_personal su propio nombre para que la prueba padre-hija no sea trivial.",
+      "notes": "Implementado según plans/T-14.md (commit 494dfd2). Pregunta abierta para el usuario (no es supuesto ni se resolvió en la tarea): REQ-014 dice que pii.sal es «legible solo por la cuenta de servicio de Dataform»; el ACL del dataset pii lo cumple (compras-dataform y projectOwners), pero compras-ci tiene roles/bigquery.admin de proyecto (T-03, DEC-003) y lee pii.sal, y la corrida de ci ejecuta generar_sal sobre la pii.sal de producción porque el sufijo de esquema no se aplica a la declaración. Opciones: (1) ajustar REQ-014 para incluir a CI y a los dueños y aceptar el riesgo; (2) tarea nueva con una sal propia de ci (pii_ci.sal y una variable de compilación para su dataset). Cambios fuera de touches pendientes: ci.yml (Dataform compile y TF_VAR_pii_readers/TF_VAR_lector_impersonators en el plan), el job checks de deploy.yml junto con ci.yml, scripts/ci/check-descriptions.mjs, scripts/ci/dataform-ci.sh y scripts/ci/tests/test_workflows.py (texto exacto en claims.manual_pending); sin ellos ci.yml y el job release fallan tras el merge, aunque el verify local queda verde. Detalles internos: el test REQ-011 E1 de check-descriptions compila con la variable y usa --graph; el paso de deploy.yml que exporta policy_tag_rut corre `terraform output -raw` después de tf-apply.sh, en el mismo job; migrar-proveedor-key.sh da por migrada licitacion_items si tiene proveedor_key_adjudicado; un override_resource en main.tftest.hcl le da a dato_personal su propio nombre para que la prueba padre-hija no sea trivial. 2026-10-23: el usuario respondió la pregunta de pii.sal con la opción 2 (T-20: sal propia de ci en pii_ci.sal) y ajustó REQ-014 para dejar explícito que compras-ci, como admin, puede leer pii.sal; los cambios fuera de touches pasan a T-19.",
       "touches": [
         "infra/",
         "dataform/",
@@ -1945,6 +1952,62 @@
         "commit": "608138f7721533f62371c44a97116ce3d26bd2b4",
         "at": "2026-10-22T20:26:14.751Z"
       }
+    },
+    {
+      "id": "T-19",
+      "title": "CI compila con policy_tag_rut (paso 0 del despliegue de T-14)",
+      "description": "Pedido del usuario, 2026-10-23: los cambios fuera de los touches de T-14 (su claims.manual_pending) los hace el autopilot. Sobre el código de T-14 que ya está en autopilot/lote (commit 494dfd2). (1) .github/workflows/ci.yml, paso «Dataform compile», y el mismo paso del job checks de deploy.yml, idénticos (test_deploy_checks_match_ci_checks): `scripts/env.sh bash -c 'cd dataform && node_modules/.bin/dataform compile --vars=policy_tag_rut=projects/p/locations/us-central1/taxonomies/1/policyTags/2'`. (2) scripts/ci/check-descriptions.mjs, en compile(): agregar ese mismo --vars a `dataform compile --json`. (3) scripts/ci/dataform-ci.sh: POLICY_TAG_RUT obligatoria (sale 1 nombrándola si falta) y `--vars=raw_dataset=raw_ci,policy_tag_rut=$POLICY_TAG_RUT` (deploy.yml ya exporta POLICY_TAG_RUT en el job release). (4) scripts/ci/tests/test_workflows.py: exige policy_tag_rut en el paso de Dataform de ci.yml y del job checks de deploy.yml, y en el texto de scripts/ci/dataform-ci.sh. (5) ci.yml, job de terraform plan: env `TF_VAR_pii_readers: ${{ vars.PII_READERS || '[]' }}` y `TF_VAR_lector_impersonators: ${{ vars.LECTOR_IMPERSONATORS || '[]' }}`, para que el plan del PR no muestre como eliminados los bindings que deploy.yml aplica. Sin red ni GCP (DEC-005).",
+      "decisions": [
+        "DEC-004",
+        "DEC-005"
+      ],
+      "depends_on": [
+        "T-04",
+        "T-09"
+      ],
+      "reqs": [
+        "REQ-014"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "evidence": null,
+      "review": null,
+      "touches": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/deploy.yml",
+        "scripts/ci/check-descriptions.mjs",
+        "scripts/ci/dataform-ci.sh",
+        "scripts/ci/tests/test_workflows.py"
+      ],
+      "verify": "scripts/env.sh bash -c 'uv run --frozen pytest scripts/ci/tests/test_workflows.py && npm run check:descriptions && npm run check:spec'",
+      "notes": "2026-10-23: creada en sesión a pedido del usuario. No depende de T-14 en depends_on aunque construye sobre su código: T-14 queda in_progress hasta su despliegue, y su despliegue necesita esta tarea (sin ella ci.yml y el job release fallan porque la compilación exige policy_tag_rut); con T-14 en depends_on nunca sería elegible. Por eso el autopilot la corre sobre autopilot/lote, donde ya está 494dfd2."
+    },
+    {
+      "id": "T-20",
+      "title": "Sal propia de la corrida de ci en pii_ci.sal",
+      "description": "Respuesta del usuario a la pregunta de T-14 sobre pii.sal, opción 2, 2026-10-23 (REQ-014 E8). Variable de compilación sal_dataset en dataform/workflow_settings.yaml con `pii` por defecto (como raw_dataset); la declaración de la sal en dataform/definitions/sources/pii.js usa ese dataset, así generar_sal y gobierno.proveedorKeySql leen y escriben `<sal_dataset>.sal`. scripts/ci/dataform-ci.sh pasa `sal_dataset=pii_ci` junto a raw_dataset y policy_tag_rut. infra/: dataset pii_ci con su tabla sal vacía (mismo esquema que pii.sal), legible y escribible por compras-ci, sin acceso de compras-dataform a pii_ci ni de la corrida de ci a pii. Pruebas: el grafo compilado con --vars=sal_dataset=pii_ci no referencia pii.sal en ninguna acción (dataform/tests/), dataform-ci.sh lleva sal_dataset=pii_ci (scripts/ci/tests/test_workflows.py) y terraform test cubre pii_ci.sal y su ACL. Sin red ni GCP (DEC-005).",
+      "decisions": [
+        "DEC-005",
+        "DEC-008"
+      ],
+      "depends_on": [
+        "T-19"
+      ],
+      "reqs": [
+        "REQ-014"
+      ],
+      "status": "specified",
+      "blocked_by": null,
+      "evidence": null,
+      "review": null,
+      "touches": [
+        "dataform/",
+        "infra/",
+        "scripts/ci/dataform-ci.sh",
+        "scripts/ci/tests/test_workflows.py"
+      ],
+      "verify": "scripts/env.sh bash -c 'npm run test:infra && npm run test:dataform && uv run --frozen pytest scripts/ci/tests/test_workflows.py && npm run check:spec'",
+      "notes": "2026-10-23: creada en sesión a pedido del usuario. Interpretación registrada: la sal de producción queda en `pii` por defecto para que el release config de T-11 no cambie; solo la corrida de ci pasa pii_ci. Depende de T-19 porque las dos tocan scripts/ci/dataform-ci.sh y test_workflows.py."
     }
   ]
 }

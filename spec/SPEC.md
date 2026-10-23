@@ -348,8 +348,11 @@ Dataform deberá asignar esa tag a `gold.dim_proveedor.rut_persona_natural` y a
 `silver.proveedores.rut_persona_natural` (DEC-008). El nombre completo de la tag sale de Terraform (output
 `policy_tag_rut`) y llega a Dataform como la variable de compilación `policy_tag_rut`, en el release config (T-11) y en la
 corrida de `ci` de `deploy.yml`. `rut_empresa` y `proveedor_key` no llevan tag. `proveedor_key` = `TO_HEX(SHA256(CONCAT(sal, rut)))`, con la sal en
-`pii.sal` (una fila, generada una vez, legible solo por la cuenta de servicio de Dataform), para que no se pueda revertir
-calculando el hash de todos los RUT posibles; los MERGE y los joins usan `proveedor_key`, nunca la columna con tag. El
+`pii.sal` (una fila, generada una vez; el ACL del dataset `pii` la deja legible solo por la cuenta de servicio de Dataform
+y los dueños del proyecto, y `compras-ci` también puede leerla porque tiene `roles/bigquery.admin` en el proyecto (T-03,
+DEC-003): riesgo aceptado por el usuario, 2026-10-23), para que no se pueda revertir calculando el hash de todos los RUT
+posibles; la corrida de `ci` usa su propia sal en `pii_ci.sal` (variable de compilación `sal_dataset`, `pii` por
+defecto) y nunca lee ni escribe `pii.sal`; los MERGE y los joins usan `proveedor_key`, nunca la columna con tag. El
 RUT de personas en bronze, `raw` y `quarantine` queda protegido por IAM (REQ-001 E6).
 Si un usuario sin el rol consulta `rut_persona_natural`, entonces BigQuery deberá negar el acceso; si consulta las demás
 columnas, deberá poder hacerlo.
@@ -363,6 +366,7 @@ Ejemplos (aceptación):
 | E7 positivo | integración: corrida diaria con la tag aplicada | la invocación de Dataform termina `SUCCEEDED` |
 | E3 borde | prueba de la regla con RUT 49.999.999-2 y 50.000.000-7 | el primero va a `rut_persona_natural`, el segundo a `rut_empresa` |
 | E4 negativo | integración: una cuenta de servicio de lectura sin el rol hace `SELECT rut_persona_natural` | error de acceso; `SELECT rut_empresa` funciona |
+| E8 borde | grafo compilado con `--vars=sal_dataset=pii_ci` (como en `scripts/ci/dataform-ci.sh`) | toda lectura y escritura de la sal (`generar_sal` y el SQL de `proveedor_key`) apunta a `pii_ci.sal`; ninguna a `pii.sal` |
 Trazas: objetivo §Objetivo («policy tags») · decisiones: DEC-008 · prueba: tests/acceptance/T-14*
 
 ### REQ-015 README de portafolio · estado: approved_for_impl · prioridad: must
@@ -489,6 +493,8 @@ Fase 3, valor:
 14. T-14 Policy tags (REQ-014) — T-03, T-11, T-12
 15. T-15 README de portafolio (REQ-015) — T-04, T-11, T-13, T-14, T-17
 16. T-17 Respaldo del estado de Terraform fuera del proyecto (REQ-016) — T-04, T-05 (pedido del usuario, 2026-10-22)
+17. T-19 CI compila con `policy_tag_rut` (paso 0 del despliegue de T-14, REQ-014) — T-04, T-09; sobre el código de T-14 en `autopilot/lote` (pedido del usuario, 2026-10-23)
+18. T-20 Sal propia de la corrida de `ci` en `pii_ci.sal` (REQ-014 E8) — T-19 (pedido del usuario, 2026-10-23)
 
 ### Riesgos y spikes
 | riesgo | mitigación |

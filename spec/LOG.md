@@ -870,3 +870,18 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - `mise trust` de `mise.toml` hecho a pedido del usuario: el despachador bajo systemd ya resuelve claude 2.1.295.
 - Próxima acción autorizada: aplicar Q-10 y las dos correcciones con el encadenado detenido, mostrar el diff al usuario y,
   con su aprobación, dejar T-18 en `ready`.
+
+## 2026-10-23 · Claude (claude-opus-5-5) · sesión: T-18 a ready; pii.sal (T-20); paso 0 de T-14 (T-19)
+- El usuario aprobó el diff de `tests/acceptance/T-13_benchmark.py` y la respuesta a Q-10 (commit 99e38e9). T-18 pasa a
+  `ready` (`set-status --by "José Pedro Lübbert"`); su implementador escribe solo
+  `scripts/ci/tests/test_t13_acceptance_red.py`, que se salta cuando existan `benchmarks/generate.py` y `report.py`.
+- Pregunta de T-14 sobre `pii.sal`: el usuario eligió la opción 2. REQ-014 dice ahora que `compras-ci` (admin del
+  proyecto) y los dueños pueden leer `pii.sal` (riesgo aceptado), y suma E8: la corrida de `ci` usa `pii_ci.sal` con la
+  variable de compilación `sal_dataset` (`pii` por defecto). Nombrar también a los dueños del proyecto es interpretación
+  registrada: el ACL de `pii` ya les da acceso.
+- Creadas en `specified`: T-19 (los cambios fuera de touches de T-14: ci.yml, deploy.yml, check-descriptions.mjs,
+  dataform-ci.sh, test_workflows.py) y T-20 (sal de `ci` en `pii_ci.sal`), que depende de T-19. T-19 depende de T-04 y
+  T-09 (las dos `reviewed`), no de T-14: T-14 queda `in_progress` hasta desplegarse, y su despliegue necesita T-19.
+- Orden de despliegue que conviene: T-19 y T-20 antes del merge de T-14 a `main`, para que la primera corrida de `ci`
+  nunca toque `pii.sal`.
+- Próxima acción autorizada: el usuario pasa T-19 y T-20 a `ready` y lanza el encadenado de compras (T-18, T-19, T-20).
