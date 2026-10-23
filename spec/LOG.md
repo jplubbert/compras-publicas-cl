@@ -974,3 +974,8 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - `scripts/ci/tests/test_workflows.py` agrega tres pruebas REQ-014 de esos puntos; se siguió el plan aprobado sin desvíos (único ajuste: `check=False` en `subprocess.run` por la regla PLW1510 de ruff).
 - Verificado y cómo: `scripts/env.sh bash -c 'uv run --frozen pytest scripts/ci/tests/test_workflows.py && npm run check:descriptions && npm run check:spec'` → 19/19 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-19/verify.log), commit 5297a89.
 - Próxima acción autorizada: revisión independiente de T-19; luego T-20 (`sal_dataset` / `pii_ci.sal`, REQ-014 E8).
+
+## 2026-10-23 01:04 · revisor independiente (claude -p 2.1.295 (Claude Code)) vía autopilot
+- Hecho: revisión independiente de T-19 con contexto limpio (solo diff + REQ/DEC de la tarea). Veredicto: **approved** → estado `reviewed`. Hallazgos: sin hallazgos bloqueantes.
+- Verificado y cómo: veredicto completo en TASKS.json (`review` de T-19); salida íntegra en .autopilot/2026-10-23_005727/T-19-review-output.txt.
+- Próxima acción autorizada: continúa el autopilot; el usuario decide accepted después de la corrida.
