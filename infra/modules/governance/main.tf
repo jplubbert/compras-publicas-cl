@@ -28,6 +28,13 @@ locals {
     { for m in var.pii_readers : "pii:${m}" => m },
     { dataform = var.dataform_member, ci = var.ci_member },
   )
+
+  sal_schema = jsonencode([{
+    name        = "sal"
+    type        = "STRING"
+    mode        = "REQUIRED"
+    description = "Sal secreta de 64 caracteres hexadecimales que se concatena con el RUT antes del SHA-256 de proveedor_key"
+  }])
 }
 
 # Only on the child tag rut: no grant on the parent tag or the taxonomy.
@@ -47,10 +54,16 @@ resource "google_bigquery_table" "sal" {
   description         = "Sal de proveedor_key (DEC-008): una fila, la genera Dataform una sola vez."
   labels              = { layer = "pii" }
   deletion_protection = true
-  schema = jsonencode([{
-    name        = "sal"
-    type        = "STRING"
-    mode        = "REQUIRED"
-    description = "Sal secreta de 64 caracteres hexadecimales que se concatena con el RUT antes del SHA-256 de proveedor_key"
-  }])
+  schema              = local.sal_schema
+}
+
+# The CI run's own salt (REQ-014 E8), never pii.sal. No rows: generar_sal of the CI run inserts the only one.
+resource "google_bigquery_table" "sal_ci" {
+  project             = var.project_id
+  dataset_id          = var.pii_ci_dataset_id
+  table_id            = "sal"
+  description         = "Sal de proveedor_key de la corrida de CI (REQ-014 E8): una fila, la genera Dataform una sola vez."
+  labels              = { layer = "pii", env = "ci" }
+  deletion_protection = false
+  schema              = local.sal_schema
 }

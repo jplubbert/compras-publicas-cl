@@ -13,6 +13,11 @@ variable "pii_dataset_id" {
   type        = string
 }
 
+variable "pii_ci_dataset_id" {
+  description = "Dataset that holds the salt table of the CI run (pii_ci)."
+  type        = string
+}
+
 variable "pii_readers" {
   description = "Members (user:, group:, serviceAccount:, domain:) that may read the columns tagged dato_personal.rut (REQ-014)."
   type        = list(string)

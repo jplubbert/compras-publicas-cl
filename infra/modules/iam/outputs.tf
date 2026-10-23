@@ -26,6 +26,7 @@ output "dataset_access" {
     quarantine    = local.dataform_writes
     quarantine_ci = local.dataform_writes
     pii           = local.dataform_writes
+    pii_ci        = local.ci_writes
     silver        = concat(local.dataform_owns, local.lector_reads)
     gold          = concat(local.dataform_owns, local.lector_reads)
     silver_ci     = local.dataform_writes

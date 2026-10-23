@@ -1,7 +1,7 @@
 config {
   type: "operations",
   tags: ["silver"],
-  description: "Genera una sola vez la sal de proveedor_key en pii.sal (DEC-008): inserta una fila solo si la tabla está vacía; el valor nunca sale de BigQuery."
+  description: "Genera una sola vez la sal de proveedor_key en la tabla sal del dataset sal_dataset (pii por defecto, pii_ci en la corrida de CI) (DEC-008): inserta una fila solo si la tabla está vacía; el valor nunca sale de BigQuery."
 }
 
 INSERT INTO ${ref("sal")} (sal)

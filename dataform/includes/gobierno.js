@@ -16,7 +16,7 @@ function policyTagRut(vars) {
 }
 
 /**
- * Salted supplier key: SHA-256 in hex of the salt of pii.sal and the normalized RUT. The scalar subquery fails if the
+ * Salted supplier key: SHA-256 in hex of the salt of `<sal_dataset>.sal` and the normalized RUT. The scalar subquery fails if the
  * table has more than one row; with none the key is NULL and the nonNull assertion fails.
  */
 function proveedorKeySql(rut, sal) {

@@ -63,11 +63,11 @@ run "e1_bronze_y_datasets" {
     error_message = "bronze must move to Nearline and then be deleted"
   }
   assert {
-    condition     = length(output.datasets) == 10
-    error_message = "there must be exactly 10 datasets"
+    condition     = length(output.datasets) == 11
+    error_message = "there must be exactly 11 datasets"
   }
   assert {
-    condition = alltrue([for id in ["raw", "silver", "gold", "quarantine", "pii", "bench", "raw_ci", "silver_ci", "gold_ci", "quarantine_ci"] :
+    condition = alltrue([for id in ["raw", "silver", "gold", "quarantine", "pii", "bench", "raw_ci", "silver_ci", "gold_ci", "quarantine_ci", "pii_ci"] :
     contains(keys(output.datasets), id)])
     error_message = "a medallion dataset is missing"
   }
@@ -153,7 +153,7 @@ run "e6_lectura_restringida" {
     error_message = "restricted datasets may only grant the pipeline and project owners"
   }
   assert {
-    condition = alltrue(flatten([for k in ["raw", "raw_ci", "quarantine", "quarantine_ci", "pii"] : [for a in output.datasets[k].access :
+    condition = alltrue(flatten([for k in ["raw", "raw_ci", "quarantine", "quarantine_ci", "pii", "pii_ci"] : [for a in output.datasets[k].access :
     !contains(["projectReaders", "projectWriters", "allUsers", "allAuthenticatedUsers"], coalesce(a.special_group, "-"))]]))
     error_message = "restricted datasets must not be readable by project readers or the public"
   }
@@ -556,12 +556,57 @@ run "t14_lector" {
     error_message = "compras-lector must read silver and gold"
   }
   assert {
-    condition = alltrue([for k in ["raw", "raw_ci", "quarantine", "quarantine_ci", "pii"] :
+    condition = alltrue([for k in ["raw", "raw_ci", "quarantine", "quarantine_ci", "pii", "pii_ci"] :
     !anytrue([for a in output.datasets[k].access : a.user_by_email == output.service_accounts["lector"]])])
     error_message = "compras-lector must not reach raw, quarantine or pii"
   }
   assert {
     condition     = !contains([for b in output.policy_tag_bindings : b.member], "serviceAccount:${output.service_accounts["lector"]}")
     error_message = "compras-lector must not read the rut tag"
+  }
+}
+
+# REQ-014 E8: the CI run has its own salt table in pii_ci, with the schema of pii.sal.
+run "t20_sal_ci" {
+  command = plan
+
+  assert {
+    condition     = output.sal_table_ci.dataset_id == "pii_ci" && output.sal_table_ci.table_id == "sal"
+    error_message = "the CI salt must be pii_ci.sal"
+  }
+  assert {
+    condition     = output.sal_table_ci.columns == output.sal_table.columns
+    error_message = "pii_ci.sal must have the schema of pii.sal"
+  }
+  assert {
+    condition     = output.datasets["pii_ci"].labels == tomap({ layer = "pii", env = "ci" })
+    error_message = "pii_ci must be labeled as the CI twin of pii"
+  }
+}
+
+# REQ-014 E8: only compras-ci writes pii_ci; compras-ci gets no entry in pii.
+run "t20_pii_ci_acl" {
+  command = apply
+
+  assert {
+    condition     = contains(output.dataset_access["pii_ci"], { role = "roles/bigquery.dataEditor", member = "serviceAccount:compras-ci@demo-proj.iam.gserviceaccount.com" })
+    error_message = "compras-ci must be granted dataEditor on pii_ci"
+  }
+  assert {
+    condition     = anytrue([for a in output.datasets["pii_ci"].access : a.role == "WRITER" && a.user_by_email == "compras-ci@demo-proj.iam.gserviceaccount.com"])
+    error_message = "compras-ci must be WRITER on pii_ci"
+  }
+  assert {
+    condition     = !anytrue([for a in output.datasets["pii_ci"].access : a.user_by_email == output.service_accounts["dataform"]])
+    error_message = "compras-dataform must not reach pii_ci"
+  }
+  assert {
+    condition     = !anytrue([for a in output.datasets["pii"].access : a.user_by_email == "compras-ci@demo-proj.iam.gserviceaccount.com"])
+    error_message = "compras-ci must not be granted on pii"
+  }
+  assert {
+    condition = alltrue([for a in output.datasets["pii_ci"].access :
+    a.special_group == "projectOwners" || a.user_by_email == "compras-ci@demo-proj.iam.gserviceaccount.com"])
+    error_message = "pii_ci may only grant project owners and compras-ci"
   }
 }

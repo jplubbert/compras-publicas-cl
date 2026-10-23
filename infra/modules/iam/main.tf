@@ -46,6 +46,10 @@ locals {
   # T-14: dataOwner carries bigquery.tables.setCategory, needed to set bigqueryPolicyTags.
   dataform_owns = [{ role = "roles/bigquery.dataOwner", member = local.members["dataform"] }]
   lector_reads  = [{ role = "roles/bigquery.dataViewer", member = local.members["lector"] }]
+
+  # The CI run reads and writes its own salt in pii_ci (REQ-014 E8); compras-dataform gets nothing there.
+  ci_member = "serviceAccount:compras-ci@${var.project_id}.iam.gserviceaccount.com"
+  ci_writes = [{ role = "roles/bigquery.dataEditor", member = local.ci_member }]
 }
 
 resource "google_project_iam_member" "this" {

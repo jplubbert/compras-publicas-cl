@@ -40,3 +40,13 @@ output "sal_table" {
     columns             = [for c in jsondecode(google_bigquery_table.sal.schema) : c.name]
   }
 }
+
+output "sal_table_ci" {
+  description = "Salt table of the CI run (REQ-014 E8; schema only, never its value)."
+  value = {
+    dataset_id          = google_bigquery_table.sal_ci.dataset_id
+    table_id            = google_bigquery_table.sal_ci.table_id
+    deletion_protection = google_bigquery_table.sal_ci.deletion_protection
+    columns             = [for c in jsondecode(google_bigquery_table.sal_ci.schema) : c.name]
+  }
+}

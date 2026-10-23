@@ -55,14 +55,15 @@ module "bigquery" {
 
 # REQ-014: policy tag of the natural-person RUT and the salt table of proveedor_key (DEC-008).
 module "governance" {
-  source          = "../modules/governance"
-  project_id      = local.project_id
-  region          = local.region
-  pii_dataset_id  = "pii"
-  pii_readers     = var.pii_readers
-  dataform_member = "serviceAccount:${module.iam.emails["dataform"]}"
-  ci_member       = "serviceAccount:compras-ci@${local.project_id}.iam.gserviceaccount.com"
-  depends_on      = [module.apis, module.bigquery]
+  source            = "../modules/governance"
+  project_id        = local.project_id
+  region            = local.region
+  pii_dataset_id    = "pii"
+  pii_ci_dataset_id = "pii_ci"
+  pii_readers       = var.pii_readers
+  dataform_member   = "serviceAccount:${module.iam.emails["dataform"]}"
+  ci_member         = "serviceAccount:compras-ci@${local.project_id}.iam.gserviceaccount.com"
+  depends_on        = [module.apis, module.bigquery]
 }
 
 # The jobs wait for every IAM grant (the CI actAs on compras-ingest included) and the Run and Artifact Registry APIs;

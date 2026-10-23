@@ -11,6 +11,7 @@ locals {
     silver_ci     = { layer = "silver", ci = true, description = "Gemelo de CI de la capa silver." }
     gold_ci       = { layer = "gold", ci = true, description = "Gemelo de CI de la capa gold." }
     quarantine_ci = { layer = "quarantine", ci = true, description = "Gemelo de CI de la cuarentena." }
+    pii_ci        = { layer = "pii", ci = true, description = "Gemelo de CI de pii: la sal propia de la corrida de CI." }
   }
   # Datasets that keep the default project writer and reader access.
   open_datasets = ["silver", "gold", "silver_ci", "gold_ci", "bench"]

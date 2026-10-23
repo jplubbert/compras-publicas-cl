@@ -119,6 +119,11 @@ output "sal_table" {
   value       = module.governance.sal_table
 }
 
+output "sal_table_ci" {
+  description = "Salt table of the CI run (REQ-014 E8)."
+  value       = module.governance.sal_table_ci
+}
+
 output "release_config" {
   description = "Dataform release configuration of main (T-11, REQ-014)."
   value       = module.orchestration.release_config
