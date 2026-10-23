@@ -803,3 +803,7 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - En curso / roto: el cierre queda bloqueado porque record_evidence.py no reconoce la salida de `pytest --collect-only -q` del verify de T-18 (solo lee node:test, vitest y jest; scripts/record_evidence.py:48-52). Se cumplió la regla de dos intentos sobre la misma falla, y la corrección (el verify en spec/TASKS.json o el parser) queda fuera de los touches.
 - Pendiente: el usuario aprueba el diff de `tests/acceptance/` (tarea `kind: spec`).
 - Próxima acción autorizada: el usuario ajusta el verify de T-18 (o el parser de record_evidence.py) para que imprima un conteo legible, y revisa y aprueba el diff de `tests/acceptance/T-13_benchmark.py`; después, T-13 rehace su plan sin el paso 12.
+
+## 2026-10-22 23:57 · autopilot (scripts/autopilot.sh): causa del fallo de T-18
+- Decisión: escalar T-18 al usuario (DEC-015): el decisor (jev) no resolvió la causa del fallo (confidence 0.63 < 0.8 (threshold)). Queda `blocked` por Q-10, nueva en «Preguntas abiertas» de SPEC.md.
+- Próxima acción autorizada: el usuario responde Q-10; el orquestador no vuelve a tomar T-18 mientras siga blocked.

@@ -1585,15 +1585,15 @@
         "DEC-005"
       ],
       "depends_on": [],
-      "status": "in_progress",
-      "blocked_by": null,
+      "status": "blocked",
+      "blocked_by": "Q-10",
       "evidence": null,
       "review": null,
       "touches": [
         "tests/acceptance/T-13_benchmark.py"
       ],
       "verify": "scripts/env.sh bash -c 'uv run --frozen pytest --collect-only -q tests/acceptance/T-13_benchmark.py && npm run check:spec'",
-      "notes": "2026-10-22: creada en sesión por la respuesta del usuario a Q-09 (opción a). Su diff en tests/acceptance/ lo aprueba el usuario. Interfaces que la prueba fija para T-13 (el plan se rehace): generate.py expone SEED, ROWS y render(seed, rows), y la salida lleva una línea '-- target rows: <rows>'; report.render acepta fecha y run_id como argumentos con nombre (fecha como texto 'AAAA-MM-DD') y filas con las claves job_id, cache_hit, error_result, total_bytes_billed, total_bytes_processed, total_slot_ms, bench_query y bench_variant; en dry run, total_bytes_billed y total_slot_ms vienen en None. Las tablas de Markdown tienen las columnas 'variante', 'bytes facturados' (o 'bytes estimados (cota superior)' en dry run), 'slot ms' y '% ahorro'. No se corrió el archivo completo (DEC-045): el rojo es por ModuleNotFoundError, porque benchmarks/generate.py y report.py todavía no existen. El hook Stop de record_evidence.py no pudo leer conteos del verify de T-18: su salida es la de 'pytest --collect-only -q' ('tests/acceptance/T-13_benchmark.py: 4') y 'check:spec: ok', y el parser solo reconoce los resúmenes de node:test, vitest y jest (scripts/record_evidence.py:48-52). El verify sale con código 0. Para arreglarlo hay que cambiar el verify de T-18 en spec/TASKS.json o enseñarle al parser el formato de collect-only de pytest; las dos cosas quedan fuera de los touches de esta tarea.",
+      "notes": "2026-10-22: creada en sesión por la respuesta del usuario a Q-09 (opción a). Su diff en tests/acceptance/ lo aprueba el usuario. Interfaces que la prueba fija para T-13 (el plan se rehace): generate.py expone SEED, ROWS y render(seed, rows), y la salida lleva una línea '-- target rows: <rows>'; report.render acepta fecha y run_id como argumentos con nombre (fecha como texto 'AAAA-MM-DD') y filas con las claves job_id, cache_hit, error_result, total_bytes_billed, total_bytes_processed, total_slot_ms, bench_query y bench_variant; en dry run, total_bytes_billed y total_slot_ms vienen en None. Las tablas de Markdown tienen las columnas 'variante', 'bytes facturados' (o 'bytes estimados (cota superior)' en dry run), 'slot ms' y '% ahorro'. No se corrió el archivo completo (DEC-045): el rojo es por ModuleNotFoundError, porque benchmarks/generate.py y report.py todavía no existen. El hook Stop de record_evidence.py no pudo leer conteos del verify de T-18: su salida es la de 'pytest --collect-only -q' ('tests/acceptance/T-13_benchmark.py: 4') y 'check:spec: ok', y el parser solo reconoce los resúmenes de node:test, vitest y jest (scripts/record_evidence.py:48-52). El verify sale con código 0. Para arreglarlo hay que cambiar el verify de T-18 en spec/TASKS.json o enseñarle al parser el formato de collect-only de pytest; las dos cosas quedan fuera de los touches de esta tarea. 2026-10-22: escalada por el orquestador (DEC-005): el decisor (jev) no resolvió la causa del fallo (confidence 0.63 < 0.8 (threshold)); sin informe; bloqueada por Q-10.",
       "status_log": [
         {
           "from": "specified",
@@ -1608,6 +1608,13 @@
           "by": "apply-result",
           "at": "2026-10-23T02:57:25.753Z",
           "reason": "resultado del implementador de T-18 vía autopilot (claude)"
+        },
+        {
+          "from": "in_progress",
+          "to": "blocked",
+          "by": "escalate",
+          "at": "2026-10-23T02:57:32.048Z",
+          "reason": "escalada al usuario por Q-10"
         }
       ],
       "claims": {
