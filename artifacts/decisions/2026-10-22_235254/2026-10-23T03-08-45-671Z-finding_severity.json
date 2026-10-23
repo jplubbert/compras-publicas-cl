@@ -1,0 +1,29 @@
+{
+  "question_id": "finding_severity",
+  "instructions": "Does this finding of a plan critique block implementing the plan as written?",
+  "state": {
+    "id": "req-014:dataform-sin-setcategory",
+    "severity": "P1",
+    "evidence_type": "fuente",
+    "evidence": "https://docs.cloud.google.com/iam/docs/roles-permissions/bigquery — roles/bigquery.dataEditor no incluye bigquery.tables.setCategory, que sí está en roles/bigquery.dataOwner (bigquery.tables.*). https://docs.cloud.google.com/bigquery/docs/column-level-security exige además datacatalog.taxonomies.get, y categoryFineGrainedReader solo trae datacatalog.categories.fineGrainedGet (https://docs.cloud.google.com/iam/docs/roles-permissions/datacatalog). El supuesto contrario está en plans/T-14.md:318.",
+    "summary": "El plan da a compras-dataform solo dataEditor sobre silver y gold y categoryFineGrainedReader sobre la tag. Sin bigquery.tables.setCategory ni datacatalog.taxonomies.get, la invocación de Dataform falla al asignar bigqueryPolicyTags a rut_persona_natural: E7 no termina SUCCEEDED y E4 no se puede comprobar. El verify local no lo detecta porque usa mock_provider.",
+    "fix": "En infra/modules/iam (o en governance), dar a compras-dataform bigquery.tables.setCategory sobre silver y gold. Puede ser un rol personalizado con ese permiso, o roles/bigquery.dataOwner a nivel de dataset si se acepta el permiso extra de setIamPolicy. También darle datacatalog.taxonomies.get, con roles/datacatalog.viewer o un rol personalizado en el proyecto. Agregar a t14_* una aserción terraform test que lo exija y corregir el supuesto de la línea 318."
+  },
+  "options": {
+    "blocking": "P0/P1: the plan cannot be implemented as written without fixing this",
+    "not_blocking": "P2/P3: worth fixing, but the plan can go ahead"
+  },
+  "answer": "blocking",
+  "confidence": 1,
+  "probabilities": {
+    "blocking": 1,
+    "not_blocking": 0
+  },
+  "model": "jev-1.13.0",
+  "user_criteria_sha256": "11e0f45aebf08e3cf7a4bfa0abf62cad8d04b7c63c3588a0c5911372a1bee624",
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "",
+  "decider": "/home/pepe/Projects/compras-publicas-cl/scripts/agents/decider/jev.sh",
+  "timestamp": "2026-10-23T03:08:45.671Z"
+}

@@ -1,0 +1,81 @@
+{
+  "question_id": "plan_verdict",
+  "instructions": "Given this critique of an implementation plan, what is the verdict?",
+  "state": "**Veredicto: APROBAR.** El plan de T-14 ya no tiene hallazgos P0 ni P1, y un implementador puede seguirlo.\n\n**El bloqueo de la ronda 1 está corregido.** Para asignar una policy tag a una columna hacen falta dos permisos, `bigquery.tables.setCategory` y `datacatalog.taxonomies.get`. El paso 3 se los da a `compras-dataform`: `roles/bigquery.dataOwner` en `silver` y `gold` trae el primero, y `roles/datacatalog.viewer` en el proyecto trae el segundo. Lo confirman la guía oficial de seguridad por columna de BigQuery y la referencia de roles de Data Catalog. Las pruebas `terraform test` del paso 6 lo exigen, y el paso 5 deja que CI conceda ese rol.\n\n**Supuestos de mayor riesgo:**\n1. **Permisos de Dataform:** confirmados con fuentes, como se explica arriba.\n2. **Tags en tablas incrementales:** la guía de Dataform solo muestra `bigqueryPolicyTags` en tablas de tipo `table`. No encontré fuente sobre si se aplican en tablas incrementales. El plan lo reconoce, lo comprueba en la nube (paso 17.2, con el mismo `creationTime`) y tiene un script de respaldo (`reaplicar-policy-tags.sh`).\n3. **Lectura con el binding solo en la tag hija:** `categoryFineGrainedReader` se concede por tag, así que basta para leer las columnas con la tag `rut`. Una consulta que no toca columnas con tag funciona.\n4. **Formato del error de E4:** el texto habitual es «Access Denied … neither fine-grained reader nor masked get permission». El paso 17.4 acepta cualquier error de acceso, así que el formato exacto no hace fallar la prueba.\n\n**Hallazgos que no bloquean (P2, solo opinión):**\n- **CI rojo después del merge:** `ci.yml`, `check-descriptions.mjs` y `scripts/ci/dataform-ci.sh` compilan sin la variable y van a fallar hasta que alguien aplique los cambios que están fuera de touches. El plan los deja escritos, pero el PR no pasa `ci.yml` sin ellos.\n- **`pii.sal` no es legible solo por Dataform:** `compras-ci` la lee por su rol `roles/bigquery.admin` de proyecto, y la corrida de `ci` usa la sal de producción. Eso no cumple el texto literal de REQ-014. El plan no lo esconde: lo deja como pregunta al usuario.\n\n```json\n{\"verdict\": \"APROBAR\", \"assumptions\": [{\"assumption\": \"compras-dataform puede asignar bigqueryPolicyTags con roles/bigquery.dataOwner a nivel de dataset (bigquery.tables.setCategory) y roles/datacatalog.viewer en el proyecto (datacatalog.taxonomies.get).\", \"practice\": \"La guía de BigQuery exige datacatalog.taxonomies.get y bigquery.tables.setCategory a quien asigna la tag; setCategory está en BigQuery Admin y Data Owner, y la referencia IAM confirma que roles/datacatalog.viewer incluye datacatalog.taxonomies.get (categoryFineGrainedReader no). La guía de Dataform pide conceder esos roles a la cuenta de servicio personalizada.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/column-level-security\", \"https://docs.cloud.google.com/iam/docs/roles-permissions/datacatalog\", \"https://docs.cloud.google.com/dataform/docs/policy-tags\"]}, {\"assumption\": \"Dataform aplica bigqueryPolicyTags también en la tabla incremental silver.proveedores y la tag sobrevive a los MERGE.\", \"practice\": \"La documentación de Dataform solo muestra el ejemplo con type: \\\"table\\\" y no dice nada de las incrementales; lo práctico es comprobar el esquema en BigQuery después de la creación y de una corrida incremental, que es lo que hace el plan (17.2) con respaldo (18).\", \"sources\": [\"https://docs.cloud.google.com/dataform/docs/policy-tags\"]}, {\"assumption\": \"Un binding de categoryFineGrainedReader sobre la tag hija rut basta para leer las columnas con esa tag, y sin él BigQuery niega solo esas columnas.\", \"practice\": \"El rol se concede a nivel de policy tag; las consultas que no tocan columnas protegidas funcionan y las que las tocan devuelven 'Access Denied ... neither fine-grained reader nor masked get permission ... policy tag'.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/column-level-security-intro\", \"https://fivetran.com/docs/destinations/bigquery/troubleshooting/fine-grained-reader-error\"]}, {\"assumption\": \"El error de acceso de E4 se distingue de forma fiable de otros errores por la respuesta de la API (accessDenied / PERMISSION_DENIED).\", \"practice\": \"Los conectores que chocan con columnas protegidas reciben 'Access Denied' que nombra la policy tag; el plan acepta cualquier motivo de acceso sin exigir el texto exacto, lo que evita falsos fallos.\", \"sources\": [\"https://fivetran.com/docs/destinations/bigquery/troubleshooting/policy-tag-permissions-error\", \"https://oneuptime.com/blog/post/2026-02-17-how-to-fix-bigquery-column-level-security-denying-access-despite-correct-iam-roles/markdown\"]}], \"findings\": [{\"id\": \"ci:compilacion-sin-variable-fuera-de-touches\", \"severity\": \"P2\", \"evidence_type\": \"opinión\", \"evidence\": \"Paso 'Riesgos' del plan: ci.yml, scripts/ci/check-descriptions.mjs y scripts/ci/dataform-ci.sh compilan sin policy_tag_rut y quedan fuera de touches.\", \"summary\": \"Con E5 la compilación sin la variable falla, así que tras el merge ci.yml y el job release quedan rojos hasta que alguien aplique los cambios fuera de touches. El verify local sigue verde y no lo detecta.\", \"fix\": \"Mantener los cambios exactos en claims.manual_pending y, si el orquestador lo permite, pedir ampliar touches a ci.yml y scripts/ci/ antes de implementar, para que el PR no rompa CI.\"}, {\"id\": \"req-014:sal-legible-por-ci\", \"severity\": \"P2\", \"evidence_type\": \"opinión\", \"evidence\": \"REQ-014 exige pii.sal 'legible solo por la cuenta de servicio de Dataform'; el plan reconoce que compras-ci (roles/bigquery.admin de proyecto) la lee y que la corrida ci usa la sal de producción.\", \"summary\": \"El texto literal de REQ-014 no se cumple para CI ni para los dueños del proyecto; el plan no lo oculta y lo deja como pregunta al usuario en el resultado.\", \"fix\": \"Ninguno en el plan además de la pregunta ya prevista; el usuario decide entre ajustar REQ-014 o crear una tarea para una sal propia de ci.\"}], \"summary\": \"El hallazgo bloqueante de la ronda 1 (req-014:dataform-sin-setcategory) está corregido: el plan da a compras-dataform roles/bigquery.dataOwner en silver y gold (bigquery.tables.setCategory) y roles/datacatalog.viewer en el proyecto (datacatalog.taxonomies.get), justo los dos permisos que exige la guía de BigQuery, y lo verifica en terraform test y en la integración. Los demás supuestos de riesgo tienen fuente o una comprobación en la nube con respaldo: la tag en la tabla incremental (sin fuente, cubierta por 17.2 y 18), la lectura con el binding solo en la tag hija y el formato del error de E4. Quedan dos P2 de opinión: CI queda rojo hasta aplicar los cambios fuera de touches, y pii.sal es legible por compras-ci, que el plan deja como pregunta al usuario. No hay P0 ni P1.\"}\n```",
+  "options": {
+    "APROBAR": "no P0/P1 finding: the implementer may start with this plan",
+    "REVISAR": "the planner must fix P0/P1 findings before implementing",
+    "ESCALAR": "it needs a decision of the user"
+  },
+  "answer": "APROBAR",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule critic_approves_without_p0_p1 (DEC-051)",
+  "decider": "rule",
+  "rule": "critic_approves_without_p0_p1",
+  "facts": {
+    "verdict": "APROBAR",
+    "effective": "APROBAR",
+    "assumptions": [
+      {
+        "assumption": "compras-dataform puede asignar bigqueryPolicyTags con roles/bigquery.dataOwner a nivel de dataset (bigquery.tables.setCategory) y roles/datacatalog.viewer en el proyecto (datacatalog.taxonomies.get).",
+        "practice": "La guía de BigQuery exige datacatalog.taxonomies.get y bigquery.tables.setCategory a quien asigna la tag; setCategory está en BigQuery Admin y Data Owner, y la referencia IAM confirma que roles/datacatalog.viewer incluye datacatalog.taxonomies.get (categoryFineGrainedReader no). La guía de Dataform pide conceder esos roles a la cuenta de servicio personalizada.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/column-level-security",
+          "https://docs.cloud.google.com/iam/docs/roles-permissions/datacatalog",
+          "https://docs.cloud.google.com/dataform/docs/policy-tags"
+        ]
+      },
+      {
+        "assumption": "Dataform aplica bigqueryPolicyTags también en la tabla incremental silver.proveedores y la tag sobrevive a los MERGE.",
+        "practice": "La documentación de Dataform solo muestra el ejemplo con type: \"table\" y no dice nada de las incrementales; lo práctico es comprobar el esquema en BigQuery después de la creación y de una corrida incremental, que es lo que hace el plan (17.2) con respaldo (18).",
+        "sources": [
+          "https://docs.cloud.google.com/dataform/docs/policy-tags"
+        ]
+      },
+      {
+        "assumption": "Un binding de categoryFineGrainedReader sobre la tag hija rut basta para leer las columnas con esa tag, y sin él BigQuery niega solo esas columnas.",
+        "practice": "El rol se concede a nivel de policy tag; las consultas que no tocan columnas protegidas funcionan y las que las tocan devuelven 'Access Denied ... neither fine-grained reader nor masked get permission ... policy tag'.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/column-level-security-intro",
+          "https://fivetran.com/docs/destinations/bigquery/troubleshooting/fine-grained-reader-error"
+        ]
+      },
+      {
+        "assumption": "El error de acceso de E4 se distingue de forma fiable de otros errores por la respuesta de la API (accessDenied / PERMISSION_DENIED).",
+        "practice": "Los conectores que chocan con columnas protegidas reciben 'Access Denied' que nombra la policy tag; el plan acepta cualquier motivo de acceso sin exigir el texto exacto, lo que evita falsos fallos.",
+        "sources": [
+          "https://fivetran.com/docs/destinations/bigquery/troubleshooting/policy-tag-permissions-error",
+          "https://oneuptime.com/blog/post/2026-02-17-how-to-fix-bigquery-column-level-security-denying-access-despite-correct-iam-roles/markdown"
+        ]
+      }
+    ],
+    "findings": [
+      {
+        "id": "ci:compilacion-sin-variable-fuera-de-touches",
+        "severity": "P2",
+        "evidence_type": "opinión",
+        "evidence": "Paso 'Riesgos' del plan: ci.yml, scripts/ci/check-descriptions.mjs y scripts/ci/dataform-ci.sh compilan sin policy_tag_rut y quedan fuera de touches.",
+        "summary": "Con E5 la compilación sin la variable falla, así que tras el merge ci.yml y el job release quedan rojos hasta que alguien aplique los cambios fuera de touches. El verify local sigue verde y no lo detecta.",
+        "fix": "Mantener los cambios exactos en claims.manual_pending y, si el orquestador lo permite, pedir ampliar touches a ci.yml y scripts/ci/ antes de implementar, para que el PR no rompa CI."
+      },
+      {
+        "id": "req-014:sal-legible-por-ci",
+        "severity": "P2",
+        "evidence_type": "opinión",
+        "evidence": "REQ-014 exige pii.sal 'legible solo por la cuenta de servicio de Dataform'; el plan reconoce que compras-ci (roles/bigquery.admin de proyecto) la lee y que la corrida ci usa la sal de producción.",
+        "summary": "El texto literal de REQ-014 no se cumple para CI ni para los dueños del proyecto; el plan no lo oculta y lo deja como pregunta al usuario en el resultado.",
+        "fix": "Ninguno en el plan además de la pregunta ya prevista; el usuario decide entre ajustar REQ-014 o crear una tarea para una sal propia de ci."
+      }
+    ],
+    "blocking": [],
+    "opinion_blockers": [],
+    "repeated": [],
+    "summary": "El hallazgo bloqueante de la ronda 1 (req-014:dataform-sin-setcategory) está corregido: el plan da a compras-dataform roles/bigquery.dataOwner en silver y gold (bigquery.tables.setCategory) y roles/datacatalog.viewer en el proyecto (datacatalog.taxonomies.get), justo los dos permisos que exige la guía de BigQuery, y lo verifica en terraform test y en la integración. Los demás supuestos de riesgo tienen fuente o una comprobación en la nube con respaldo: la tag en la tabla incremental (sin fuente, cubierta por 17.2 y 18), la lectura con el binding solo en la tag hija y el formato del error de E4. Quedan dos P2 de opinión: CI queda rojo hasta aplicar los cambios fuera de touches, y pii.sal es legible por compras-ci, que el plan deja como pregunta al usuario. No hay P0 ni P1."
+  },
+  "timestamp": "2026-10-23T03:14:57.485Z"
+}

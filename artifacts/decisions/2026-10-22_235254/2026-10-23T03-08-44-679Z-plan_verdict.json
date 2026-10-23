@@ -1,0 +1,102 @@
+{
+  "question_id": "plan_verdict",
+  "instructions": "Given this critique of an implementation plan, what is the verdict?",
+  "state": "Revisé el plan contra REQ-014, DEC-004 y DEC-008, y contra la documentación de Google y la referencia de roles de IAM. Mi veredicto es **REVISAR**: hay un hallazgo P1 respaldado por una fuente y un archivo. No modifiqué ningún archivo.\n\n**Problema principal:** la cuenta de servicio `compras-dataform` no tendría permiso para asignar la tag. El supuesto de `plans/T-14.md:318` dice que `roles/bigquery.dataEditor` incluye `bigquery.tables.setCategory`, y es falso. Según la referencia de roles, ese permiso viene en `roles/bigquery.dataOwner` y en `roles/bigquery.admin`, no en `dataEditor`. La guía de seguridad por columna pide además `datacatalog.taxonomies.get`. `categoryFineGrainedReader`, el único rol que el plan da a Dataform sobre la tag, solo trae `datacatalog.categories.fineGrainedGet`. Así, la corrida diaria fallaría al aplicar la tag, E7 no terminaría `SUCCEEDED` y E4 no se podría comprobar. El verify local no lo detectaría, porque usa un proveedor simulado.\n\n**Hallazgos menores (P2/P3, no bloquean):**\n- No encontré documentación de que Dataform aplique `bigqueryPolicyTags` en tablas incrementales. La guía solo muestra `type: \"table\"`, y `silver.proveedores` es incremental.\n- `pii.sal` no queda legible solo por Dataform, como pide REQ-014: `compras-ci` la lee y la escribe por su rol de proyecto. Además, la corrida de `ci` ejecutaría `generar_sal` sobre la tabla de producción. El plan lo acepta en silencio; conviene que el usuario lo decida.\n- Que BigQuery responda HTTP 403 con un mensaje sobre la tag no está documentado. `policy-tags.sh` debería aceptar cualquier error de acceso, no un texto exacto.\n\nLos demás supuestos se sostienen: la taxonomía y los datasets están en la misma región (`us-central1`), `roles/datacatalog.categoryAdmin` basta para que CI cree la taxonomía, las tags y sus bindings, y la sintaxis de `bigqueryPolicyTags` es la documentada.\n\n```json\n{\"verdict\": \"REVISAR\", \"assumptions\": [{\"assumption\": \"roles/bigquery.dataEditor sobre silver y gold basta para que compras-dataform asigne la policy tag a las columnas (bigquery.tables.setCategory)\", \"practice\": \"Google exige bigquery.tables.setCategory y datacatalog.taxonomies.get para asignar una policy tag. setCategory viene en roles/bigquery.dataOwner o roles/bigquery.admin, no en dataEditor. taxonomies.get viene en Data Catalog Viewer, Editor, Admin o Policy Tag Admin, o se arma un rol personalizado con los dos permisos.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/column-level-security\", \"https://docs.cloud.google.com/iam/docs/roles-permissions/bigquery\", \"https://docs.cloud.google.com/iam/docs/roles-permissions/datacatalog\"]}, {\"assumption\": \"La taxonomía en var.region (us-central1) se puede aplicar a las columnas de los datasets de esa región\", \"practice\": \"Las taxonomías son regionales y deben estar en la misma ubicación que la tabla. Para otra región se replica la taxonomía, y us-central1 no equivale a la multirregión US.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/managing-policy-tags-across-locations\"]}, {\"assumption\": \"Dataform aplica bigqueryPolicyTags también en tablas incrementales (silver.proveedores) y en cada CREATE OR REPLACE\", \"practice\": \"La guía de Dataform documenta la sintaxis columns.<col>.bigqueryPolicyTags solo con un ejemplo de type: table. No encontré documentación sobre tablas incrementales; en la práctica se valida con una corrida real y bq show --schema.\", \"sources\": [\"https://docs.cloud.google.com/dataform/docs/policy-tags\"]}, {\"assumption\": \"roles/datacatalog.categoryAdmin permite a compras-ci crear la taxonomía y las tags y fijar su política IAM\", \"practice\": \"Policy Tag Admin incluye datacatalog.taxonomies.* (create, get, setIamPolicy, etc.) y datacatalog.categories.setIamPolicy. Basta.\", \"sources\": [\"https://docs.cloud.google.com/iam/docs/roles-permissions/datacatalog\"]}, {\"assumption\": \"BigQuery responde HTTP 403 con un mensaje que menciona la policy tag cuando una cuenta sin el rol selecciona la columna\", \"practice\": \"La guía exige el rol Fine-Grained Reader para leer columnas protegidas, pero no documenta el código ni el texto del error. No encontré una fuente con el formato exacto.\", \"sources\": []}], \"findings\": [{\"id\": \"req-014:dataform-sin-setcategory\", \"severity\": \"P1\", \"evidence_type\": \"fuente\", \"evidence\": \"https://docs.cloud.google.com/iam/docs/roles-permissions/bigquery — roles/bigquery.dataEditor no incluye bigquery.tables.setCategory, que sí está en roles/bigquery.dataOwner (bigquery.tables.*). https://docs.cloud.google.com/bigquery/docs/column-level-security exige además datacatalog.taxonomies.get, y categoryFineGrainedReader solo trae datacatalog.categories.fineGrainedGet (https://docs.cloud.google.com/iam/docs/roles-permissions/datacatalog). El supuesto contrario está en plans/T-14.md:318.\", \"summary\": \"El plan da a compras-dataform solo dataEditor sobre silver y gold y categoryFineGrainedReader sobre la tag. Sin bigquery.tables.setCategory ni datacatalog.taxonomies.get, la invocación de Dataform falla al asignar bigqueryPolicyTags a rut_persona_natural: E7 no termina SUCCEEDED y E4 no se puede comprobar. El verify local no lo detecta porque usa mock_provider.\", \"fix\": \"En infra/modules/iam (o en governance), dar a compras-dataform bigquery.tables.setCategory sobre silver y gold. Puede ser un rol personalizado con ese permiso, o roles/bigquery.dataOwner a nivel de dataset si se acepta el permiso extra de setIamPolicy. También darle datacatalog.taxonomies.get, con roles/datacatalog.viewer o un rol personalizado en el proyecto. Agregar a t14_* una aserción terraform test que lo exija y corregir el supuesto de la línea 318.\"}, {\"id\": \"req-014:tags-en-incremental-sin-respaldo\", \"severity\": \"P2\", \"evidence_type\": \"fuente\", \"evidence\": \"https://docs.cloud.google.com/dataform/docs/policy-tags — la guía solo muestra bigqueryPolicyTags con type: \\\"table\\\"; plans/T-14.md:325 supone que también se aplica a tablas incrementales.\", \"summary\": \"silver.proveedores es incremental. Si Dataform no aplica o no actualiza la tag en el MERGE de una tabla incremental ya existente, el RUT de persona natural queda sin tag en silver. Solo policy-tags.sh lo detectaría, después del deploy.\", \"fix\": \"Que policy-tags.sh compruebe el esquema de silver.proveedores después de una corrida incremental (no solo de la primera, que la crea completa). Que el plan defina el respaldo si la tag falta, por ejemplo un bq update con un esquema que incluya policyTags desde un script de integración.\"}, {\"id\": \"req-014:sal-legible-por-ci\", \"severity\": \"P2\", \"evidence_type\": \"archivo\", \"evidence\": \"plans/T-14.md:319 — «compras-ci tiene roles/bigquery.admin… «legible solo por Dataform» se cumple en el ACL del dataset pii, no frente a ese rol de proyecto».\", \"summary\": \"REQ-014 dice que pii.sal es «legible solo por la cuenta de servicio de Dataform». El plan reinterpreta el requisito como el ACL del dataset: compras-ci la lee y además la corrida de ci ejecuta generar_sal sobre la pii.sal de producción. Es una desviación del texto del REQ que el plan acepta sin decisión del usuario.\", \"fix\": \"Registrar la excepción de CI como pregunta al usuario o en el LOG (ajustar el REQ o aceptar el riesgo), en vez de asumirla en el plan.\"}, {\"id\": \"req-014:e4-mensaje-403-no-documentado\", \"severity\": \"P3\", \"evidence_type\": \"opinión\", \"evidence\": \"plans/T-14.md:253 exige HTTP 403 y que el cuerpo mencione la policy tag; la documentación de BigQuery no fija el código ni el texto del error.\", \"summary\": \"Si BigQuery devuelve el error con otro código o con otro texto (por ejemplo, en el estado del job y no en el HTTP), E4 daría un falso fallo.\", \"fix\": \"Que policy-tags.sh acepte cualquier error de acceso (status de error del job o un HTTP 4xx con accessDenied) y deje la mención de la tag como opcional.\"}], \"summary\": \"El plan cubre REQ-014 de forma completa y coherente con DEC-004 y DEC-008: taxonomía regional, bindings con claves estáticas, sal generada dentro de BigQuery sin pasar por Terraform ni git, E5 garantizado desde pii.js y pruebas locales de E1, E2, E3, E5 y E6. Pero se apoya en un supuesto falso: roles/bigquery.dataEditor no incluye bigquery.tables.setCategory, y compras-dataform tampoco recibe datacatalog.taxonomies.get, así que la corrida de Dataform fallaría al asignar la tag y E7 y E4 quedarían rotos en la nube sin que el verify local lo detecte. El planificador debe dar esos permisos a compras-dataform y probarlos en terraform test. Como mejoras quedan: validar la tag en la tabla incremental, registrar la excepción de lectura de pii.sal por CI y relajar la comprobación del texto del 403.\"}\n```",
+  "options": {
+    "APROBAR": "no P0/P1 finding: the implementer may start with this plan",
+    "REVISAR": "the planner must fix P0/P1 findings before implementing",
+    "ESCALAR": "it needs a decision of the user"
+  },
+  "answer": "REVISAR",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule critic_revises_with_blocking (DEC-051)",
+  "decider": "rule",
+  "rule": "critic_revises_with_blocking",
+  "facts": {
+    "verdict": "REVISAR",
+    "effective": "REVISAR",
+    "assumptions": [
+      {
+        "assumption": "roles/bigquery.dataEditor sobre silver y gold basta para que compras-dataform asigne la policy tag a las columnas (bigquery.tables.setCategory)",
+        "practice": "Google exige bigquery.tables.setCategory y datacatalog.taxonomies.get para asignar una policy tag. setCategory viene en roles/bigquery.dataOwner o roles/bigquery.admin, no en dataEditor. taxonomies.get viene en Data Catalog Viewer, Editor, Admin o Policy Tag Admin, o se arma un rol personalizado con los dos permisos.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/column-level-security",
+          "https://docs.cloud.google.com/iam/docs/roles-permissions/bigquery",
+          "https://docs.cloud.google.com/iam/docs/roles-permissions/datacatalog"
+        ]
+      },
+      {
+        "assumption": "La taxonomía en var.region (us-central1) se puede aplicar a las columnas de los datasets de esa región",
+        "practice": "Las taxonomías son regionales y deben estar en la misma ubicación que la tabla. Para otra región se replica la taxonomía, y us-central1 no equivale a la multirregión US.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/managing-policy-tags-across-locations"
+        ]
+      },
+      {
+        "assumption": "Dataform aplica bigqueryPolicyTags también en tablas incrementales (silver.proveedores) y en cada CREATE OR REPLACE",
+        "practice": "La guía de Dataform documenta la sintaxis columns.<col>.bigqueryPolicyTags solo con un ejemplo de type: table. No encontré documentación sobre tablas incrementales; en la práctica se valida con una corrida real y bq show --schema.",
+        "sources": [
+          "https://docs.cloud.google.com/dataform/docs/policy-tags"
+        ]
+      },
+      {
+        "assumption": "roles/datacatalog.categoryAdmin permite a compras-ci crear la taxonomía y las tags y fijar su política IAM",
+        "practice": "Policy Tag Admin incluye datacatalog.taxonomies.* (create, get, setIamPolicy, etc.) y datacatalog.categories.setIamPolicy. Basta.",
+        "sources": [
+          "https://docs.cloud.google.com/iam/docs/roles-permissions/datacatalog"
+        ]
+      },
+      {
+        "assumption": "BigQuery responde HTTP 403 con un mensaje que menciona la policy tag cuando una cuenta sin el rol selecciona la columna",
+        "practice": "La guía exige el rol Fine-Grained Reader para leer columnas protegidas, pero no documenta el código ni el texto del error. No encontré una fuente con el formato exacto.",
+        "sources": []
+      }
+    ],
+    "findings": [
+      {
+        "id": "req-014:dataform-sin-setcategory",
+        "severity": "P1",
+        "evidence_type": "fuente",
+        "evidence": "https://docs.cloud.google.com/iam/docs/roles-permissions/bigquery — roles/bigquery.dataEditor no incluye bigquery.tables.setCategory, que sí está en roles/bigquery.dataOwner (bigquery.tables.*). https://docs.cloud.google.com/bigquery/docs/column-level-security exige además datacatalog.taxonomies.get, y categoryFineGrainedReader solo trae datacatalog.categories.fineGrainedGet (https://docs.cloud.google.com/iam/docs/roles-permissions/datacatalog). El supuesto contrario está en plans/T-14.md:318.",
+        "summary": "El plan da a compras-dataform solo dataEditor sobre silver y gold y categoryFineGrainedReader sobre la tag. Sin bigquery.tables.setCategory ni datacatalog.taxonomies.get, la invocación de Dataform falla al asignar bigqueryPolicyTags a rut_persona_natural: E7 no termina SUCCEEDED y E4 no se puede comprobar. El verify local no lo detecta porque usa mock_provider.",
+        "fix": "En infra/modules/iam (o en governance), dar a compras-dataform bigquery.tables.setCategory sobre silver y gold. Puede ser un rol personalizado con ese permiso, o roles/bigquery.dataOwner a nivel de dataset si se acepta el permiso extra de setIamPolicy. También darle datacatalog.taxonomies.get, con roles/datacatalog.viewer o un rol personalizado en el proyecto. Agregar a t14_* una aserción terraform test que lo exija y corregir el supuesto de la línea 318."
+      },
+      {
+        "id": "req-014:tags-en-incremental-sin-respaldo",
+        "severity": "P2",
+        "evidence_type": "fuente",
+        "evidence": "https://docs.cloud.google.com/dataform/docs/policy-tags — la guía solo muestra bigqueryPolicyTags con type: \"table\"; plans/T-14.md:325 supone que también se aplica a tablas incrementales.",
+        "summary": "silver.proveedores es incremental. Si Dataform no aplica o no actualiza la tag en el MERGE de una tabla incremental ya existente, el RUT de persona natural queda sin tag en silver. Solo policy-tags.sh lo detectaría, después del deploy.",
+        "fix": "Que policy-tags.sh compruebe el esquema de silver.proveedores después de una corrida incremental (no solo de la primera, que la crea completa). Que el plan defina el respaldo si la tag falta, por ejemplo un bq update con un esquema que incluya policyTags desde un script de integración."
+      },
+      {
+        "id": "req-014:sal-legible-por-ci",
+        "severity": "P2",
+        "evidence_type": "archivo",
+        "evidence": "plans/T-14.md:319 — «compras-ci tiene roles/bigquery.admin… «legible solo por Dataform» se cumple en el ACL del dataset pii, no frente a ese rol de proyecto».",
+        "summary": "REQ-014 dice que pii.sal es «legible solo por la cuenta de servicio de Dataform». El plan reinterpreta el requisito como el ACL del dataset: compras-ci la lee y además la corrida de ci ejecuta generar_sal sobre la pii.sal de producción. Es una desviación del texto del REQ que el plan acepta sin decisión del usuario.",
+        "fix": "Registrar la excepción de CI como pregunta al usuario o en el LOG (ajustar el REQ o aceptar el riesgo), en vez de asumirla en el plan."
+      },
+      {
+        "id": "req-014:e4-mensaje-403-no-documentado",
+        "severity": "P3",
+        "evidence_type": "opinión",
+        "evidence": "plans/T-14.md:253 exige HTTP 403 y que el cuerpo mencione la policy tag; la documentación de BigQuery no fija el código ni el texto del error.",
+        "summary": "Si BigQuery devuelve el error con otro código o con otro texto (por ejemplo, en el estado del job y no en el HTTP), E4 daría un falso fallo.",
+        "fix": "Que policy-tags.sh acepte cualquier error de acceso (status de error del job o un HTTP 4xx con accessDenied) y deje la mención de la tag como opcional."
+      }
+    ],
+    "blocking": [
+      "req-014:dataform-sin-setcategory"
+    ],
+    "opinion_blockers": [],
+    "repeated": [],
+    "summary": "El plan cubre REQ-014 de forma completa y coherente con DEC-004 y DEC-008: taxonomía regional, bindings con claves estáticas, sal generada dentro de BigQuery sin pasar por Terraform ni git, E5 garantizado desde pii.js y pruebas locales de E1, E2, E3, E5 y E6. Pero se apoya en un supuesto falso: roles/bigquery.dataEditor no incluye bigquery.tables.setCategory, y compras-dataform tampoco recibe datacatalog.taxonomies.get, así que la corrida de Dataform fallaría al asignar la tag y E7 y E4 quedarían rotos en la nube sin que el verify local lo detecte. El planificador debe dar esos permisos a compras-dataform y probarlos en terraform test. Como mejoras quedan: validar la tag en la tabla incremental, registrar la excepción de lectura de pii.sal por CI y relajar la comprobación del texto del 403."
+  },
+  "timestamp": "2026-10-23T03:08:44.679Z"
+}
