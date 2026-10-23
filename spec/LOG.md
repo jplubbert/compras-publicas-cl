@@ -1013,3 +1013,15 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Bloqueos nuevos: T-20 (Q-11).
 - Motivo de parada: no hay tareas in_progress/ready/approved_for_impl con dependencias cerradas (saltadas en esta corrida: T-14,T-20).
 - Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.
+
+## 2026-10-23 · Claude (claude-opus-5-5) · sesión: Q-11 respondida; T-20 a ready
+- Encadenado 2026-10-23_004124 (4 corridas, terminó 01:09): T-18, T-13 y T-19 `reviewed`; T-20 bloqueada por Q-11; T-14
+  sigue `in_progress` (Pendiente deploy). Tokens: 906.911 cuentan para el tope y 7.564.425 de caché leída aparte.
+- Diagnóstico de Q-11: el planificador de T-20 corrió `cd …/dataform && …` (permitido); el `cd` de vuelta le fue negado,
+  y su `Write` de `plans/T-20.md` lo negó Claude Code en modo «don't ask»: la regla `Write(./plans/T-20.md)` se resuelve
+  contra el directorio actual (`dataform/`). T-19 y T-13 recibieron las mismas reglas y no hicieron `cd`. No lo
+  reproduje con un `claude` real; la secuencia del stream lo muestra.
+- Q-11 respondida por el usuario con la recomendación: T-20 vuelve a `ready` (`set-status --by "José Pedro Lübbert"`) y
+  se relanza. El arreglo de fondo va como tarea de sdd-base (reglas con la ruta absoluta de la raíz) y llega con un
+  `upgrade.sh` cuando esté revisado.
+- Próxima acción autorizada: el encadenado de compras se lanza cuando el candado global quede libre.

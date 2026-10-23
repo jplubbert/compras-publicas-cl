@@ -2161,8 +2161,8 @@
       "reqs": [
         "REQ-014"
       ],
-      "status": "blocked",
-      "blocked_by": "Q-11",
+      "status": "ready",
+      "blocked_by": null,
       "evidence": null,
       "review": null,
       "touches": [
@@ -2187,6 +2187,13 @@
           "by": "escalate",
           "at": "2026-10-23T04:09:26.728Z",
           "reason": "escalada al usuario por Q-11"
+        },
+        {
+          "from": "blocked",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-23T04:37:12.309Z",
+          "reason": "Q-11 respondida: el Write lo negó un cd del planificador, no el plan"
         }
       ]
     }
