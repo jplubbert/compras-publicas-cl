@@ -1,0 +1,25 @@
+{
+  "question_id": "review_verdict",
+  "instructions": "Does this independent review approve the change? Approve only if it reports no blocking finding.",
+  "state": "No blocking findings, so the verdict is approved. One limit: I couldn't rerun the T-19 tests, `check:descriptions`, or `dataform-ci.sh` without `POLICY_TAG_RUT`, because the environment denied those commands. For those I relied on the recorded log, whose hash matches.\n\n1. **Every requirement implemented and tested?** Yes. All five items of the task are in commit 5297a89:\n   - **Dataform compile:** the step in the `checks` jobs of `ci.yml` and `deploy.yml` is identical in both and passes `--vars=policy_tag_rut=…`.\n   - **`check:descriptions`:** `check-descriptions.mjs` adds the same `--vars` when it compiles.\n   - **`dataform-ci.sh`:** it requires `POLICY_TAG_RUT` in the required-variables loop, and its `--vars` carries `raw_dataset=raw_ci,policy_tag_rut=$POLICY_TAG_RUT`. The `release` job of `deploy.yml` does export that variable from the `apply` output.\n   - **Plan job:** in `ci.yml` it gets `TF_VAR_pii_readers` and `TF_VAR_lector_impersonators`, the same as `apply`.\n   - **Tests:** three new `test_req014_*` tests cover these points, including the edge case of exit 1 when the variable is missing.\n2. **Anything outside the scope?** No. The implementation commit touches only the five declared files. The other two commits add only `plans/T-19.md`, `spec/LOG.md`, `spec/TASKS.json` and `artifacts/T-19/verify.log`.\n3. **A decision violated?** No. No network is needed for the declared verify (DEC-005), and authentication is still WIF with no keys (DEC-004).\n\nWhat I ran:\n- `sha256sum artifacts/T-19/verify.log` matches the recorded hash; the log shows 19/19 passed, `check:descriptions: ok`, `check:spec: ok`.\n- `node scripts/check-spec.mjs`: ok.\n- `npm run lint`: passes.\n\n```json\n{\"verdict\": \"approved\", \"findings\": [], \"notes\": \"Los cinco puntos de la tarea están en 5297a89 y solo cambian los cinco archivos de los touches: el paso «Dataform compile» de los jobs checks de ci.yml y deploy.yml es idéntico y lleva --vars=policy_tag_rut=…; check-descriptions.mjs agrega ese mismo --vars; dataform-ci.sh exige POLICY_TAG_RUT en el bucle de variables obligatorias y pasa raw_dataset=raw_ci,policy_tag_rut=$POLICY_TAG_RUT (el job release de deploy.yml exporta POLICY_TAG_RUT desde el output de apply); el job plan de ci.yml recibe TF_VAR_pii_readers y TF_VAR_lector_impersonators iguales a los de apply; hay tres pruebas test_req014_*, incluido el borde de salida 1 sin la variable. Comprobado: el sha256 de artifacts/T-19/verify.log coincide (19/19 pasan, check:descriptions ok, check:spec ok); node scripts/check-spec.mjs da ok; npm run lint pasa. No se pudo volver a correr pytest, check:descriptions ni dataform-ci.sh sin POLICY_TAG_RUT porque el entorno negó esos comandos; se usó la evidencia registrada. Sin bloqueo: el comentario de cabecera de dataform-ci.sh sigue diciendo que POLICY_TAG_RUT la «exporta el job apply», cuando la variable de entorno la define el job release (es el hallazgo P3 del crítico, que no se corrigió). npm run test:dataform no se corrió (lo dice la nota del implementador).\"}\n```",
+  "options": {
+    "approved": "the review finds no blocking problem: the change can be accepted",
+    "rejected": "the review reports at least one blocking problem"
+  },
+  "answer": "approved",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule review_approved_without_findings (DEC-051)",
+  "decider": "rule",
+  "rule": "review_approved_without_findings",
+  "facts": {
+    "verdict": "approved",
+    "findings": [],
+    "notes": "Los cinco puntos de la tarea están en 5297a89 y solo cambian los cinco archivos de los touches: el paso «Dataform compile» de los jobs checks de ci.yml y deploy.yml es idéntico y lleva --vars=policy_tag_rut=…; check-descriptions.mjs agrega ese mismo --vars; dataform-ci.sh exige POLICY_TAG_RUT en el bucle de variables obligatorias y pasa raw_dataset=raw_ci,policy_tag_rut=$POLICY_TAG_RUT (el job release de deploy.yml exporta POLICY_TAG_RUT desde el output de apply); el job plan de ci.yml recibe TF_VAR_pii_readers y TF_VAR_lector_impersonators iguales a los de apply; hay tres pruebas test_req014_*, incluido el borde de salida 1 sin la variable. Comprobado: el sha256 de artifacts/T-19/verify.log coincide (19/19 pasan, check:descriptions ok, check:spec ok); node scripts/check-spec.mjs da ok; npm run lint pasa. No se pudo volver a correr pytest, check:descriptions ni dataform-ci.sh sin POLICY_TAG_RUT porque el entorno negó esos comandos; se usó la evidencia registrada. Sin bloqueo: el comentario de cabecera de dataform-ci.sh sigue diciendo que POLICY_TAG_RUT la «exporta el job apply», cuando la variable de entorno la define el job release (es el hallazgo P3 del crítico, que no se corrigió). npm run test:dataform no se corrió (lo dice la nota del implementador)."
+  },
+  "timestamp": "2026-10-23T04:04:24.717Z"
+}

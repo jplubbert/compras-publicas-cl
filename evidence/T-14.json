@@ -62,20 +62,78 @@
         "close": null
       },
       "tree_sha": "9de282865c5a8a4becfb9e3fc2571ca132a7bc4d"
+    },
+    {
+      "task": "T-14",
+      "run": "2026-10-23_005727",
+      "role": "implementer",
+      "attempt": 1,
+      "started": "2026-10-23T03:57:27.000Z",
+      "minutes": 1.5,
+      "tokens": {
+        "input": 20,
+        "output": 4705,
+        "cache_read": 479735,
+        "cache_write": 80079
+      },
+      "exit_code": 0,
+      "test_runs": {
+        "task": 0,
+        "suite": 2,
+        "agent": {
+          "task": 0,
+          "suite": 1
+        },
+        "hook": {
+          "task": 0,
+          "suite": 1
+        },
+        "orchestrator": {
+          "task": 0,
+          "suite": 0
+        }
+      },
+      "gates": [
+        {
+          "name": "audit",
+          "result": "ok"
+        },
+        {
+          "name": "acceptance_guard",
+          "result": "ok"
+        },
+        {
+          "name": "authority",
+          "result": "ok"
+        },
+        {
+          "name": "scope",
+          "result": "ok"
+        },
+        {
+          "name": "result",
+          "result": "ok"
+        }
+      ],
+      "verify_exit_codes": {
+        "hook": 0,
+        "close": null
+      },
+      "tree_sha": "97ecbb9fd458d326b688ba8fd258964184176657"
     }
   ],
   "totals": {
-    "records": 1,
-    "minutes": 11.3,
+    "records": 2,
+    "minutes": 12.8,
     "tokens": {
-      "input": 138,
-      "output": 61108,
-      "cache_read": 9468329,
-      "cache_write": 207092
+      "input": 158,
+      "output": 65813,
+      "cache_read": 9948064,
+      "cache_write": 287171
     },
     "test_runs": {
       "task": 2,
-      "suite": 2
+      "suite": 4
     }
   }
 }

@@ -1,0 +1,75 @@
+{
+  "question_id": "plan_verdict",
+  "instructions": "Given this critique of an implementation plan, what is the verdict?",
+  "state": "**Veredicto: APROBAR.** No encontré ningún hallazgo P0 ni P1. El plan cubre los cinco puntos de la tarea y no toca nada fuera de ella.\n\n**Supuestos riesgosos revisados:**\n1. **`--vars` con varios pares.** La CLI de Dataform acepta varios pares `clave=valor` separados por coma, tanto en `compile` como en `run`. Lo confirma la documentación oficial. No encontré qué pasa con valores que contienen `,` o `=`, pero el plan ya supone que los nombres de policy tag no los tienen.\n2. **`${{ vars.X || '[]' }}` en GitHub Actions.** Si la variable no existe, la documentación dice que vale cadena vacía, y la cadena vacía es falsa, así que el `||` cae a `'[]'`. La conducta del `||` en sí no la encontré documentada; viene del conocimiento general de las expresiones de Actions, no de una fuente.\n3. **`TF_VAR_*=[]` para una `list(string)`.** Terraform lee los tipos complejos de `TF_VAR_*` como expresión HCL, así que `[]` llega como lista vacía. Hay fuentes que lo explican.\n4. **`dataform compile` sin red.** Ninguna fuente dice explícitamente que compile sin credenciales. Según la referencia de la CLI, compile solo genera el grafo, y el paso de CI ya compila hoy sin credenciales.\n5. **La prueba de salida de `dataform-ci.sh`.** No encontré fuentes. Que no abra red depende de que el bucle de variables obligatorias vaya antes de `mktemp`, `cd dataform` y `dataform run`. La verificación del plan lo cubre.\n\n**Hallazgo menor (P3):** el comentario que el paso 5 agrega a `dataform-ci.sh` dice que el job `apply` exporta `POLICY_TAG_RUT`. Según la tarea y la sección de supuestos del mismo plan, el que la exporta a `dataform-ci.sh` es el job `release`. Es solo un comentario impreciso.\n\nSolo leí la descripción de la tarea, el plan y los requisitos y decisiones que venían en el mensaje. `spec/contracts/` no existe, y no abrí `plans/T-19.md` ni las ADR porque su contenido ya venía en el mensaje.\n\n```json\n{\"verdict\": \"APROBAR\", \"assumptions\": [{\"assumption\": \"La CLI de Dataform acepta en --vars varios pares clave=valor separados por coma, en compile y en run, y un valor con '/' llega entero.\", \"practice\": \"La documentación oficial muestra `dataform compile --vars=SAMPLE_VAR=SAMPLE_VALUE,foo=bar` y lo mismo para `dataform run`; no documenta valores con ',' o '=', que el plan ya excluye por supuesto.\", \"sources\": [\"https://docs.cloud.google.com/dataform/docs/use-dataform-cli?hl=en\"]}, {\"assumption\": \"`${{ vars.PII_READERS || '[]' }}` da '[]' cuando la variable de repositorio no existe.\", \"practice\": \"Según la documentación de contextos, una propiedad inexistente vale cadena vacía; la cadena vacía es falsa, así que `||` cae al valor por defecto. La conducta de `||` viene del conocimiento general de las expresiones, no de esta fuente.\", \"sources\": [\"https://docs.github.com/en/actions/reference/workflows-and-actions/contexts\"]}, {\"assumption\": \"Terraform lee TF_VAR_pii_readers=[] como una lista vacía de list(string).\", \"practice\": \"Para los tipos complejos, Terraform lee el valor de TF_VAR_* como una expresión HCL (o JSON), así que `[]` y `[\\\"a\\\",\\\"b\\\"]` son válidos.\", \"sources\": [\"https://oneuptime.com/blog/post/2026-02-23-how-to-pass-variables-via-environment-variables-tf-var-in-terraform/markdown\", \"https://developer.hashicorp.com/terraform/language/v1.1.x/configuration-0-11/variables\"]}, {\"assumption\": \"`dataform compile` y `dataform compile --json` no necesitan credenciales ni red (DEC-005).\", \"practice\": \"Según la referencia de la CLI, compile solo produce el grafo en JSON y run/test son los que tocan BigQuery. Ninguna fuente lo dice explícitamente, pero el paso de CI y las pruebas de dataform/tests ya compilan sin credenciales.\", \"sources\": [\"https://docs.cloud.google.com/dataform/docs/reference/dataform-cli-reference\"]}, {\"assumption\": \"La prueba que corre dataform-ci.sh sin POLICY_TAG_RUT sale con 1 en el bucle de variables obligatorias, antes de crear credenciales o llamar a dataform.\", \"practice\": \"En scripts de CI se validan las variables obligatorias al inicio y se sale antes de cualquier efecto secundario. No encontré fuentes específicas; la verificación del plan exige el código 1 y el nombre de la variable en stderr.\", \"sources\": []}], \"findings\": [{\"id\": \"dataform-ci:comentario-job-exportador\", \"severity\": \"P3\", \"evidence_type\": \"opinión\", \"evidence\": \"El paso 5 dice que POLICY_TAG_RUT es «output de Terraform que exporta el job apply»; la tarea dice que «deploy.yml ya exporta POLICY_TAG_RUT en el job release», y la sección Supuestos del plan dice lo mismo.\", \"summary\": \"El comentario de cabecera nombraría como exportador al job apply, que produce el output, y no al job release, que define la variable de entorno que lee dataform-ci.sh. Es una imprecisión de documentación.\", \"fix\": \"Redactar el comentario así: el job apply obtiene el output policy_tag_rut y el job release lo exporta como POLICY_TAG_RUT.\"}], \"summary\": \"El plan cubre los cinco puntos de la tarea con los mismos touches: el mismo comando de compilación en ci.yml y deploy.yml, --vars en check-descriptions.mjs, POLICY_TAG_RUT obligatoria y combinada con raw_dataset en dataform-ci.sh, las pruebas en test_workflows.py y las variables TF_VAR_pii_readers/lector_impersonators en el job plan. Respeta REQ-014 E2/E5 (el placeholder cumple el formato de policy tag y compilar sin la variable sigue fallando), DEC-005 (verificación local, sin red; la prueba de salida corta antes de llamar a dataform) y DEC-004 (no cambia la autenticación). Los supuestos técnicos de más riesgo tienen respaldo en la documentación: --vars separadas por coma, una variable de Actions inexistente vale cadena vacía (el idiom `||` viene del conocimiento general de las expresiones) y TF_VAR con lista HCL. Solo encontré una imprecisión P3 en un comentario. Recomiendo aprobar.\"}\n```",
+  "options": {
+    "APROBAR": "no P0/P1 finding: the implementer may start with this plan",
+    "REVISAR": "the planner must fix P0/P1 findings before implementing",
+    "ESCALAR": "it needs a decision of the user"
+  },
+  "answer": "APROBAR",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule critic_approves_without_p0_p1 (DEC-051)",
+  "decider": "rule",
+  "rule": "critic_approves_without_p0_p1",
+  "facts": {
+    "verdict": "APROBAR",
+    "effective": "APROBAR",
+    "assumptions": [
+      {
+        "assumption": "La CLI de Dataform acepta en --vars varios pares clave=valor separados por coma, en compile y en run, y un valor con '/' llega entero.",
+        "practice": "La documentación oficial muestra `dataform compile --vars=SAMPLE_VAR=SAMPLE_VALUE,foo=bar` y lo mismo para `dataform run`; no documenta valores con ',' o '=', que el plan ya excluye por supuesto.",
+        "sources": [
+          "https://docs.cloud.google.com/dataform/docs/use-dataform-cli?hl=en"
+        ]
+      },
+      {
+        "assumption": "`${{ vars.PII_READERS || '[]' }}` da '[]' cuando la variable de repositorio no existe.",
+        "practice": "Según la documentación de contextos, una propiedad inexistente vale cadena vacía; la cadena vacía es falsa, así que `||` cae al valor por defecto. La conducta de `||` viene del conocimiento general de las expresiones, no de esta fuente.",
+        "sources": [
+          "https://docs.github.com/en/actions/reference/workflows-and-actions/contexts"
+        ]
+      },
+      {
+        "assumption": "Terraform lee TF_VAR_pii_readers=[] como una lista vacía de list(string).",
+        "practice": "Para los tipos complejos, Terraform lee el valor de TF_VAR_* como una expresión HCL (o JSON), así que `[]` y `[\"a\",\"b\"]` son válidos.",
+        "sources": [
+          "https://oneuptime.com/blog/post/2026-02-23-how-to-pass-variables-via-environment-variables-tf-var-in-terraform/markdown",
+          "https://developer.hashicorp.com/terraform/language/v1.1.x/configuration-0-11/variables"
+        ]
+      },
+      {
+        "assumption": "`dataform compile` y `dataform compile --json` no necesitan credenciales ni red (DEC-005).",
+        "practice": "Según la referencia de la CLI, compile solo produce el grafo en JSON y run/test son los que tocan BigQuery. Ninguna fuente lo dice explícitamente, pero el paso de CI y las pruebas de dataform/tests ya compilan sin credenciales.",
+        "sources": [
+          "https://docs.cloud.google.com/dataform/docs/reference/dataform-cli-reference"
+        ]
+      },
+      {
+        "assumption": "La prueba que corre dataform-ci.sh sin POLICY_TAG_RUT sale con 1 en el bucle de variables obligatorias, antes de crear credenciales o llamar a dataform.",
+        "practice": "En scripts de CI se validan las variables obligatorias al inicio y se sale antes de cualquier efecto secundario. No encontré fuentes específicas; la verificación del plan exige el código 1 y el nombre de la variable en stderr.",
+        "sources": []
+      }
+    ],
+    "findings": [
+      {
+        "id": "dataform-ci:comentario-job-exportador",
+        "severity": "P3",
+        "evidence_type": "opinión",
+        "evidence": "El paso 5 dice que POLICY_TAG_RUT es «output de Terraform que exporta el job apply»; la tarea dice que «deploy.yml ya exporta POLICY_TAG_RUT en el job release», y la sección Supuestos del plan dice lo mismo.",
+        "summary": "El comentario de cabecera nombraría como exportador al job apply, que produce el output, y no al job release, que define la variable de entorno que lee dataform-ci.sh. Es una imprecisión de documentación.",
+        "fix": "Redactar el comentario así: el job apply obtiene el output policy_tag_rut y el job release lo exporta como POLICY_TAG_RUT."
+      }
+    ],
+    "blocking": [],
+    "opinion_blockers": [],
+    "repeated": [],
+    "summary": "El plan cubre los cinco puntos de la tarea con los mismos touches: el mismo comando de compilación en ci.yml y deploy.yml, --vars en check-descriptions.mjs, POLICY_TAG_RUT obligatoria y combinada con raw_dataset en dataform-ci.sh, las pruebas en test_workflows.py y las variables TF_VAR_pii_readers/lector_impersonators en el job plan. Respeta REQ-014 E2/E5 (el placeholder cumple el formato de policy tag y compilar sin la variable sigue fallando), DEC-005 (verificación local, sin red; la prueba de salida corta antes de llamar a dataform) y DEC-004 (no cambia la autenticación). Los supuestos técnicos de más riesgo tienen respaldo en la documentación: --vars separadas por coma, una variable de Actions inexistente vale cadena vacía (el idiom `||` viene del conocimiento general de las expresiones) y TF_VAR con lista HCL. Solo encontré una imprecisión P3 en un comentario. Recomiendo aprobar."
+  },
+  "timestamp": "2026-10-23T04:02:20.332Z"
+}
