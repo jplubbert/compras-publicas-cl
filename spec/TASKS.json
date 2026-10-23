@@ -1714,9 +1714,9 @@
         "T-11",
         "T-12"
       ],
-      "status": "ready",
+      "status": "in_progress",
       "blocked_by": null,
-      "notes": "",
+      "notes": "Implementado según plans/T-14.md (commit 494dfd2). Pregunta abierta para el usuario (no es supuesto ni se resolvió en la tarea): REQ-014 dice que pii.sal es «legible solo por la cuenta de servicio de Dataform»; el ACL del dataset pii lo cumple (compras-dataform y projectOwners), pero compras-ci tiene roles/bigquery.admin de proyecto (T-03, DEC-003) y lee pii.sal, y la corrida de ci ejecuta generar_sal sobre la pii.sal de producción porque el sufijo de esquema no se aplica a la declaración. Opciones: (1) ajustar REQ-014 para incluir a CI y a los dueños y aceptar el riesgo; (2) tarea nueva con una sal propia de ci (pii_ci.sal y una variable de compilación para su dataset). Cambios fuera de touches pendientes: ci.yml (Dataform compile y TF_VAR_pii_readers/TF_VAR_lector_impersonators en el plan), el job checks de deploy.yml junto con ci.yml, scripts/ci/check-descriptions.mjs, scripts/ci/dataform-ci.sh y scripts/ci/tests/test_workflows.py (texto exacto en claims.manual_pending); sin ellos ci.yml y el job release fallan tras el merge, aunque el verify local queda verde. Detalles internos: el test REQ-011 E1 de check-descriptions compila con la variable y usa --graph; el paso de deploy.yml que exporta policy_tag_rut corre `terraform output -raw` después de tf-apply.sh, en el mismo job; migrar-proveedor-key.sh da por migrada licitacion_items si tiene proveedor_key_adjudicado; un override_resource en main.tftest.hcl le da a dato_personal su propio nombre para que la prueba padre-hija no sea trivial.",
       "touches": [
         "infra/",
         "dataform/",
@@ -1734,6 +1734,13 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:23:37.690Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "apply-result",
+          "at": "2026-10-23T03:26:12.569Z",
+          "reason": "resultado del implementador de T-14 vía autopilot (claude)"
         }
       ],
       "plan_review": {
@@ -1762,6 +1769,9 @@
         ],
         "opinion_blockers": [],
         "date": "2026-10-23"
+      },
+      "claims": {
+        "manual_pending": "Cambios fuera de touches, necesarios antes de que el PR pase ci.yml: (1) ci.yml, paso «Dataform compile», y el mismo paso del job checks de deploy.yml (test_deploy_checks_match_ci_checks exige que sean iguales, por eso deploy.yml no se cambió solo): `scripts/env.sh bash -c 'cd dataform && node_modules/.bin/dataform compile --vars=policy_tag_rut=projects/p/locations/us-central1/taxonomies/1/policyTags/2'`. (2) scripts/ci/check-descriptions.mjs, en compile(): agregar `--vars=policy_tag_rut=projects/p/locations/us-central1/taxonomies/1/policyTags/2` a los argumentos de `dataform compile --json` (npm run check:descriptions de ci.yml). (3) scripts/ci/dataform-ci.sh: agregar POLICY_TAG_RUT a las variables obligatorias (exit 1 si falta) y cambiar `--vars=raw_dataset=raw_ci` por `--vars=raw_dataset=raw_ci,policy_tag_rut=$POLICY_TAG_RUT` (deploy.yml ya exporta POLICY_TAG_RUT en el job release). (4) scripts/ci/tests/test_workflows.py: exigir `policy_tag_rut` en el nombre del paso de Dataform del job release y en el texto de scripts/ci/dataform-ci.sh. (5) ci.yml, job de terraform plan: env `TF_VAR_pii_readers: ${{ vars.PII_READERS || '[]' }}` y `TF_VAR_lector_impersonators: ${{ vars.LECTOR_IMPERSONATORS || '[]' }}`, para que el plan del PR no muestre como eliminados los bindings que deploy.yml aplica. Verificación de integración (después del deploy): scripts/it/migrar-proveedor-key.sh y scripts/it/policy-tags.sh (E4, E7, tag tras la corrida incremental, una fila en pii.sal). No se pudo correr `bash -n` sobre scripts/it/ (la guarda de acceso lo niega): conviene revisarlos con `bash -n` antes de usarlos."
       }
     },
     {
