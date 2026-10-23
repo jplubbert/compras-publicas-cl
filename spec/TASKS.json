@@ -1585,7 +1585,7 @@
         "DEC-005"
       ],
       "depends_on": [],
-      "status": "verified_auto",
+      "status": "reviewed",
       "blocked_by": null,
       "evidence": {
         "command": "scripts/env.sh bash -c 'uv run --frozen pytest scripts/ci/tests/test_t13_acceptance_red.py && npm run check:spec'",
@@ -1599,7 +1599,21 @@
         "timestamp": "2026-10-23T03:42:41+00:00",
         "result": "1/1 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-18/verify.log)"
       },
-      "review": null,
+      "review": {
+        "reviewer": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "REQ-013 E1–E4 cubiertos en tests/acceptance/T-13_benchmark.py; cada prueba cita REQ-013 y su caso. scripts/acceptance.sh sobre ese archivo da 4 fallas: E1 por ModuleNotFoundError de 'generate' y E2–E4 por el de 'report', como exige scripts/ci/tests/test_t13_acceptance_red.py. benchmarks/ solo contiene pyproject.toml, así que la prueba roja no se salta hoy. El sha256 de artifacts/T-18/verify.log coincide (1/1 pasan) y node scripts/check-spec.mjs da ok. No pude correr directamente uv run pytest sobre la prueba roja (permiso denegado en modo dontAsk); me apoyé en acceptance.sh y en el log de evidencia. Los commits de código de la tarea solo tocan los archivos de touches; los cambios de T-14 que aparecen en el rango vienen de otros commits. Sin red ni GCP (DEC-005). Observación no bloqueante: si T-13 crea solo uno de los dos módulos, la prueba roja falla en vez de saltarse; es coherente con la descripción ('cuando existan' ambos).",
+        "date": "2026-10-23",
+        "decision": {
+          "question_id": "review_verdict",
+          "decider": "rule",
+          "confidence": 1,
+          "threshold": 0.8,
+          "timestamp": "2026-10-23T03:43:26.794Z",
+          "rule": "review_approved_without_findings"
+        }
+      },
       "touches": [
         "tests/acceptance/T-13_benchmark.py",
         "scripts/ci/tests/test_t13_acceptance_red.py"
@@ -1648,6 +1662,13 @@
           "by": "record_evidence.py",
           "at": "2026-10-23T03:42:41+00:00",
           "reason": "verify con código 0: 1/1 pasan, 0 fallan"
+        },
+        {
+          "from": "verified_auto",
+          "to": "reviewed",
+          "by": "set-review",
+          "at": "2026-10-23T03:43:27.620Z",
+          "reason": "veredicto approved confirmado por el decisor"
         }
       ],
       "claims": {

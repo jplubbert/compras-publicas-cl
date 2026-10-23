@@ -896,3 +896,8 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - tests/acceptance/T-13_benchmark.py no se tocó en esta corrida (su diff ya lo aprobó el usuario, commit 99e38e9).
 - Verificado y cómo: `scripts/env.sh bash -c 'uv run --frozen pytest scripts/ci/tests/test_t13_acceptance_red.py && npm run check:spec'` → 1/1 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-18/verify.log), commit 31cd232.
 - Próxima acción autorizada: el revisor revisa T-18; después, T-13 implementa benchmarks/ hasta que T-13_benchmark.py pase en verde.
+
+## 2026-10-23 00:43 · revisor independiente (claude -p 2.1.295 (Claude Code)) vía autopilot
+- Hecho: revisión independiente de T-18 con contexto limpio (solo diff + REQ/DEC de la tarea). Veredicto: **approved** → estado `reviewed`. Hallazgos: sin hallazgos bloqueantes.
+- Verificado y cómo: veredicto completo en TASKS.json (`review` de T-18); salida íntegra en .autopilot/2026-10-23_004125/T-18-review-output.txt.
+- Próxima acción autorizada: continúa el autopilot; el usuario decide accepted después de la corrida.
