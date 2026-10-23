@@ -1738,40 +1738,26 @@
       ],
       "plan_review": {
         "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
-        "verdict": "REVISAR",
-        "effective": "REVISAR",
-        "round": 1,
+        "verdict": "APROBAR",
+        "effective": "APROBAR",
+        "round": 2,
         "plan": "plans/T-14.md",
-        "plan_sha": "c85b0335222ef4352a49532b18810779fe96edba",
-        "plan_commit": "5df8086",
+        "plan_sha": "be9110c60b37d59d9bddc7a7f41d8d08111847f1",
+        "plan_commit": "11bbd40",
         "findings": [
           {
-            "id": "req-014:dataform-sin-setcategory",
-            "severity": "P1",
-            "evidence_type": "fuente",
-            "evidence": "https://docs.cloud.google.com/iam/docs/roles-permissions/bigquery — roles/bigquery.dataEditor no incluye bigquery.tables.setCategory, que sí está en roles/bigquery.dataOwner (bigquery.tables.*). https://docs.cloud.google.com/bigquery/docs/column-level-security exige además datacatalog.taxonomies.get, y categoryFineGrainedReader solo trae datacatalog.categories.fineGrainedGet (https://docs.cloud.google.com/iam/docs/roles-permissions/datacatalog). El supuesto contrario está en plans/T-14.md:318.",
-            "summary": "El plan da a compras-dataform solo dataEditor sobre silver y gold y categoryFineGrainedReader sobre la tag. Sin bigquery.tables.setCategory ni datacatalog.taxonomies.get, la invocación de Dataform falla al asignar bigqueryPolicyTags a rut_persona_natural: E7 no termina SUCCEEDED y E4 no se puede comprobar. El verify local no lo detecta porque usa mock_provider."
-          },
-          {
-            "id": "req-014:tags-en-incremental-sin-respaldo",
+            "id": "ci:compilacion-sin-variable-fuera-de-touches",
             "severity": "P2",
-            "evidence_type": "fuente",
-            "evidence": "https://docs.cloud.google.com/dataform/docs/policy-tags — la guía solo muestra bigqueryPolicyTags con type: \"table\"; plans/T-14.md:325 supone que también se aplica a tablas incrementales.",
-            "summary": "silver.proveedores es incremental. Si Dataform no aplica o no actualiza la tag en el MERGE de una tabla incremental ya existente, el RUT de persona natural queda sin tag en silver. Solo policy-tags.sh lo detectaría, después del deploy."
+            "evidence_type": "opinión",
+            "evidence": "Paso 'Riesgos' del plan: ci.yml, scripts/ci/check-descriptions.mjs y scripts/ci/dataform-ci.sh compilan sin policy_tag_rut y quedan fuera de touches.",
+            "summary": "Con E5 la compilación sin la variable falla, así que tras el merge ci.yml y el job release quedan rojos hasta que alguien aplique los cambios fuera de touches. El verify local sigue verde y no lo detecta."
           },
           {
             "id": "req-014:sal-legible-por-ci",
             "severity": "P2",
-            "evidence_type": "archivo",
-            "evidence": "plans/T-14.md:319 — «compras-ci tiene roles/bigquery.admin… «legible solo por Dataform» se cumple en el ACL del dataset pii, no frente a ese rol de proyecto».",
-            "summary": "REQ-014 dice que pii.sal es «legible solo por la cuenta de servicio de Dataform». El plan reinterpreta el requisito como el ACL del dataset: compras-ci la lee y además la corrida de ci ejecuta generar_sal sobre la pii.sal de producción. Es una desviación del texto del REQ que el plan acepta sin decisión del usuario."
-          },
-          {
-            "id": "req-014:e4-mensaje-403-no-documentado",
-            "severity": "P3",
             "evidence_type": "opinión",
-            "evidence": "plans/T-14.md:253 exige HTTP 403 y que el cuerpo mencione la policy tag; la documentación de BigQuery no fija el código ni el texto del error.",
-            "summary": "Si BigQuery devuelve el error con otro código o con otro texto (por ejemplo, en el estado del job y no en el HTTP), E4 daría un falso fallo."
+            "evidence": "REQ-014 exige pii.sal 'legible solo por la cuenta de servicio de Dataform'; el plan reconoce que compras-ci (roles/bigquery.admin de proyecto) la lee y que la corrida ci usa la sal de producción.",
+            "summary": "El texto literal de REQ-014 no se cumple para CI ni para los dueños del proyecto; el plan no lo oculta y lo deja como pregunta al usuario en el resultado."
           }
         ],
         "opinion_blockers": [],
