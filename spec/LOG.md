@@ -1085,3 +1085,10 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Bloqueos nuevos: ninguno.
 - Motivo de parada: no hay tareas in_progress/ready/approved_for_impl con dependencias cerradas (saltadas en esta corrida: T-14).
 - Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.
+
+## 2026-10-23 · Claude (claude-opus-5-5) · sesión: T-21 (Pendiente deploy sin relanzar al implementador)
+- Creada en `specified` a pedido del usuario: T-21. Una tarea `in_progress` que solo espera un despliegue no vuelve a
+  pasar por el implementador en cada corrida: la corrida 2026-10-23_014926 gastó así en T-14 92.425 tokens para el tope y
+  1.128.552 de caché leída. Anotado en ella: el cambio es del orquestador que sdd-base copia a los proyectos; la
+  recomendación es hacerlo en sdd-base y traerlo con `upgrade.sh`.
+- Próxima acción autorizada: el usuario hace el despliegue de T-14 (con T-19 y T-20) y decide dónde se implementa T-21.

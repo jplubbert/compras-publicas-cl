@@ -2272,6 +2272,26 @@
       "claims": {
         "manual_pending": "Tras el merge a main: confirmar en GCP que pii_ci.sal tiene una fila después de la corrida de CI y que pii.sal no cambió; la verificación de integración scripts/it/dataform-ci.sh debe pasar a pii_ci.sal (fuera de los touches de T-20)."
       }
+    },
+    {
+      "id": "T-21",
+      "kind": "tooling",
+      "title": "Una tarea in_progress que solo espera un despliegue no vuelve a pasar por el implementador en cada corrida",
+      "description": "Pedido del usuario, 2026-10-23. Hoy una tarea que el implementador dejó in_progress con «deploy» (Pendiente deploy) sigue elegible: en cada corrida el orquestador vuelve a lanzar su implementador, que solo confirma que falta el despliegue, y la salta. La corrida 2026-10-23_014926 gastó así 92.425 tokens para el tope (entrada 38 · salida 8.693 · caché escrita 83.694) y 1.128.552 de caché leída en T-14. Cambio en scripts/autopilot.sh: el orquestador guarda en la tarea que espera un despliegue (desde el resultado del implementador con «deploy», junto al commit en que lo pidió) y, mientras no haya commits nuevos que toquen sus touches ni cambie su estado a mano, no la elige ni lanza a su implementador; el resumen la sigue listando en «Pendiente deploy». Cuando el usuario despliega, la devuelve a la cola con set-status (o un comando nuevo, p. ej. deployed T-NN --by NOMBRE) y la próxima corrida la retoma. Pruebas que citan T-21 con los dobles de agente: una tarea en Pendiente deploy no relanza a su implementador en la corrida siguiente y sigue en el resumen; tras marcarla desplegada, se retoma.",
+      "reqs": [],
+      "decisions": [],
+      "depends_on": [],
+      "status": "specified",
+      "blocked_by": null,
+      "evidence": null,
+      "review": null,
+      "touches": [
+        "scripts/autopilot.sh",
+        "scripts/lib/autopilot-tasks.mjs",
+        "scripts/test/autopilot-tasks.test.mjs"
+      ],
+      "verify": "node --test --test-name-pattern=T-21 scripts/test/autopilot-tasks.test.mjs && npm run check:spec",
+      "notes": "2026-10-23: creada en sesión a pedido del usuario, en specified. Ojo: scripts/autopilot.sh y scripts/lib/ son el orquestador que sdd-base copia a los proyectos (bootstrap/upgrade.sh): un cambio hecho solo aquí diverge de sdd-base y un upgrade lo pisaría. Recomendación de la sesión: implementarla en sdd-base y traerla con upgrade.sh; queda aquí como registro del pedido hasta que el usuario decida dónde se hace."
     }
   ]
 }
