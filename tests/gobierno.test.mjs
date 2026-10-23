@@ -24,6 +24,7 @@ const id = (t) => `${t.schema}.${t.name}`;
 const byId = (g) => Object.fromEntries((g.tables ?? []).map((t) => [id(t.target), t]));
 const graph = compile(`--vars=policy_tag_rut=${TAG}`);
 const ci = compile('--schema-suffix=ci', `--vars=raw_dataset=raw_ci,policy_tag_rut=${TAG}`);
+const ciRun = compile('--schema-suffix=ci', `--vars=raw_dataset=raw_ci,sal_dataset=pii_ci,policy_tag_rut=${TAG}`);
 const tables = byId(graph);
 const tablesCi = byId(ci);
 const columns = (t) => t.actionDescriptor?.columns ?? [];
@@ -138,4 +139,50 @@ test('DEC-008: pii.sal is declared in pii, also with the ci suffix, and generar_
     assert.ok(q.includes('INSERT INTO `') && q.includes('.pii.sal`'), q);
     assert.ok(q.includes('WHERE NOT EXISTS (SELECT 1 FROM'), q);
   }
+});
+
+const SQL_FIELDS = ['query', 'incrementalQuery', 'preOps', 'postOps', 'incrementalPreOps', 'incrementalPostOps'];
+const sqlText = (v) => (Array.isArray(v) ? v.join('\n') : v);
+
+function sqlDe(g) {
+  const out = [];
+  for (const t of g.tables ?? []) {
+    for (const f of SQL_FIELDS) if (t[f]) out.push([id(t.target), sqlText(t[f])]);
+  }
+  for (const o of g.operations ?? []) out.push([id(o.target), (o.queries ?? []).join('\n')]);
+  for (const a of g.assertions ?? []) out.push([id(a.target), a.query]);
+  return out;
+}
+
+const declared = (g) => (g.declarations ?? []).map((d) => id(d.target));
+
+test('REQ-014 E8: with sal_dataset=pii_ci no action reads or writes pii.sal', () => {
+  for (const [nombre, sql] of sqlDe(ciRun)) assert.ok(!sql.includes('.pii.sal`'), nombre);
+  for (const a of [...(ciRun.tables ?? []), ...(ciRun.operations ?? []), ...(ciRun.assertions ?? [])]) {
+    assert.ok(!(a.dependencyTargets ?? []).map(id).includes('pii.sal'), id(a.target));
+  }
+  assert.ok(declared(ciRun).includes('pii_ci.sal'));
+  assert.ok(!declared(ciRun).includes('pii.sal'));
+});
+
+test('REQ-014 E8: generar_sal and proveedor_key use pii_ci.sal', () => {
+  const op = (ciRun.operations ?? []).find((o) => o.target.name === 'generar_sal');
+  const salOp = `\`${op.target.database}.pii_ci.sal\``;
+  const q = op.queries.join('\n');
+  assert.ok(q.includes(`INSERT INTO ${salOp}`), q);
+  assert.ok(q.includes(`SELECT 1 FROM ${salOp}`), q);
+  const t = byId(ciRun);
+  for (const m of ['proveedores', 'ordenes_compra', 'licitacion_items']) {
+    const tabla = t[`silver_ci.${m}`];
+    const sal = `\`${tabla.target.database}.pii_ci.sal\``;
+    for (const sql of [tabla.query, tabla.incrementalQuery].filter(Boolean)) {
+      assert.ok(sql.includes(`TO_HEX(SHA256(CONCAT((SELECT sal FROM ${sal})`), m);
+    }
+    assert.ok(tabla.dependencyTargets.map(id).includes('pii_ci.sal'), m);
+  }
+});
+
+test('REQ-014: sal_dataset defaults to pii', () => {
+  for (const [nombre, sql] of sqlDe(graph)) assert.ok(!sql.includes('.pii_ci.sal`'), nombre);
+  assert.ok(declared(graph).includes('pii.sal'));
 });

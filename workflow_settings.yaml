@@ -3,6 +3,7 @@ defaultProject: compras-publicas-cl
 defaultLocation: us-central1
 defaultDataset: silver
 defaultAssertionDataset: quarantine
-# Default for local and CI compiles; the CI run passes --vars=raw_dataset=raw_ci.
+# Defaults for local and release compiles; the CI run passes --vars=raw_dataset=raw_ci,sal_dataset=pii_ci.
 vars:
   raw_dataset: raw
+  sal_dataset: pii
