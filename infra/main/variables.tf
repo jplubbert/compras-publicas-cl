@@ -43,3 +43,27 @@ variable "time_zone" {
   type        = string
   default     = "America/Santiago"
 }
+
+# REQ-014: members outside the pipeline that may read the natural-person RUT (deploy.yml: variable PII_READERS).
+variable "pii_readers" {
+  description = "Members that may read the columns tagged dato_personal.rut (user:, group:, serviceAccount: or domain:)."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for m in var.pii_readers : can(regex("^(user|group|serviceAccount|domain):.+", m))])
+    error_message = "pii_readers: cada miembro debe empezar por user:, group:, serviceAccount: o domain:."
+  }
+}
+
+# Members that may mint tokens of compras-lector to check REQ-014 E4 (deploy.yml: variable LECTOR_IMPERSONATORS).
+variable "lector_impersonators" {
+  description = "Members that may impersonate compras-lector (user:, group:, serviceAccount: or domain:)."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for m in var.lector_impersonators : can(regex("^(user|group|serviceAccount|domain):.+", m))])
+    error_message = "lector_impersonators: cada miembro debe empezar por user:, group:, serviceAccount: o domain:."
+  }
+}

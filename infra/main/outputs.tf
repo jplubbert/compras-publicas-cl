@@ -94,6 +94,36 @@ output "job_invokers" {
   value       = module.iam.job_invokers
 }
 
+output "policy_tag_rut" {
+  description = "Full name of the dato_personal.rut policy tag; deploy.yml passes it to Dataform (REQ-014)."
+  value       = module.governance.policy_tag_rut
+}
+
+output "taxonomy" {
+  description = "Taxonomy of the personal data (REQ-014)."
+  value       = module.governance.taxonomy
+}
+
+output "policy_tags" {
+  description = "Policy tags of the taxonomy."
+  value       = module.governance.policy_tags
+}
+
+output "policy_tag_bindings" {
+  description = "Fine-grained reader grants on the rut policy tag."
+  value       = module.governance.policy_tag_bindings
+}
+
+output "sal_table" {
+  description = "Salt table of proveedor_key (DEC-008)."
+  value       = module.governance.sal_table
+}
+
+output "release_config" {
+  description = "Dataform release configuration of main (T-11, REQ-014)."
+  value       = module.orchestration.release_config
+}
+
 output "enabled_apis" {
   description = "APIs enabled by this root."
   value       = module.apis.services

@@ -12,8 +12,14 @@ const gold = createRequire(import.meta.url)(join(project, 'includes/gold.js'));
 const MODELS = ['fct_licitaciones', 'fct_ordenes_compra', 'dim_comprador', 'dim_proveedor', 'mart_organismo_mes'];
 const FACTS = ['fct_licitaciones', 'fct_ordenes_compra'];
 
+const TAG = 'projects/p/locations/us-central1/taxonomies/1/policyTags/2';
+
+// One --vars flag: the test's variables plus policy_tag_rut, which every compilation needs (REQ-014 E5).
 function compile(...args) {
-  const out = execFileSync(join(project, 'node_modules/.bin/dataform'), ['compile', '--json', ...args], {
+  const vars = args.filter((a) => a.startsWith('--vars=')).map((a) => a.slice('--vars='.length));
+  const rest = args.filter((a) => !a.startsWith('--vars='));
+  const flags = [...rest, `--vars=${[...vars, `policy_tag_rut=${TAG}`].join(',')}`];
+  const out = execFileSync(join(project, 'node_modules/.bin/dataform'), ['compile', '--json', ...flags], {
     cwd: project,
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
@@ -116,15 +122,12 @@ test('gold.js builds the daily rates, the three amounts and fx_imputado', () => 
     assert.ok(montos.includes(s), s);
   }
   assert.equal(gold.fxImputadoSql('a', 'b'), 'IFNULL(a < b, FALSE)');
-  assert.equal(gold.proveedorKeySql('r'), 'r');
 });
 
-test('dim_proveedor splits the RUT with the S-04 rule and has no policy tags yet', () => {
+test('dim_proveedor takes the key and the split RUT from silver.proveedores', () => {
   const t = tables['gold.dim_proveedor'];
-  const reglas = createRequire(import.meta.url)(join(project, 'includes/reglas.js'));
   for (const c of ['proveedor_key', 'rut_empresa', 'rut_persona_natural']) assert.ok(declaredColumns(t).includes(c), c);
-  for (const c of t.actionDescriptor.columns) assert.ok(!c.bigqueryPolicyTags?.length, c.path.join('.'));
-  assert.ok(t.query.includes(reglas.esPersonaNaturalSql('rut_proveedor')));
+  assert.ok(t.dependencyTargets.map(id).includes('silver.proveedores'));
 });
 
 for (const m of MODELS) {

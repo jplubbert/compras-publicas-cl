@@ -6,6 +6,8 @@ resource "google_service_account" "this" {
     dataform  = "compras-dataform"
     workflow  = "compras-workflow"
     scheduler = "compras-scheduler"
+    # T-14: reads silver and gold without the fine-grained reader role, to check REQ-014 E4.
+    lector = "compras-lector"
   }
 
   project      = var.project_id
@@ -24,6 +26,9 @@ locals {
     scheduler-workflowsinvoker = { role = "roles/workflows.invoker", component = "scheduler" }
     workflow-dataformeditor    = { role = "roles/dataform.editor", component = "workflow" }
     workflow-runviewer         = { role = "roles/run.viewer", component = "workflow" }
+    # T-14: datacatalog.taxonomies.get, needed to set a policy tag on a column.
+    dataform-datacatalogviewer = { role = "roles/datacatalog.viewer", component = "dataform" }
+    lector-jobuser             = { role = "roles/bigquery.jobUser", component = "lector" }
   }
 
   # CI creates resources that run as these accounts (repository, Workflow, Scheduler job).
@@ -38,6 +43,9 @@ locals {
     { role = "roles/bigquery.dataViewer", member = local.members["dataform"] },
   ]
   dataform_writes = [{ role = "roles/bigquery.dataEditor", member = local.members["dataform"] }]
+  # T-14: dataOwner carries bigquery.tables.setCategory, needed to set bigqueryPolicyTags.
+  dataform_owns = [{ role = "roles/bigquery.dataOwner", member = local.members["dataform"] }]
+  lector_reads  = [{ role = "roles/bigquery.dataViewer", member = local.members["lector"] }]
 }
 
 resource "google_project_iam_member" "this" {
@@ -69,6 +77,15 @@ resource "google_service_account_iam_member" "ci_actas_pipeline" {
   service_account_id = google_service_account.this[each.key].name
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:compras-ci@${var.project_id}.iam.gserviceaccount.com"
+}
+
+# Who may act as compras-lector for REQ-014 E4 (the user, with lector_impersonators).
+resource "google_service_account_iam_member" "lector_token" {
+  for_each = toset(var.lector_impersonators)
+
+  service_account_id = google_service_account.this["lector"].name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = each.value
 }
 
 # Dataform service agent: reads the GitHub token and runs invocations as compras-dataform (T-02 §(a), DEC-009).

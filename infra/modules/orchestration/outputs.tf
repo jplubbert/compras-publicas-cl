@@ -30,3 +30,13 @@ output "orchestration" {
     }
   }
 }
+
+output "release_config" {
+  description = "Dataform release configuration of main."
+  value = {
+    git_commitish    = google_dataform_repository_release_config.main.git_commitish
+    default_database = google_dataform_repository_release_config.main.code_compilation_config[0].default_database
+    default_location = google_dataform_repository_release_config.main.code_compilation_config[0].default_location
+    vars             = google_dataform_repository_release_config.main.code_compilation_config[0].vars
+  }
+}

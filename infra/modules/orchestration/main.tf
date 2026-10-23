@@ -28,6 +28,26 @@ resource "google_workflows_workflow" "daily" {
     DATAFORM_REPOSITORY      = google_dataform_repository.this.name
     DATAFORM_SERVICE_ACCOUNT = var.dataform_service_account_email
     RAW_DATASET              = var.raw_dataset
+    POLICY_TAG_RUT           = var.policy_tag_rut
+  }
+}
+
+# Compilation settings of main (T-02 §(a)); no cron_schedule: the Workflow still starts the daily run (DEC-002).
+resource "google_dataform_repository_release_config" "main" {
+  provider      = google-beta
+  project       = var.project_id
+  region        = var.region
+  repository    = google_dataform_repository.this.name
+  name          = "main"
+  git_commitish = "main"
+
+  code_compilation_config {
+    default_database = var.project_id
+    default_location = var.region
+    vars = {
+      raw_dataset    = var.raw_dataset
+      policy_tag_rut = var.policy_tag_rut
+    }
   }
 }
 

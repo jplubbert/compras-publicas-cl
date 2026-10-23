@@ -22,9 +22,10 @@ module "apis" {
 }
 
 module "iam" {
-  source     = "../modules/iam"
-  project_id = local.project_id
-  depends_on = [module.apis]
+  source               = "../modules/iam"
+  project_id           = local.project_id
+  lector_impersonators = var.lector_impersonators
+  depends_on           = [module.apis]
 }
 
 module "storage" {
@@ -50,6 +51,18 @@ module "bigquery" {
     "mindicador_dolar",
   ]
   depends_on = [module.apis]
+}
+
+# REQ-014: policy tag of the natural-person RUT and the salt table of proveedor_key (DEC-008).
+module "governance" {
+  source          = "../modules/governance"
+  project_id      = local.project_id
+  region          = local.region
+  pii_dataset_id  = "pii"
+  pii_readers     = var.pii_readers
+  dataform_member = "serviceAccount:${module.iam.emails["dataform"]}"
+  ci_member       = "serviceAccount:compras-ci@${local.project_id}.iam.gserviceaccount.com"
+  depends_on      = [module.apis, module.bigquery]
 }
 
 # The jobs wait for every IAM grant (the CI actAs on compras-ingest included) and the Run and Artifact Registry APIs;
@@ -94,6 +107,7 @@ module "orchestration" {
   alert_channel_ids               = [data.google_monitoring_notification_channel.alert_email.name]
   schedule                        = var.schedule
   time_zone                       = var.time_zone
+  policy_tag_rut                  = module.governance.policy_tag_rut
   depends_on                      = [module.apis, module.iam, module.secrets]
 }
 

@@ -13,7 +13,7 @@ const MODELS = {
   ordenes_compra: ['codigo_oc'],
   licitacion_items: ['codigo_licitacion', 'correlativo'],
   compradores: ['codigo_organismo'],
-  proveedores: ['rut_proveedor'],
+  proveedores: ['proveedor_key'],
   indicadores_diarios: ['serie', 'fecha'],
 };
 const RAW = [
@@ -26,8 +26,14 @@ const RAW = [
   'mindicador_dolar',
 ];
 
+const TAG = 'projects/p/locations/us-central1/taxonomies/1/policyTags/2';
+
+// One --vars flag: the test's variables plus policy_tag_rut, which every compilation needs (REQ-014 E5).
 function compile(...args) {
-  const out = execFileSync(join(project, 'node_modules/.bin/dataform'), ['compile', '--json', ...args], {
+  const vars = args.filter((a) => a.startsWith('--vars=')).map((a) => a.slice('--vars='.length));
+  const rest = args.filter((a) => !a.startsWith('--vars='));
+  const flags = [...rest, `--vars=${[...vars, `policy_tag_rut=${TAG}`].join(',')}`];
+  const out = execFileSync(join(project, 'node_modules/.bin/dataform'), ['compile', '--json', ...flags], {
     cwd: project,
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
@@ -39,7 +45,12 @@ function compile(...args) {
 
 const graph = compile();
 const tables = Object.fromEntries((graph.tables ?? []).map((t) => [`${t.target.schema}.${t.target.name}`, t]));
-const declared = (g) => (g.declarations ?? []).map((d) => `${d.target.schema}.${d.target.name}`).sort();
+// The raw declarations; pii.sal (REQ-014) is the only other one.
+const declared = (g) =>
+  (g.declarations ?? [])
+    .map((d) => `${d.target.schema}.${d.target.name}`)
+    .filter((n) => n !== 'pii.sal')
+    .sort();
 
 for (const [name, key] of Object.entries(MODELS)) {
   test(`REQ-008 E1: silver.${name} is incremental by ${key.join(' + ')} and merges with its own rows before QUALIFY`, () => {

@@ -32,7 +32,7 @@ test('the check digit follows modulo 11 with K for 10', () => {
   assert.equal(reglas.rutValido('abc'), false);
 });
 
-test('S-04: a RUT body below 50,000,000 or non-numeric is a natural person, in JS and in SQL', () => {
+test('REQ-014 E3 / S-04: a RUT body below 50,000,000 or non-numeric is a natural person, in JS and in SQL', () => {
   assert.equal(reglas.esPersonaNatural('49.999.999-2'), true);
   assert.equal(reglas.esPersonaNatural('50.000.000-7'), false);
   assert.equal(reglas.esPersonaNatural('abc'), true);

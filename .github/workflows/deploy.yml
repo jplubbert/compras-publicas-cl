@@ -54,7 +54,12 @@ jobs:
       TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
       TF_VAR_region: ${{ vars.GCP_REGION }}
       TF_VAR_github_repository: ${{ github.repository }}
+      # REQ-014: HCL lists such as ["group:analistas@example.com"]; empty when the variable is not set.
+      TF_VAR_pii_readers: ${{ vars.PII_READERS || '[]' }}
+      TF_VAR_lector_impersonators: ${{ vars.LECTOR_IMPERSONATORS || '[]' }}
       STATE_BACKUP_BUCKET: ${{ vars.STATE_BACKUP_BUCKET }}
+    outputs:
+      policy_tag_rut: ${{ steps.governance.outputs.policy_tag_rut }}
     steps:
       - uses: actions/checkout@v5
       - name: Set up tools
@@ -67,6 +72,13 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
       - name: Terraform apply
         run: scripts/it/tf-apply.sh
+      # The full name of the rut policy tag, a compilation variable of the Dataform run in ci (REQ-014).
+      - name: Export policy_tag_rut
+        id: governance
+        run: |
+          tag=$(scripts/env.sh terraform -chdir=infra/main output -raw policy_tag_rut)
+          test -n "$tag"
+          echo "policy_tag_rut=$tag" >> "$GITHUB_OUTPUT"
       - name: Back up Terraform state
         run: |
           : "${STATE_BACKUP_BUCKET:?STATE_BACKUP_BUCKET is required}"
@@ -92,6 +104,7 @@ jobs:
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_REGION: ${{ vars.GCP_REGION }}
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/compras/ingest:${{ github.sha }}
+      POLICY_TAG_RUT: ${{ needs.apply.outputs.policy_tag_rut }}
     steps:
       - uses: actions/checkout@v5
       - name: Set up tools
@@ -110,6 +123,7 @@ jobs:
         run: |
           gcloud run jobs update compras-mercadopublico --image="$IMAGE" --region="$GCP_REGION" --project="$GCP_PROJECT_ID"
           gcloud run jobs update compras-indicadores --image="$IMAGE" --region="$GCP_REGION" --project="$GCP_PROJECT_ID"
-      # dataform run --schema-suffix=ci --vars=raw_dataset=raw_ci, every action with its assertions (no --tags).
-      - name: Dataform run in ci (--schema-suffix=ci --vars=raw_dataset=raw_ci)
+      # dataform run --schema-suffix=ci --vars=raw_dataset=raw_ci,policy_tag_rut=…, every action with its assertions
+      # (no --tags).
+      - name: Dataform run in ci (--schema-suffix=ci --vars=raw_dataset=raw_ci,policy_tag_rut=$POLICY_TAG_RUT)
         run: scripts/env.sh scripts/ci/dataform-ci.sh

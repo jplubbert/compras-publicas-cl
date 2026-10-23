@@ -11,11 +11,6 @@ function filtroParticionSql(desde) {
   return `fecha_documento >= DATE '${desde}'`;
 }
 
-/** Supplier key; in T-12 it is the normalized RUT, T-14 replaces it with the salted hash (DEC-008). */
-function proveedorKeySql(rut) {
-  return `${rut}`;
-}
-
 /**
  * One row per calendar day from desde to D+1: the exact UF of the day (NULL without observation or ND) and the last
  * observed dollar up to that day with its date.
@@ -50,7 +45,6 @@ module.exports = {
   PARTICION,
   CLUSTER,
   filtroParticionSql,
-  proveedorKeySql,
   tasasSql,
   fxImputadoSql,
   montosSql,

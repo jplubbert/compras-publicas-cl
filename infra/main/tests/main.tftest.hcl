@@ -12,6 +12,25 @@ mock_provider "google" {
       name = "projects/demo-proj/notificationChannels/1"
     }
   }
+  mock_resource "google_data_catalog_taxonomy" {
+    defaults = {
+      id   = "projects/demo-proj/locations/us-central1/taxonomies/1"
+      name = "projects/demo-proj/locations/us-central1/taxonomies/1"
+    }
+  }
+  mock_resource "google_data_catalog_policy_tag" {
+    defaults = {
+      name = "projects/demo-proj/locations/us-central1/taxonomies/1/policyTags/2"
+    }
+  }
+}
+
+# The parent tag gets its own name, so the parent-child link is not trivially true.
+override_resource {
+  target = module.governance.google_data_catalog_policy_tag.dato_personal
+  values = {
+    name = "projects/demo-proj/locations/us-central1/taxonomies/1/policyTags/1"
+  }
 }
 mock_provider "google-beta" {
   mock_resource "google_project_service_identity" {
@@ -293,9 +312,9 @@ run "t11_workflow" {
     error_message = "the Workflow source must be orchestration/daily.yaml untouched"
   }
   assert {
-    condition = alltrue([for e in ["JOB_MERCADOPUBLICO", "JOB_INDICADORES", "DATAFORM_REPOSITORY", "DATAFORM_SERVICE_ACCOUNT", "RAW_DATASET"] :
+    condition = alltrue([for e in ["JOB_MERCADOPUBLICO", "JOB_INDICADORES", "DATAFORM_REPOSITORY", "DATAFORM_SERVICE_ACCOUNT", "RAW_DATASET", "POLICY_TAG_RUT"] :
     contains(output.orchestration.workflow.env_names, e)])
-    error_message = "the Workflow needs the job, repository, Dataform account and raw dataset env vars"
+    error_message = "the Workflow needs the job, repository, Dataform account, raw dataset and policy tag env vars"
   }
 }
 
@@ -391,5 +410,158 @@ run "t11_horario_variable" {
   assert {
     condition     = output.orchestration.scheduler.schedule == "0 22 * * *"
     error_message = "the Scheduler must take var.schedule"
+  }
+}
+
+# REQ-014 E1: taxonomy compras_publicas with fine-grained access control and the tag dato_personal.rut.
+run "t14_e1_taxonomia" {
+  command = apply
+  variables {
+    pii_readers = ["group:analistas@example.com"]
+  }
+
+  assert {
+    condition = (output.taxonomy.display_name == "compras_publicas"
+      && tolist(output.taxonomy.activated_policy_types) == tolist(["FINE_GRAINED_ACCESS_CONTROL"])
+    && output.taxonomy.region == "us-central1")
+    error_message = "the taxonomy must be compras_publicas, with FINE_GRAINED_ACCESS_CONTROL, in var.region"
+  }
+  assert {
+    condition     = output.policy_tags["rut"].parent_policy_tag == output.policy_tags["dato_personal"].name
+    error_message = "the tag rut must be a child of dato_personal"
+  }
+  assert {
+    condition     = output.policy_tags["dato_personal"].parent_policy_tag == null || output.policy_tags["dato_personal"].parent_policy_tag == ""
+    error_message = "dato_personal must be a root tag"
+  }
+  assert {
+    condition     = output.policy_tag_rut == output.policy_tags["rut"].name && endswith(output.policy_tag_rut, "/policyTags/2")
+    error_message = "policy_tag_rut must be the full name of the rut tag"
+  }
+}
+
+# REQ-014 E1: the fine-grained reader role on rut only for pii_readers, Dataform and CI.
+run "t14_e1_bindings" {
+  command = apply
+  variables {
+    pii_readers = ["group:analistas@example.com"]
+  }
+
+  assert {
+    condition = toset([for b in output.policy_tag_bindings : b.member]) == toset([
+      "group:analistas@example.com",
+      "serviceAccount:${output.service_accounts["dataform"]}",
+      "serviceAccount:compras-ci@demo-proj.iam.gserviceaccount.com",
+    ])
+    error_message = "only pii_readers and the Dataform and CI accounts may read the rut tag"
+  }
+  assert {
+    condition = alltrue([for b in output.policy_tag_bindings :
+    b.role == "roles/datacatalog.categoryFineGrainedReader" && b.policy_tag == output.policy_tag_rut])
+    error_message = "every grant is categoryFineGrainedReader on the rut tag"
+  }
+}
+
+run "t14_e1_bindings_sin_pii_readers" {
+  command = apply
+
+  assert {
+    condition = toset([for b in output.policy_tag_bindings : b.member]) == toset([
+      "serviceAccount:${output.service_accounts["dataform"]}",
+      "serviceAccount:compras-ci@demo-proj.iam.gserviceaccount.com",
+    ])
+    error_message = "without pii_readers only the Dataform and CI accounts read the rut tag"
+  }
+}
+
+run "t14_pii_readers_invalido" {
+  command = plan
+  variables {
+    pii_readers = ["analistas@example.com"]
+  }
+  expect_failures = [var.pii_readers]
+}
+
+# Dataform needs bigquery.tables.setCategory on silver and gold and datacatalog.taxonomies.get to set the tag.
+run "t14_dataform_asigna_tags" {
+  command = apply
+
+  assert {
+    condition = alltrue([for k in ["silver", "gold"] :
+    contains(output.dataset_access[k], { role = "roles/bigquery.dataOwner", member = "serviceAccount:${output.service_accounts["dataform"]}" })])
+    error_message = "Dataform needs bigquery.tables.setCategory (dataOwner) on silver and gold"
+  }
+  assert {
+    condition = alltrue([for k in ["silver", "gold"] :
+    anytrue([for a in output.datasets[k].access : a.role == "OWNER" && a.user_by_email == output.service_accounts["dataform"]])])
+    error_message = "silver and gold must grant OWNER to the Dataform account (bigquery.tables.setCategory)"
+  }
+  assert {
+    condition = contains([for b in output.project_bindings : b.role if b.member == "serviceAccount:${output.service_accounts["dataform"]}"],
+    "roles/datacatalog.viewer")
+    error_message = "Dataform needs datacatalog.taxonomies.get (datacatalog.viewer) in the project"
+  }
+}
+
+# DEC-008: empty salt table in pii; only the pipeline writes it (the e6 checks above keep pii closed).
+run "t14_sal" {
+  command = plan
+
+  assert {
+    condition = (output.sal_table.dataset_id == "pii" && output.sal_table.table_id == "sal"
+    && output.sal_table.deletion_protection && output.sal_table.columns == ["sal"])
+    error_message = "pii.sal must exist, be protected and have the single column sal"
+  }
+}
+
+run "t14_pii_sin_owner_de_dataform" {
+  command = apply
+
+  assert {
+    condition     = !anytrue([for a in output.datasets["pii"].access : a.role == "OWNER" && a.user_by_email == output.service_accounts["dataform"]])
+    error_message = "Dataform must keep WRITER, not OWNER, on pii"
+  }
+  assert {
+    condition     = anytrue([for a in output.datasets["pii"].access : a.role == "WRITER" && a.user_by_email == output.service_accounts["dataform"]])
+    error_message = "Dataform must write pii (generar_sal)"
+  }
+}
+
+# REQ-014: policy_tag_rut reaches the Dataform compilation of the release config.
+run "t14_policy_tag_en_dataform" {
+  command = apply
+
+  assert {
+    condition = (output.release_config.vars["policy_tag_rut"] == output.policy_tag_rut
+    && output.release_config.vars["raw_dataset"] == "raw" && output.release_config.git_commitish == "main")
+    error_message = "the release config compiles main with raw_dataset and policy_tag_rut"
+  }
+  assert {
+    condition     = output.release_config.default_database == "demo-proj" && output.release_config.default_location == "us-central1"
+    error_message = "the release config compiles into the project and var.region"
+  }
+}
+
+# REQ-014 E4: compras-lector reads silver and gold, holds no fine-grained role and never sees pii.
+run "t14_lector" {
+  command = apply
+
+  assert {
+    condition     = [for b in output.project_bindings : b.role if b.member == "serviceAccount:${output.service_accounts["lector"]}"] == ["roles/bigquery.jobUser"]
+    error_message = "compras-lector may only hold bigquery.jobUser at project level"
+  }
+  assert {
+    condition = alltrue([for k in ["silver", "gold"] :
+    contains(output.dataset_access[k], { role = "roles/bigquery.dataViewer", member = "serviceAccount:${output.service_accounts["lector"]}" })])
+    error_message = "compras-lector must read silver and gold"
+  }
+  assert {
+    condition = alltrue([for k in ["raw", "raw_ci", "quarantine", "quarantine_ci", "pii"] :
+    !anytrue([for a in output.datasets[k].access : a.user_by_email == output.service_accounts["lector"]])])
+    error_message = "compras-lector must not reach raw, quarantine or pii"
+  }
+  assert {
+    condition     = !contains([for b in output.policy_tag_bindings : b.member], "serviceAccount:${output.service_accounts["lector"]}")
+    error_message = "compras-lector must not read the rut tag"
   }
 }

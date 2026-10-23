@@ -96,8 +96,8 @@ def test_compilacion_desde_main_con_vars():
     assert s["args"]["body"]["gitCommitish"] == "main"
     config = s["args"]["body"]["codeCompilationConfig"]
     assert "defaultDatabase" in config
-    # T-14 adds the policy_tag_rut assertion here.
     assert "raw_dataset" in config["vars"]
+    assert config["vars"]["policy_tag_rut"] == "${policy_tag_rut}"
 
 
 def test_invocacion_silver_y_gold():
@@ -152,5 +152,6 @@ def test_variables_de_entorno():
         "DATAFORM_REPOSITORY",
         "DATAFORM_SERVICE_ACCOUNT",
         "RAW_DATASET",
+        "POLICY_TAG_RUT",
     }
     assert user == declared

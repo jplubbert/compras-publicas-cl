@@ -2,6 +2,7 @@ config {
   type: "incremental",
   schema: "silver",
   tags: ["silver"],
+  dependencies: ["generar_sal"],
   uniqueKey: ["codigo_licitacion", "correlativo"],
   assertions: {
     uniqueKey: ["codigo_licitacion", "correlativo"],
@@ -21,7 +22,7 @@ config {
     descripcion: "Descripción del ítem escrita por el comprador",
     unidad_medida: "Unidad de medida de la cantidad pedida",
     cantidad: "Cantidad pedida del ítem",
-    rut_proveedor_adjudicado: "RUT del proveedor adjudicado, sin puntos ni espacios y con el dígito verificador en mayúscula; nulo si no hay adjudicación",
+    proveedor_key_adjudicado: "Clave del proveedor adjudicado: hash SHA-256 en hex de la sal de pii.sal y el RUT normalizado (DEC-008); nula si no hay adjudicación",
     cantidad_adjudicada: "Cantidad adjudicada del ítem",
     monto_unitario: "Monto unitario adjudicado en la moneda de la licitación",
     run_id: "Identificador de la corrida de ingesta que trajo esta versión",
@@ -34,7 +35,7 @@ config {
 js {
   const columnas = [
     "codigo_licitacion", "correlativo", "codigo_producto", "nombre_producto", "descripcion", "unidad_medida", "cantidad",
-    "rut_proveedor_adjudicado", "cantidad_adjudicada", "monto_unitario", "run_id", "_ingest_date", "ingested_at",
+    "proveedor_key_adjudicado", "cantidad_adjudicada", "monto_unitario", "run_id", "_ingest_date", "ingested_at",
     "fecha_cambio"
   ];
 }
@@ -48,7 +49,7 @@ WITH nuevas AS (
     JSON_VALUE(item, '$.Descripcion') AS descripcion,
     JSON_VALUE(item, '$.UnidadMedida') AS unidad_medida,
     ${silver.numericSql("JSON_VALUE(item, '$.Cantidad')")} AS cantidad,
-    ${silver.rutSql("JSON_VALUE(item, '$.Adjudicacion.RutProveedor')")} AS rut_proveedor_adjudicado,
+    ${gobierno.proveedorKeySql(silver.rutSql("JSON_VALUE(item, '$.Adjudicacion.RutProveedor')"), ref("sal"))} AS proveedor_key_adjudicado,
     ${silver.numericSql("JSON_VALUE(item, '$.Adjudicacion.Cantidad')")} AS cantidad_adjudicada,
     ${silver.numericSql("JSON_VALUE(item, '$.Adjudicacion.MontoUnitario')")} AS monto_unitario,
     run_id,

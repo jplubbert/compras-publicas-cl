@@ -88,6 +88,20 @@ run "t08_ci_run_y_artifact_registry" {
   }
 }
 
+# REQ-014: CI creates the taxonomy and its grants, and may give compras-dataform datacatalog.viewer.
+run "t14_ci_policy_tags" {
+  command = plan
+
+  assert {
+    condition     = contains(output.ci_project_roles, "roles/datacatalog.categoryAdmin")
+    error_message = "the CI account needs datacatalog.categoryAdmin to create the taxonomy and its policy tags"
+  }
+  assert {
+    condition     = strcontains(output.ci_iam_admin_condition, "'roles/datacatalog.viewer'")
+    error_message = "the CI account must be allowed to grant datacatalog.viewer to compras-dataform"
+  }
+}
+
 run "e2_without_project_id" {
   command = plan
   variables {

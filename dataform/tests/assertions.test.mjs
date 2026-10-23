@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 const project = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-const out = execFileSync(join(project, 'node_modules/.bin/dataform'), ['compile', '--json'], {
+const TAG = 'projects/p/locations/us-central1/taxonomies/1/policyTags/2';
+
+const out = execFileSync(join(project, 'node_modules/.bin/dataform'), ['compile', '--json', `--vars=policy_tag_rut=${TAG}`], {
   cwd: project,
   encoding: 'utf8',
   maxBuffer: 64 * 1024 * 1024,
@@ -28,7 +30,7 @@ const ROW_CONDITIONS = {
     'monto_unitario IS NULL OR monto_unitario >= 0',
   ],
   compradores: [],
-  proveedores: [],
+  proveedores: ['(rut_empresa IS NULL) != (rut_persona_natural IS NULL)'],
   indicadores_diarios: ['es_nd OR valor IS NOT NULL', 'valor IS NULL OR valor > 0'],
   dim_proveedor: ['(rut_empresa IS NULL) != (rut_persona_natural IS NULL)'],
   mart_organismo_mes: [

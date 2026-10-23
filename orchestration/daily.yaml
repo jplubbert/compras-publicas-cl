@@ -9,6 +9,7 @@ main:
           - location: ${sys.get_env("GOOGLE_CLOUD_LOCATION")}
           - repository: ${"projects/" + project + "/locations/" + location + "/repositories/" + sys.get_env("DATAFORM_REPOSITORY")}
           - raw_dataset: ${sys.get_env("RAW_DATASET")}
+          - policy_tag_rut: ${sys.get_env("POLICY_TAG_RUT")}
           - dataform_sa: ${sys.get_env("DATAFORM_SERVICE_ACCOUNT")}
     - ingesta_mercadopublico:
         call: googleapis.run.v2.projects.locations.jobs.run
@@ -37,6 +38,7 @@ main:
               defaultLocation: ${location}
               vars:
                 raw_dataset: ${raw_dataset}
+                policy_tag_rut: ${policy_tag_rut}
         result: compilacion
     - revisar_compilacion:
         switch:

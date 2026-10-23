@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -97,8 +97,18 @@ test('a project without the Dataform binary exits 2 naming it', () => {
   assert.match(r.stderr, /dataform/);
 });
 
+// The repository's graph needs policy_tag_rut (REQ-014 E5), so it is compiled here and checked with --graph.
 test('REQ-011 E1: the repository passes check:descriptions', () => {
-  const r = spawnSync(process.execPath, [script], { encoding: 'utf8' });
+  const project = join(root, 'dataform');
+  const TAG = 'projects/p/locations/us-central1/taxonomies/1/policyTags/2';
+  const out = execFileSync(join(project, 'node_modules/.bin/dataform'), ['compile', '--json', `--vars=policy_tag_rut=${TAG}`], {
+    cwd: project,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  const file = join(mkdtempSync(join(tmpdir(), 'check-descriptions-')), 'graph.json');
+  writeFileSync(file, out);
+  const r = spawnSync(process.execPath, [script, '--graph', file], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.match(r.stdout, /check:descriptions: ok \(\d+ modelos\)/);
 });

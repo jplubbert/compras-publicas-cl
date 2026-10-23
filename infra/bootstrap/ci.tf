@@ -16,10 +16,19 @@ locals {
     "roles/cloudscheduler.admin",
     "roles/dataform.admin",
     "roles/monitoring.editor",
+    # T-14: infra/main creates the taxonomy, the policy tags and their IAM bindings.
+    "roles/datacatalog.categoryAdmin",
   ]
   # Project-level roles CI may grant to the pipeline accounts; anything else (billing included) is denied.
-  ci_grantable_project_roles = ["roles/bigquery.jobUser", "roles/workflows.invoker", "roles/dataform.editor", "roles/run.viewer"]
-  ci_iam_admin_condition     = "api.getAttribute('iam.googleapis.com/modifiedGrantsByRole', []).hasOnly([${join(", ", formatlist("'%s'", local.ci_grantable_project_roles))}])"
+  ci_grantable_project_roles = [
+    "roles/bigquery.jobUser",
+    "roles/workflows.invoker",
+    "roles/dataform.editor",
+    "roles/run.viewer",
+    # T-14: compras-dataform reads the taxonomy to set the policy tag on a column.
+    "roles/datacatalog.viewer",
+  ]
+  ci_iam_admin_condition = "api.getAttribute('iam.googleapis.com/modifiedGrantsByRole', []).hasOnly([${join(", ", formatlist("'%s'", local.ci_grantable_project_roles))}])"
 }
 
 resource "google_service_account" "ci" {

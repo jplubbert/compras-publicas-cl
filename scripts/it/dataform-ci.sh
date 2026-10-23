@@ -17,17 +17,20 @@
 # negative case undoes its change and a last run must pass, so raw_ci stays valid for deploy.yml. raw_ci is CI only:
 # its tables are replaced.
 #
-#   GCP_PROJECT_ID=… GCP_REGION=us-central1 scripts/env.sh scripts/it/dataform-ci.sh
+#   GCP_PROJECT_ID=… GCP_REGION=us-central1 POLICY_TAG_RUT=$(scripts/env.sh terraform -chdir=infra/main output -raw policy_tag_rut) \
+#     scripts/env.sh scripts/it/dataform-ci.sh
 #
+# POLICY_TAG_RUT is the compilation variable policy_tag_rut (REQ-014); it also checks that pii.sal has its one row.
 # Exit 2 on any argument or a missing tool, 1 on missing variables or any failed check, 0 when every check passes.
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 
 [ $# -eq 0 ] || { echo "usage: scripts/it/dataform-ci.sh" >&2; exit 2; }
 command -v bq >/dev/null || { echo "dataform-ci: bq is required" >&2; exit 2; }
-for v in GCP_PROJECT_ID GCP_REGION; do
+for v in GCP_PROJECT_ID GCP_REGION POLICY_TAG_RUT; do
   [ -n "${!v:-}" ] || { echo "dataform-ci: $v is required" >&2; exit 1; }
 done
+export POLICY_TAG_RUT
 project=$GCP_PROJECT_ID
 region=$GCP_REGION
 
@@ -184,7 +187,7 @@ must_fail() {
 }
 
 # The uniqueKey assertion of silver.licitaciones, read from the graph instead of guessed.
-UNIQUE_LIC=$(cd "$ROOT/dataform" && node_modules/.bin/dataform compile --json --schema-suffix=ci --vars=raw_dataset=raw_ci \
+UNIQUE_LIC=$(cd "$ROOT/dataform" && node_modules/.bin/dataform compile --json --schema-suffix=ci --vars="raw_dataset=raw_ci,policy_tag_rut=$POLICY_TAG_RUT" \
   | node -e '
 let s = "";
 process.stdin.on("data", (c) => (s += c)).on("end", () => {
@@ -233,7 +236,9 @@ expect "REQ-010 $LIC_Q" "SELECT FORMAT('%d|%s|%t', COUNT(*), IFNULL(MAX(ARRAY_TO
 expect "REQ-010 $OC_Q" "SELECT FORMAT('%d|%s|%t', COUNT(*), IFNULL(MAX(ARRAY_TO_STRING(motivos, ',')), ''), LOGICAL_AND(run_id IS NOT NULL AND quarantined_at IS NOT NULL)) FROM $Q.ordenes_compra\` WHERE codigo_oc = '$OC_Q'" "1|rut_dv_invalido|true"
 expect "REQ-010 $LIC_Q not in silver" "SELECT (SELECT COUNT(*) FROM $S.licitaciones\` WHERE codigo_licitacion = '$LIC_Q') + (SELECT COUNT(*) FROM $S.licitacion_items\` WHERE codigo_licitacion = '$LIC_Q')" "0"
 expect "REQ-010 $OC_Q not in silver" "SELECT COUNT(*) FROM $S.ordenes_compra\` WHERE codigo_oc = '$OC_Q'" "0"
-expect "REQ-010 wrong RUT not in silver" "SELECT COUNT(*) FROM $S.proveedores\` WHERE rut_proveedor = '12345678-0'" "0"
+# By its salted key, so the check never reads the tagged column (REQ-014).
+expect "REQ-010 wrong RUT not in silver" "SELECT COUNT(*) FROM $S.proveedores\` WHERE proveedor_key = TO_HEX(SHA256(CONCAT((SELECT sal FROM \`$project.pii.sal\`), '12345678-0')))" "0"
+expect "REQ-014 one salt" "SELECT COUNT(*) FROM \`$project.pii.sal\`" "1"
 expect "REQ-010 valid rows not in quarantine" "SELECT (SELECT COUNT(*) FROM $Q.licitaciones\` WHERE codigo_licitacion = '$LIC') + (SELECT COUNT(*) FROM $Q.ordenes_compra\` WHERE codigo_oc = '$OC')" "0"
 
 # REQ-012: every query on a fact filters fecha_documento (requirePartitionFilter).
@@ -262,7 +267,7 @@ expect "ordenes_compra" "SELECT COUNT(*) FROM $S.ordenes_compra\` WHERE codigo_o
 
 declare -A KEYS=(
   [licitaciones]="codigo_licitacion" [ordenes_compra]="codigo_oc" [licitacion_items]="codigo_licitacion, correlativo"
-  [compradores]="codigo_organismo" [proveedores]="rut_proveedor" [indicadores_diarios]="serie, fecha"
+  [compradores]="codigo_organismo" [proveedores]="proveedor_key" [indicadores_diarios]="serie, fecha"
 )
 summary=""
 for m in $MODELS; do

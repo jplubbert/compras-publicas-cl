@@ -49,6 +49,11 @@ variable "raw_dataset" {
   default     = "raw"
 }
 
+variable "policy_tag_rut" {
+  description = "Full name of the dato_personal.rut policy tag, passed to the Dataform compilation (REQ-014)."
+  type        = string
+}
+
 variable "schedule" {
   description = "Cron schedule of the daily run (REQ-007, DEC-002)."
   type        = string
