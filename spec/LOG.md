@@ -796,3 +796,10 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - No se relanza este repo: el usuario lo relanza cuando T-80 y T-123–T-126 de sdd-base estén `reviewed`.
 - Próxima acción autorizada: relanzar el autopilot de este repo cuando se cumpla esa condición (T-14, T-15, T-18 y luego
   T-13).
+
+## 2026-10-22 23:57 · implementador de T-18 vía autopilot (claude)
+- Hecho: `tests/acceptance/T-13_benchmark.py` (commit cb0a14a) con E1–E4 de REQ-013, escrita solo desde SPEC.md y las interfaces de `plans/T-13.md`: `generate.SEED`, `generate.ROWS` y `generate.render(seed, rows)` (cabecera `-- target rows: N`, igual a `benchmarks/generate.sql`); `report.render(rows, fecha=…, run_id=…, dry_run=…)`, con las filas de JOBS escritas dentro del archivo. Los imports de `benchmarks/` van dentro de cada prueba: el archivo se recolecta hoy y las pruebas quedan en rojo hasta que T-13 implemente esos módulos. Sin red ni GCP (DEC-005).
+- Interpretaciones: E2 exige la base en `0 %` exacto y lee el % de las otras variantes con coma o punto decimal (75 y 87,5); E3 exige que el job con `cache_hit = TRUE` no aparezca en ninguna fila de tabla y sí bajo `## Excluidos`; E4 exige la columna «bytes estimados (cota superior)», que no haya columna «bytes facturados» y la base en `0 %` sobre los bytes estimados.
+- En curso / roto: el cierre queda bloqueado porque record_evidence.py no reconoce la salida de `pytest --collect-only -q` del verify de T-18 (solo lee node:test, vitest y jest; scripts/record_evidence.py:48-52). Se cumplió la regla de dos intentos sobre la misma falla, y la corrección (el verify en spec/TASKS.json o el parser) queda fuera de los touches.
+- Pendiente: el usuario aprueba el diff de `tests/acceptance/` (tarea `kind: spec`).
+- Próxima acción autorizada: el usuario ajusta el verify de T-18 (o el parser de record_evidence.py) para que imprima un conteo legible, y revisa y aprueba el diff de `tests/acceptance/T-13_benchmark.py`; después, T-13 rehace su plan sin el paso 12.

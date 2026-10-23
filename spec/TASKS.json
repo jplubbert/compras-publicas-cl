@@ -1585,7 +1585,7 @@
         "DEC-005"
       ],
       "depends_on": [],
-      "status": "ready",
+      "status": "in_progress",
       "blocked_by": null,
       "evidence": null,
       "review": null,
@@ -1593,7 +1593,7 @@
         "tests/acceptance/T-13_benchmark.py"
       ],
       "verify": "scripts/env.sh bash -c 'uv run --frozen pytest --collect-only -q tests/acceptance/T-13_benchmark.py && npm run check:spec'",
-      "notes": "2026-10-22: creada en sesión por la respuesta del usuario a Q-09 (opción a). Su diff en tests/acceptance/ lo aprueba el usuario.",
+      "notes": "2026-10-22: creada en sesión por la respuesta del usuario a Q-09 (opción a). Su diff en tests/acceptance/ lo aprueba el usuario. Interfaces que la prueba fija para T-13 (el plan se rehace): generate.py expone SEED, ROWS y render(seed, rows), y la salida lleva una línea '-- target rows: <rows>'; report.render acepta fecha y run_id como argumentos con nombre (fecha como texto 'AAAA-MM-DD') y filas con las claves job_id, cache_hit, error_result, total_bytes_billed, total_bytes_processed, total_slot_ms, bench_query y bench_variant; en dry run, total_bytes_billed y total_slot_ms vienen en None. Las tablas de Markdown tienen las columnas 'variante', 'bytes facturados' (o 'bytes estimados (cota superior)' en dry run), 'slot ms' y '% ahorro'. No se corrió el archivo completo (DEC-045): el rojo es por ModuleNotFoundError, porque benchmarks/generate.py y report.py todavía no existen. El hook Stop de record_evidence.py no pudo leer conteos del verify de T-18: su salida es la de 'pytest --collect-only -q' ('tests/acceptance/T-13_benchmark.py: 4') y 'check:spec: ok', y el parser solo reconoce los resúmenes de node:test, vitest y jest (scripts/record_evidence.py:48-52). El verify sale con código 0. Para arreglarlo hay que cambiar el verify de T-18 en spec/TASKS.json o enseñarle al parser el formato de collect-only de pytest; las dos cosas quedan fuera de los touches de esta tarea.",
       "status_log": [
         {
           "from": "specified",
@@ -1601,8 +1601,18 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-23T00:47:56.047Z",
           "reason": "respuesta del usuario a Q-09, opción (a)"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "apply-result",
+          "at": "2026-10-23T02:57:25.753Z",
+          "reason": "resultado del implementador de T-18 vía autopilot (claude)"
         }
-      ]
+      ],
+      "claims": {
+        "verify_unparsed": "el verify de T-18 sale con código 0 y pytest recolecta 4 pruebas, pero record_evidence.py no reconoce ese formato de salida (scripts/record_evidence.py:48-52); el orquestador o el usuario ajusta el verify o el parser"
+      }
     },
     {
       "id": "T-13",
