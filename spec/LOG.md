@@ -885,3 +885,8 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Orden de despliegue que conviene: T-19 y T-20 antes del merge de T-14 a `main`, para que la primera corrida de `ci`
   nunca toque `pii.sal`.
 - Próxima acción autorizada: el usuario pasa T-19 y T-20 a `ready` y lanza el encadenado de compras (T-18, T-19, T-20).
+
+## 2026-10-23 · Claude (claude-opus-5-5) · sesión: T-19 y T-20 a ready
+- A pedido del usuario, T-19 y T-20 pasan a `ready` (`set-status --by "José Pedro Lübbert"`). Cola: T-18, T-13 (espera
+  a T-18), T-15, T-19, T-20 (espera a T-19). No se relanzó (pedido del usuario).
+- Próxima acción autorizada: el usuario lanza el encadenado de compras.

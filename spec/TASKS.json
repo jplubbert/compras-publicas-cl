@@ -1968,7 +1968,7 @@
       "reqs": [
         "REQ-014"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "evidence": null,
       "review": null,
@@ -1980,7 +1980,16 @@
         "scripts/ci/tests/test_workflows.py"
       ],
       "verify": "scripts/env.sh bash -c 'uv run --frozen pytest scripts/ci/tests/test_workflows.py && npm run check:descriptions && npm run check:spec'",
-      "notes": "2026-10-23: creada en sesión a pedido del usuario. No depende de T-14 en depends_on aunque construye sobre su código: T-14 queda in_progress hasta su despliegue, y su despliegue necesita esta tarea (sin ella ci.yml y el job release fallan porque la compilación exige policy_tag_rut); con T-14 en depends_on nunca sería elegible. Por eso el autopilot la corre sobre autopilot/lote, donde ya está 494dfd2."
+      "notes": "2026-10-23: creada en sesión a pedido del usuario. No depende de T-14 en depends_on aunque construye sobre su código: T-14 queda in_progress hasta su despliegue, y su despliegue necesita esta tarea (sin ella ci.yml y el job release fallan porque la compilación exige policy_tag_rut); con T-14 en depends_on nunca sería elegible. Por eso el autopilot la corre sobre autopilot/lote, donde ya está 494dfd2.",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-23T03:40:05.328Z",
+          "reason": "pedido del usuario"
+        }
+      ]
     },
     {
       "id": "T-20",
@@ -1996,7 +2005,7 @@
       "reqs": [
         "REQ-014"
       ],
-      "status": "specified",
+      "status": "ready",
       "blocked_by": null,
       "evidence": null,
       "review": null,
@@ -2007,7 +2016,16 @@
         "scripts/ci/tests/test_workflows.py"
       ],
       "verify": "scripts/env.sh bash -c 'npm run test:infra && npm run test:dataform && uv run --frozen pytest scripts/ci/tests/test_workflows.py && npm run check:spec'",
-      "notes": "2026-10-23: creada en sesión a pedido del usuario. Interpretación registrada: la sal de producción queda en `pii` por defecto para que el release config de T-11 no cambie; solo la corrida de ci pasa pii_ci. Depende de T-19 porque las dos tocan scripts/ci/dataform-ci.sh y test_workflows.py."
+      "notes": "2026-10-23: creada en sesión a pedido del usuario. Interpretación registrada: la sal de producción queda en `pii` por defecto para que el release config de T-11 no cambie; solo la corrida de ci pasa pii_ci. Depende de T-19 porque las dos tocan scripts/ci/dataform-ci.sh y test_workflows.py.",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-23T03:40:05.408Z",
+          "reason": "pedido del usuario"
+        }
+      ]
     }
   ]
 }
