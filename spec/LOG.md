@@ -787,3 +787,12 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Bloqueos nuevos: T-13 (Q-09).
 - Motivo de parada: el planner en T-14 alcanzó el límite de uso de su cuenta (DEC-024); no se reintenta.
 - Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.
+
+## 2026-10-22 · Claude (claude-opus-5-5) · sesión: Q-09 respondida (opción a)
+- Q-09 respondida por José Pedro Lübbert, opción (a): T-18 (`kind: spec`, `ready` a su nombre) escribe
+  `tests/acceptance/T-13_benchmark.py` con E1–E4 de REQ-013, en rojo y con los imports dentro de cada prueba; su diff lo
+  aprueba el usuario. T-13 vuelve a `ready`, depende de T-18, y su verify exige
+  `scripts/acceptance.sh tests/acceptance/T-13_benchmark.py`; su plan se rehace sin el paso 12 (archivo puente).
+- No se relanza este repo: el usuario lo relanza cuando T-80 y T-123–T-126 de sdd-base estén `reviewed`.
+- Próxima acción autorizada: relanzar el autopilot de este repo cuando se cumpla esa condición (T-14, T-15, T-18 y luego
+  T-13).

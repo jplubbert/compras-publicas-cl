@@ -1574,6 +1574,37 @@
       }
     },
     {
+      "id": "T-18",
+      "kind": "spec",
+      "title": "Prueba de aceptación de REQ-013 (benchmark): tests/acceptance/T-13_benchmark.py",
+      "description": "Respuesta del usuario a Q-09, opción (a), 2026-10-22. Escribir tests/acceptance/T-13_benchmark.py (pytest) con E1–E4 de REQ-013, solo desde SPEC.md y las interfaces de plans/T-13.md (benchmarks/generate.py render(seed, rows); report.py con el fixture de filas de JOBS y --dry-run). Cada prueba cita REQ-013 y su caso en el nombre o el docstring. Los imports de benchmarks/ van dentro de cada prueba, para que el archivo se recolecte hoy y las pruebas fallen en rojo hasta que T-13 las haga pasar. Sin red ni GCP (DEC-005).",
+      "reqs": [
+        "REQ-013"
+      ],
+      "decisions": [
+        "DEC-005"
+      ],
+      "depends_on": [],
+      "status": "ready",
+      "blocked_by": null,
+      "evidence": null,
+      "review": null,
+      "touches": [
+        "tests/acceptance/T-13_benchmark.py"
+      ],
+      "verify": "scripts/env.sh bash -c 'uv run --frozen pytest --collect-only -q tests/acceptance/T-13_benchmark.py && npm run check:spec'",
+      "notes": "2026-10-22: creada en sesión por la respuesta del usuario a Q-09 (opción a). Su diff en tests/acceptance/ lo aprueba el usuario.",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-23T00:47:56.047Z",
+          "reason": "respuesta del usuario a Q-09, opción (a)"
+        }
+      ]
+    },
+    {
       "id": "T-13",
       "title": "Benchmark antes y después",
       "description": "benchmarks/: generate.py produce generate.sql determinista (semilla fija, S-12) con el esquema de silver.licitaciones; variants.sql (sin partición, particionada, particionada + clusterizada con require_partition_filter); queries/ (3 queries de la capa final y las 2 reescrituras); run.py (use_query_cache=false, etiqueta bench_run, maximum_bytes_billed por query, --dry-run rotulado como cota superior); report.py (lee INFORMATION_SCHEMA.JOBS por etiqueta, excluye cache_hit, escribe benchmarks/results/<fecha>.md con bytes facturados, bytes procesados, slot ms y % de ahorro). Pruebas locales del generador y del informe con fixtures en npm run test:benchmarks. scripts/it/benchmark.sh corre todo en GCP y deja el resultado.",
@@ -1586,17 +1617,18 @@
       ],
       "depends_on": [
         "T-05",
-        "T-12"
+        "T-12",
+        "T-18"
       ],
-      "status": "blocked",
-      "blocked_by": "Q-09",
-      "notes": "2026-10-22: escalada por el orquestador (DEC-005): el crítico escaló el plan en la ronda 2; informe en plans/T-13.md; bloqueada por Q-09.",
+      "status": "ready",
+      "blocked_by": null,
+      "notes": "2026-10-22: escalada por el orquestador (DEC-005): el crítico escaló el plan en la ronda 2; informe en plans/T-13.md; bloqueada por Q-09. 2026-10-22: Q-09 respondida por el usuario, opción (a): la prueba de aceptación tests/acceptance/T-13_benchmark.py la escribe antes T-18 (kind: spec); T-13 depende de ella y su verify exige que pase. El plan se rehace sin el paso 12 (sin archivo puente ni pendiente manual).",
       "touches": [
         "benchmarks/",
         "scripts/it/",
         "package.json"
       ],
-      "verify": "scripts/env.sh bash -c 'npm run test:benchmarks && npm run check:spec'",
+      "verify": "scripts/env.sh bash -c 'npm run test:benchmarks && scripts/acceptance.sh tests/acceptance/T-13_benchmark.py && npm run check:spec'",
       "verify_integration": "scripts/it/benchmark.sh",
       "status_log": [
         {
@@ -1612,6 +1644,13 @@
           "by": "escalate",
           "at": "2026-10-22T21:44:52.263Z",
           "reason": "escalada al usuario por Q-09"
+        },
+        {
+          "from": "blocked",
+          "to": "ready",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-23T00:47:56.120Z",
+          "reason": "Q-09 respondida, opción (a); depende de T-18"
         }
       ],
       "plan_review": {
