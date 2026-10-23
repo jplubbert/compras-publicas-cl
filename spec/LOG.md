@@ -847,3 +847,26 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Bloqueos nuevos: T-18 (Q-10).
 - Motivo de parada: no hay tareas in_progress/ready/approved_for_impl con dependencias cerradas (saltadas en esta corrida: T-18,T-18,T-14).
 - Próxima acción autorizada: el usuario revisa este resumen, los veredictos registrados en TASKS.json y los registros de la corrida; decide accepted o devuelve la tarea. El orquestador no marca accepted ni hace push.
+
+## 2026-10-23 00:35 · Claude (claude-opus-5-5) · sesión: pendientes de T-18 (Q-10) para retomar
+- Encadenado 2026-10-22_235253 (terminó a las 00:26): T-18 bloqueada por Q-10; T-14 planificada (APROBAR en la ronda 2)
+  e implementada, queda `in_progress` con Pendiente deploy y una pregunta del implementador sobre `pii.sal` (ver la
+  entrada de las 00:26). Tokens: 816.859 cuentan para el tope y 15.562.561 de caché leída aparte. No se relanzó.
+- Diagnóstico de Q-10 (T-18): no fue el entorno ni la implementación. El implementador escribió y commiteó
+  `tests/acceptance/T-13_benchmark.py` (cb0a14a, ya en `autopilot/lote`); su verify (`pytest --collect-only -q … && npm
+  run check:spec`, escrito en sesión) no imprime un conteo que `record_evidence.py` sepa leer, y el hook Stop le bloqueó
+  el cierre unas diez veces. El decisor lo clasificó «environment» con confianza 0,63.
+- Decisión del usuario sobre Q-10, **pendiente de aplicar**: cambiar el verify de T-18 por una prueba en `scripts/ci/tests/`
+  (cuyo `conftest.py` ya imprime el conteo) que recolecta exactamente E1–E4 de `T-13_benchmark.py` y exige que cada una
+  falle por `ModuleNotFoundError` de `benchmarks`; agregar ese archivo a los touches de T-18 (lo escribe su
+  implementador). Responder Q-10 con eso.
+- Correcciones del usuario a `tests/acceptance/T-13_benchmark.py`, **pendientes de aplicar**: (a) el porcentaje se
+  compara como número, sin exigir el formato «0 %»; (b) E4 prueba el flag `--dry-run` por línea de comandos, como dice
+  la spec, no `report.render(dry_run=True)` (propuesta: `python benchmarks/report.py --dry-run --fixture … --out-dir …`,
+  leyendo el `.md` que escriba, lo que suma `--dry-run` al CLI de `report.py` como interfaz para T-13). El punto (c), el
+  ahorro en dry run sobre los bytes estimados con la base en 0 %, queda como está.
+- **Pendiente del usuario:** aprobar el diff nuevo de `tests/acceptance/T-13_benchmark.py` (no aprobó el de cb0a14a tal
+  cual). Con la aprobación, T-18 vuelve a `ready`.
+- `mise trust` de `mise.toml` hecho a pedido del usuario: el despachador bajo systemd ya resuelve claude 2.1.295.
+- Próxima acción autorizada: aplicar Q-10 y las dos correcciones con el encadenado detenido, mostrar el diff al usuario y,
+  con su aprobación, dejar T-18 en `ready`.
