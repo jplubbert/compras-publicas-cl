@@ -20,7 +20,8 @@
 #   GCP_PROJECT_ID=… GCP_REGION=us-central1 POLICY_TAG_RUT=$(scripts/env.sh terraform -chdir=infra/main output -raw policy_tag_rut) \
 #     scripts/env.sh scripts/it/dataform-ci.sh
 #
-# POLICY_TAG_RUT is the compilation variable policy_tag_rut (REQ-014); it also checks that pii.sal has its one row.
+# POLICY_TAG_RUT is the compilation variable policy_tag_rut (REQ-014); it also checks that the CI salt, pii_ci.sal
+# (sal_dataset=pii_ci, REQ-014 E8), has its one row.
 # Exit 2 on any argument or a missing tool, 1 on missing variables or any failed check, 0 when every check passes.
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -187,7 +188,7 @@ must_fail() {
 }
 
 # The uniqueKey assertion of silver.licitaciones, read from the graph instead of guessed.
-UNIQUE_LIC=$(cd "$ROOT/dataform" && node_modules/.bin/dataform compile --json --schema-suffix=ci --vars="raw_dataset=raw_ci,policy_tag_rut=$POLICY_TAG_RUT" \
+UNIQUE_LIC=$(cd "$ROOT/dataform" && node_modules/.bin/dataform compile --json --schema-suffix=ci --vars="raw_dataset=raw_ci,sal_dataset=pii_ci,policy_tag_rut=$POLICY_TAG_RUT" \
   | node -e '
 let s = "";
 process.stdin.on("data", (c) => (s += c)).on("end", () => {
@@ -236,9 +237,9 @@ expect "REQ-010 $LIC_Q" "SELECT FORMAT('%d|%s|%t', COUNT(*), IFNULL(MAX(ARRAY_TO
 expect "REQ-010 $OC_Q" "SELECT FORMAT('%d|%s|%t', COUNT(*), IFNULL(MAX(ARRAY_TO_STRING(motivos, ',')), ''), LOGICAL_AND(run_id IS NOT NULL AND quarantined_at IS NOT NULL)) FROM $Q.ordenes_compra\` WHERE codigo_oc = '$OC_Q'" "1|rut_dv_invalido|true"
 expect "REQ-010 $LIC_Q not in silver" "SELECT (SELECT COUNT(*) FROM $S.licitaciones\` WHERE codigo_licitacion = '$LIC_Q') + (SELECT COUNT(*) FROM $S.licitacion_items\` WHERE codigo_licitacion = '$LIC_Q')" "0"
 expect "REQ-010 $OC_Q not in silver" "SELECT COUNT(*) FROM $S.ordenes_compra\` WHERE codigo_oc = '$OC_Q'" "0"
-# By its salted key, so the check never reads the tagged column (REQ-014).
-expect "REQ-010 wrong RUT not in silver" "SELECT COUNT(*) FROM $S.proveedores\` WHERE proveedor_key = TO_HEX(SHA256(CONCAT((SELECT sal FROM \`$project.pii.sal\`), '12345678-0')))" "0"
-expect "REQ-014 one salt" "SELECT COUNT(*) FROM \`$project.pii.sal\`" "1"
+# By its salted key, so the check never reads the tagged column (REQ-014); the CI run salts with pii_ci.sal (E8).
+expect "REQ-010 wrong RUT not in silver" "SELECT COUNT(*) FROM $S.proveedores\` WHERE proveedor_key = TO_HEX(SHA256(CONCAT((SELECT sal FROM \`$project.pii_ci.sal\`), '12345678-0')))" "0"
+expect "REQ-014 E8 one CI salt" "SELECT COUNT(*) FROM \`$project.pii_ci.sal\`" "1"
 expect "REQ-010 valid rows not in quarantine" "SELECT (SELECT COUNT(*) FROM $Q.licitaciones\` WHERE codigo_licitacion = '$LIC') + (SELECT COUNT(*) FROM $Q.ordenes_compra\` WHERE codigo_oc = '$OC')" "0"
 
 # REQ-012: every query on a fact filters fecha_documento (requirePartitionFilter).

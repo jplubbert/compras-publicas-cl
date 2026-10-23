@@ -5,7 +5,7 @@
 # The first apply that creates the ingest Cloud Run Jobs may wait for the CI actAs grant on compras-ingest to
 # propagate: scripts/it/tf-apply.sh retries only that error (REQ-006).
 # Then the release job (REQ-006 E5) publishes the ingest image tagged with the commit, points the two Cloud Run Jobs at
-# it and runs Dataform in the isolated CI run (schemaSuffix "ci", raw_dataset=raw_ci) with its assertions.
+# it and runs Dataform in the isolated CI run (schemaSuffix "ci", raw_dataset=raw_ci, sal_dataset=pii_ci) with its assertions.
 name: deploy
 
 on:
@@ -125,7 +125,7 @@ jobs:
         run: |
           gcloud run jobs update compras-mercadopublico --image="$IMAGE" --region="$GCP_REGION" --project="$GCP_PROJECT_ID"
           gcloud run jobs update compras-indicadores --image="$IMAGE" --region="$GCP_REGION" --project="$GCP_PROJECT_ID"
-      # dataform run --schema-suffix=ci --vars=raw_dataset=raw_ci,policy_tag_rut=…, every action with its assertions
-      # (no --tags).
-      - name: Dataform run in ci (--schema-suffix=ci --vars=raw_dataset=raw_ci,policy_tag_rut=$POLICY_TAG_RUT)
+      # dataform run --schema-suffix=ci --vars=raw_dataset=raw_ci,sal_dataset=pii_ci,policy_tag_rut=…, every action
+      # with its assertions (no --tags); the CI salt is pii_ci.sal (REQ-014 E8).
+      - name: Dataform run in ci (--schema-suffix=ci --vars=raw_dataset=raw_ci,sal_dataset=pii_ci,policy_tag_rut=$POLICY_TAG_RUT)
         run: scripts/env.sh scripts/ci/dataform-ci.sh
