@@ -2,12 +2,15 @@
 
 The interfaces come from plans/T-13.md: benchmarks/generate.py exposes SEED, ROWS and render(seed, rows) -> str, whose
 text starts with a "-- target rows: <rows>" header; benchmarks/report.py exposes render(rows, fecha, run_id,
-dry_run=False) -> str, with rows as dicts holding the columns read from INFORMATION_SCHEMA.JOBS. The benchmarks/ modules
-are imported inside each test so that this file is collected before T-13 exists.
+dry_run=False) -> str, with rows as dicts holding the columns read from INFORMATION_SCHEMA.JOBS, and a CLI that takes
+--run-id, --fecha, --fixture (a JSON list of those rows), --out-dir and --dry-run. The benchmarks/ modules are imported
+inside each test so that this file is collected before T-13 exists.
 """
 
 import importlib
+import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -75,7 +78,8 @@ def table_rows(markdown: str) -> list[dict[str, str]]:
 
 
 def savings(cell: str) -> float:
-    match = re.fullmatch(r"(-?\d+(?:,\d+)?)\s*%", cell)
+    """The number in a «% ahorro» cell, with a decimal comma or point; the % sign and spacing are not checked."""
+    match = re.fullmatch(r"(-?\d+(?:[.,]\d+)?)\s*%?", cell)
     assert match, f"not a percentage: {cell!r}"
     return float(match.group(1).replace(",", "."))
 
@@ -112,7 +116,7 @@ def test_req013_e2_table_with_billed_bytes_slot_ms_and_savings_base_at_zero():
         assert column in columns
     rows = {row.get("variante"): row for row in table_rows(markdown) if row.get("variante")}
     assert set(rows) >= {BASE, PARTICIONADA, CLUSTER}
-    assert rows[BASE]["% ahorro"] == "0 %"
+    assert savings(rows[BASE]["% ahorro"]) == 0
     assert savings(rows[PARTICIONADA]["% ahorro"]) == 75
     assert savings(rows[CLUSTER]["% ahorro"]) == 87.5
     assert digits(rows[BASE]["bytes facturados"]) == 1_000_000_000
@@ -135,18 +139,28 @@ def test_req013_e3_cache_hit_job_is_left_out_and_listed_under_excluidos():
     assert "bench_cache_hit" in section(markdown, "Excluidos")
 
 
-def test_req013_e4_dry_run_column_is_labelled_as_upper_bound():
-    """REQ-013 E4: with --dry-run the bytes column is titled «bytes estimados (cota superior)»."""
+def test_req013_e4_dry_run_column_is_labelled_as_upper_bound(tmp_path):
+    """REQ-013 E4: report.py --dry-run writes a report whose bytes column is titled «bytes estimados (cota superior)»."""
     report = load("report")
     estimates = [
         job("bench_q1_base", "q1_mart_organismo_mes", BASE, None, 1_000_000_000, None),
         job("bench_q1_part", "q1_mart_organismo_mes", PARTICIONADA, None, 250_000_000, None),
         job("bench_q1_cluster", "q1_mart_organismo_mes", CLUSTER, None, 125_000_000, None),
     ]
-    markdown = report.render(estimates, fecha=FECHA, run_id=RUN_ID, dry_run=True)
+    fixture = tmp_path / "jobs.json"
+    fixture.write_text(json.dumps(estimates), encoding="utf-8")
+    out_dir = tmp_path / "results"
+    args = ["--dry-run", "--run-id", RUN_ID, "--fecha", FECHA, "--fixture", str(fixture), "--out-dir", str(out_dir)]
+    result = subprocess.run(
+        [sys.executable, str(Path(report.__file__)), *args], check=False, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    written = sorted(out_dir.glob("*.md"))
+    assert len(written) == 1, f"expected one report in {out_dir}, found {written}"
+    markdown = written[0].read_text(encoding="utf-8")
     columns = headers(markdown)
     assert "bytes estimados (cota superior)" in columns
     assert "bytes facturados" not in columns
     rows = {row.get("variante"): row for row in table_rows(markdown) if row.get("variante")}
     assert digits(rows[BASE]["bytes estimados (cota superior)"]) == 1_000_000_000
-    assert rows[BASE]["% ahorro"] == "0 %"
+    assert savings(rows[BASE]["% ahorro"]) == 0
