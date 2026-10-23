@@ -1726,30 +1726,44 @@
       ],
       "plan_review": {
         "critic": "claude -p 2.1.295 (Claude Code) (contexto limpio, autopilot)",
-        "verdict": "ESCALAR",
-        "effective": "ESCALAR",
-        "round": 2,
+        "verdict": "REVISAR",
+        "effective": "REVISAR",
+        "round": 1,
         "plan": "plans/T-13.md",
         "plan_sha": "46fe4dc96415c6dc951904dc199e65b0c2333ce9",
         "plan_commit": "d24db1e",
         "findings": [
           {
-            "id": "req-013:sin-prueba-de-aceptacion",
-            "severity": "P1",
+            "id": "req-013:report-cli-sin-dry-run",
+            "severity": "P0",
             "evidence_type": "archivo",
-            "evidence": "spec/SPEC.md:341 — la traza de REQ-013 es «prueba: tests/acceptance/T-13*»; spec/adr/0005-verificacion-local-sin-nube-y-verificacion-de-integracion.md:33 — «Las pruebas de aceptación viven en `tests/acceptance/`».",
-            "summary": "El plan sigue sin dejar un archivo tests/acceptance/T-13*: pone E1–E4 en benchmarks/tests/test_acceptance_req013.py y deja tests/acceptance/T-13_benchmark.py como pendiente manual (paso 12) porque el directorio está protegido para el implementador. Al cerrar la tarea, la traza de REQ-013 apunta a un archivo inexistente, y la aceptación no vive donde manda DEC-005. El planificador no lo puede resolver dentro de los touches de T-13: hace falta que el usuario decida quién crea el archivo o que acepte otra ubicación."
+            "evidence": "tests/acceptance/T-13_benchmark.py:153 — args = [\"--dry-run\", \"--run-id\", RUN_ID, \"--fecha\", FECHA, \"--fixture\", ..., \"--out-dir\", ...]",
+            "summary": "La prueba de aceptación E4 invoca el CLI de benchmarks/report.py con --dry-run y espera código 0, un único .md en --out-dir con la columna «bytes estimados (cota superior)» y sin «bytes facturados». El paso 7 del plan define el CLI solo con --run-id, --project, --location, --fixture, --fecha y --out-dir: argparse rechazaría --dry-run con código 2 y E4 seguiría en rojo, así que la verificación declarada falla."
           },
           {
-            "id": "bench:generacion-40m-sin-plan-b",
+            "id": "req-013:archivo-aceptacion-ya-existe",
+            "severity": "P1",
+            "evidence_type": "archivo",
+            "evidence": "tests/acceptance/T-13_benchmark.py:3 — \"The interfaces come from plans/T-13.md: benchmarks/generate.py exposes SEED, ROWS and render(seed, rows) -> str ...\"",
+            "summary": "El plan supone que tests/acceptance/T-13_benchmark.py no existe y propone (paso 12) dejar como pendiente manual un reemplazo que solo importa benchmarks/tests/test_acceptance_req013.py. El archivo ya existe, es independiente y define el contrato: SEED, ROWS, render(seed, rows), la cabecera '-- target rows:', report.render(rows, fecha, run_id, dry_run) y el CLI con --dry-run. Reemplazarlo cambiaría las pruebas de aceptación por pruebas del implementador. Además, la sección Verificación omite 'scripts/acceptance.sh tests/acceptance/T-13_benchmark.py', que es parte de la verificación declarada."
+          },
+          {
+            "id": "req-013:render-con-queries-parciales",
+            "severity": "P2",
+            "evidence_type": "opinión",
+            "evidence": "E2, E3 y E4 de la prueba de aceptación llaman a render solo con 3 filas de q1_mart_organismo_mes, sin q2, q3 ni reescrituras.",
+            "summary": "El plan diseña render y sus fixtures con 13 filas y no define qué pasa si faltan queries o pares. Si render recorre las queries esperadas o un 'expected' fijo, podría fallar o generar filas con variante vacía o '—', y romper las aserciones."
+          },
+          {
+            "id": "req-013:dry-run-valores-none",
             "severity": "P3",
             "evidence_type": "opinión",
-            "evidence": "El CTAS de 40 M filas a partir de UNNEST(GENERATE_ARRAY) sin tabla de entrada puede paralelizarse mal y chocar con 'Resources exceeded' o tardar mucho; las fuentes de práctica recomiendan generar por tramos si ocurre.",
-            "summary": "Si el CTAS falla, recién se ve en scripts/it/benchmark.sh, y el plan no dice qué hacer en ese caso. No rompe la verificación local."
+            "evidence": "En E4 las filas traen total_bytes_billed=None y total_slot_ms=None, y la columna estimada debe mostrar total_bytes_processed (1.000.000.000 para la base).",
+            "summary": "El plan no dice explícitamente que la columna «bytes estimados (cota superior)» sale de total_bytes_processed ni cómo trata los None en el modo dry run."
           }
         ],
         "opinion_blockers": [],
-        "date": "2026-10-22"
+        "date": "2026-10-23"
       }
     },
     {
