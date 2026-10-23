@@ -2058,9 +2058,20 @@
       "reqs": [
         "REQ-014"
       ],
-      "status": "ready",
+      "status": "verified_auto",
       "blocked_by": null,
-      "evidence": null,
+      "evidence": {
+        "command": "scripts/env.sh bash -c 'uv run --frozen pytest scripts/ci/tests/test_workflows.py && npm run check:descriptions && npm run check:spec'",
+        "exit_code": 0,
+        "passed": 19,
+        "failed": 0,
+        "total": 19,
+        "log_path": "artifacts/T-19/verify.log",
+        "log_sha256": "b0dc20954a3e611592cc218cb62648801c1ccef90acf9e7855bee316092c6560",
+        "commit": "5297a89a6104c19ade5a39eb0799104e0623a127",
+        "timestamp": "2026-10-23T04:03:52+00:00",
+        "result": "19/19 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-19/verify.log)"
+      },
       "review": null,
       "touches": [
         ".github/workflows/ci.yml",
@@ -2070,7 +2081,7 @@
         "scripts/ci/tests/test_workflows.py"
       ],
       "verify": "scripts/env.sh bash -c 'uv run --frozen pytest scripts/ci/tests/test_workflows.py && npm run check:descriptions && npm run check:spec'",
-      "notes": "2026-10-23: creada en sesión a pedido del usuario. No depende de T-14 en depends_on aunque construye sobre su código: T-14 queda in_progress hasta su despliegue, y su despliegue necesita esta tarea (sin ella ci.yml y el job release fallan porque la compilación exige policy_tag_rut); con T-14 en depends_on nunca sería elegible. Por eso el autopilot la corre sobre autopilot/lote, donde ya está 494dfd2.",
+      "notes": "2026-10-23: creada en sesión a pedido del usuario. No depende de T-14 en depends_on aunque construye sobre su código: T-14 queda in_progress hasta su despliegue, y su despliegue necesita esta tarea (sin ella ci.yml y el job release fallan porque la compilación exige policy_tag_rut); con T-14 en depends_on nunca sería elegible. Por eso el autopilot la corre sobre autopilot/lote, donde ya está 494dfd2. No se corrió `npm run test:dataform` (lo prohíbe la guarda de acceso: `npm run test*`); sí se comprobó que `dataform compile` con el `--vars` del paso de CI sale 0 y sin él nombra `policy_tag_rut`, y que `npm run lint` pasa.",
       "status_log": [
         {
           "from": "specified",
@@ -2078,6 +2089,20 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-23T03:40:05.328Z",
           "reason": "pedido del usuario"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "apply-result",
+          "at": "2026-10-23T04:03:49.297Z",
+          "reason": "resultado del implementador de T-19 vía autopilot (claude)"
+        },
+        {
+          "from": "in_progress",
+          "to": "verified_auto",
+          "by": "record_evidence.py",
+          "at": "2026-10-23T04:03:52+00:00",
+          "reason": "verify con código 0: 19/19 pasan, 0 fallan"
         }
       ],
       "plan_review": {

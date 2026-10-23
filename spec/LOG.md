@@ -966,3 +966,11 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Hallazgos: [dataform-ci:comentario-job-exportador] P3 (opinión: El paso 5 dice que POLICY_TAG_RUT es «output de Terraform que exporta el job apply»; la tarea dice que «deploy.yml ya exporta POLICY_TAG_RUT en el job release», y la sección Supuestos del plan dice lo mismo.): El comentario de cabecera nombraría como exportador al job apply, que produce el output, y no al job release, que define la variable de entorno que lee dataform-ci.sh. Es una imprecisión de documentación. Corrección: Redactar el comentario así: el job apply obtiene el output policy_tag_rut y el job release lo exporta como POLICY_TAG_RUT..
 - Objeciones P0/P1 de pura opinión (no bloquean; para el usuario): ninguna.
 - Próxima acción autorizada: el orquestador lanza al implementador sobre T-19 con el plan aprobado.
+
+## 2026-10-23 01:03 · implementador de T-19 vía autopilot (claude)
+- T-19: los pasos «Dataform compile» de los jobs `checks` de `ci.yml` y `deploy.yml` (idénticos) y `check:descriptions` compilan con `--vars=policy_tag_rut=projects/p/locations/us-central1/taxonomies/1/policyTags/2`, un marcador con forma de policy tag (REQ-014 E5).
+- `scripts/ci/dataform-ci.sh` exige `POLICY_TAG_RUT` (sale 1 nombrándola) y la pasa como `--vars=raw_dataset=raw_ci,policy_tag_rut=$POLICY_TAG_RUT`.
+- El job `plan` de `ci.yml` recibe `TF_VAR_pii_readers` y `TF_VAR_lector_impersonators` iguales a los del job `apply` de `deploy.yml` (REQ-014).
+- `scripts/ci/tests/test_workflows.py` agrega tres pruebas REQ-014 de esos puntos; se siguió el plan aprobado sin desvíos (único ajuste: `check=False` en `subprocess.run` por la regla PLW1510 de ruff).
+- Verificado y cómo: `scripts/env.sh bash -c 'uv run --frozen pytest scripts/ci/tests/test_workflows.py && npm run check:descriptions && npm run check:spec'` → 19/19 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-19/verify.log), commit 5297a89.
+- Próxima acción autorizada: revisión independiente de T-19; luego T-20 (`sal_dataset` / `pii_ci.sal`, REQ-014 E8).
