@@ -2161,9 +2161,20 @@
       "reqs": [
         "REQ-014"
       ],
-      "status": "ready",
+      "status": "verified_auto",
       "blocked_by": null,
-      "evidence": null,
+      "evidence": {
+        "command": "scripts/env.sh bash -c 'npm run test:infra && npm run test:dataform && uv run --frozen pytest scripts/ci/tests/test_workflows.py && npm run check:spec'",
+        "exit_code": 0,
+        "passed": 174,
+        "failed": 0,
+        "total": 174,
+        "log_path": "artifacts/T-20/verify.log",
+        "log_sha256": "38e9799425292b72a23b69ae8f021cd3b987eac915cf7561e7682392d8c21948",
+        "commit": "2ffbca49b86f194280af22706f25203c5418fd6e",
+        "timestamp": "2026-10-23T04:48:30+00:00",
+        "result": "174/174 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-20/verify.log)"
+      },
       "review": null,
       "touches": [
         "dataform/",
@@ -2172,7 +2183,7 @@
         "scripts/ci/tests/test_workflows.py"
       ],
       "verify": "scripts/env.sh bash -c 'npm run test:infra && npm run test:dataform && uv run --frozen pytest scripts/ci/tests/test_workflows.py && npm run check:spec'",
-      "notes": "2026-10-23: creada en sesión a pedido del usuario. Interpretación registrada: la sal de producción queda en `pii` por defecto para que el release config de T-11 no cambie; solo la corrida de ci pasa pii_ci. Depende de T-19 porque las dos tocan scripts/ci/dataform-ci.sh y test_workflows.py. 2026-10-23: escalada por el orquestador (DEC-005): el planificador no escribió plans/T-20.md (ronda 1, código 0); sin informe; bloqueada por Q-11.",
+      "notes": "2026-10-23: creada en sesión a pedido del usuario. Interpretación registrada: la sal de producción queda en `pii` por defecto para que el release config de T-11 no cambie; solo la corrida de ci pasa pii_ci. Depende de T-19 porque las dos tocan scripts/ci/dataform-ci.sh y test_workflows.py. 2026-10-23: escalada por el orquestador (DEC-005): el planificador no escribió plans/T-20.md (ronda 1, código 0); sin informe; bloqueada por Q-11. En t20_sal_ci la comparación de labels usa tomap({ layer = \"pii\", env = \"ci\" }) porque output.datasets[...].labels es un map y el literal de objeto daba tipos distintos. scripts/it/dataform-ci.sh sigue calculando proveedor_key con pii.sal y contando filas de pii.sal tras la corrida de CI: su verificación de integración no comprueba E8 hasta que otra tarea lo pase a pii_ci.sal.",
       "status_log": [
         {
           "from": "specified",
@@ -2194,6 +2205,20 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-23T04:37:12.309Z",
           "reason": "Q-11 respondida: el Write lo negó un cd del planificador, no el plan"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "apply-result",
+          "at": "2026-10-23T04:48:12.458Z",
+          "reason": "resultado del implementador de T-20 vía autopilot (claude)"
+        },
+        {
+          "from": "in_progress",
+          "to": "verified_auto",
+          "by": "record_evidence.py",
+          "at": "2026-10-23T04:48:30+00:00",
+          "reason": "verify con código 0: 174/174 pasan, 0 fallan"
         }
       ],
       "plan_review": {
@@ -2222,6 +2247,9 @@
         ],
         "opinion_blockers": [],
         "date": "2026-10-23"
+      },
+      "claims": {
+        "manual_pending": "Tras el merge a main: confirmar en GCP que pii_ci.sal tiene una fila después de la corrida de CI y que pii.sal no cambió; la verificación de integración scripts/it/dataform-ci.sh debe pasar a pii_ci.sal (fuera de los touches de T-20)."
       }
     }
   ]

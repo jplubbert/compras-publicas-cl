@@ -1,0 +1,193 @@
+
+> test:infra
+> scripts/ci/tf-test.sh
+
+Success! The configuration is valid.
+
+tests/bootstrap.tftest.hcl... in progress
+  run "state_bucket_and_wif"... pass
+  run "ci_account_without_billing"... pass
+  run "t08_ci_run_y_artifact_registry"... pass
+  run "t14_ci_policy_tags"... pass
+  run "e2_without_project_id"... pass
+  run "e2_without_region"... pass
+  run "e2_without_github_repository"... pass
+  run "e3_region_outside_us"... pass
+  run "e5_presupuesto_y_desvinculadora"... pass
+  run "rol_billing_admin"... pass
+  run "presupuesto_de_simulacro"... pass
+  run "sin_billing_account"... pass
+  run "billing_account_mal_formado"... pass
+  run "sin_alert_email"... pass
+  run "presupuesto_cero"... pass
+  run "rol_billing_no_permitido"... pass
+  run "e1_bucket_de_respaldo"... pass
+  run "e2_ci_solo_crea_objetos"... pass
+  run "sin_backup_project_id"... pass
+  run "backup_igual_al_proyecto"... pass
+tests/bootstrap.tftest.hcl... tearing down
+tests/bootstrap.tftest.hcl... pass
+
+Success! 20 passed, 0 failed.
+Success! The configuration is valid.
+
+tests/main.tftest.hcl... in progress
+  run "e1_bronze_y_datasets"... pass
+  run "e2_sin_project_id"... pass
+  run "e2_sin_region"... pass
+  run "e2_sin_github_repository"... pass
+  run "e3_region_fuera_de_eeuu"... pass
+  run "e5_ingesta"... pass
+  run "e6_lectura_restringida"... pass
+  run "e6_cuotas_bigquery"... pass
+  run "e6_cuota_no_positiva"... pass
+  run "secretos_sin_versiones"... pass
+  run "t08_ingest_jobs"... pass
+  run "t08_raw_tables"... pass
+  run "t08_ci_actas"... pass
+  run "t08_apis"... pass
+  run "t11_e1_scheduler"... pass
+  run "t11_workflow"... pass
+  run "t11_repositorio_dataform"... pass
+  run "t11_e4_alerta"... pass
+  run "t11_permisos"... pass
+  run "t11_horario_variable"... pass
+  run "t14_e1_taxonomia"... pass
+  run "t14_e1_bindings"... pass
+  run "t14_e1_bindings_sin_pii_readers"... pass
+  run "t14_pii_readers_invalido"... pass
+  run "t14_dataform_asigna_tags"... pass
+  run "t14_sal"... pass
+  run "t14_pii_sin_owner_de_dataform"... pass
+  run "t14_policy_tag_en_dataform"... pass
+  run "t14_lector"... pass
+  run "t20_sal_ci"... pass
+  run "t20_pii_ci_acl"... pass
+tests/main.tftest.hcl... tearing down
+tests/main.tftest.hcl... pass
+
+Success! 31 passed, 0 failed.
+Tests: 0 failed, 0 skipped, 51 passed, 51 total
+
+> test:dataform
+> scripts/env.sh bash -c '[ -d dataform/node_modules ] || npm ci --prefix dataform --silent' && scripts/env.sh node --test --test-reporter=spec "dataform/tests/*.test.mjs"
+
+✔ the project compiles without errors and has the 6 silver models (1.287635ms)
+✔ REQ-009 E1: gold.fct_licitaciones has its own assertion with the partition filter, tagged gold (0.234452ms)
+✔ REQ-009 E1: gold.fct_ordenes_compra has its own assertion with the partition filter, tagged gold (0.085491ms)
+✔ REQ-009 E1: silver.compradores has uniqueKey and non-null key assertions tagged silver (0.965247ms)
+✔ REQ-009 E1: silver.compradores checks its domain row conditions (0.131277ms)
+✔ REQ-009 E1: silver.indicadores_diarios has uniqueKey and non-null key assertions tagged silver (0.088045ms)
+✔ REQ-009 E1: silver.indicadores_diarios checks its domain row conditions (0.161965ms)
+✔ REQ-009 E1: silver.licitacion_items has uniqueKey and non-null key assertions tagged silver (0.062558ms)
+✔ REQ-009 E1: silver.licitacion_items checks its domain row conditions (0.225966ms)
+✔ REQ-009 E1: silver.licitaciones has uniqueKey and non-null key assertions tagged silver (0.247997ms)
+✔ REQ-009 E1: silver.licitaciones checks its domain row conditions (0.102984ms)
+✔ REQ-009 E1: silver.ordenes_compra has uniqueKey and non-null key assertions tagged silver (0.064291ms)
+✔ REQ-009 E1: silver.ordenes_compra checks its domain row conditions (0.080612ms)
+✔ REQ-009 E1: silver.proveedores has uniqueKey and non-null key assertions tagged silver (0.045525ms)
+✔ REQ-009 E1: silver.proveedores checks its domain row conditions (0.033503ms)
+✔ REQ-009 E1: gold.dim_comprador has uniqueKey and non-null key assertions tagged gold (0.035938ms)
+✔ REQ-009 E1: gold.dim_comprador checks its domain row conditions (0.044334ms)
+✔ REQ-009 E1: gold.dim_proveedor has uniqueKey and non-null key assertions tagged gold (0.035497ms)
+✔ REQ-009 E1: gold.dim_proveedor checks its domain row conditions (0.027271ms)
+✔ REQ-009 E1: gold.mart_organismo_mes has uniqueKey and non-null key assertions tagged gold (0.035397ms)
+✔ REQ-009 E1: gold.mart_organismo_mes checks its domain row conditions (0.028434ms)
+✔ REQ-009: the continuity and reconciliation assertions read silver.indicadores_diarios and are tagged silver (0.168458ms)
+✔ a graph whose models and columns all have descriptions passes (30.947398ms)
+✔ REQ-011 E2: a column without description fails naming the model and the column (28.560323ms)
+✔ a model without description fails naming it (28.879213ms)
+✔ a model that declares no columns fails (27.111174ms)
+✔ REQ-011 E3: a raw declaration without column descriptions is not checked (30.684784ms)
+✔ a model in silver_ci with schemaSuffix ci is checked (25.962781ms)
+✔ an operation with output in silver is checked (27.889089ms)
+✔ a model outside silver, gold and quarantine is not checked (29.272084ms)
+✔ a graph with compilation errors fails (27.570078ms)
+✔ an unknown argument exits 2 (28.491242ms)
+✔ a project without the Dataform binary exits 2 naming it (34.711086ms)
+✔ REQ-011 E1: the repository passes check:descriptions (509.236099ms)
+✔ the Dataform project compiles offline and declares the raw source in us-central1 (489.859149ms)
+✔ REQ-014 E2: only rut_persona_natural of proveedores and dim_proveedor carries the tag (default) (1.013929ms)
+✔ REQ-014 E2: only rut_persona_natural of proveedores and dim_proveedor carries the tag (ci suffix) (0.19654ms)
+✔ REQ-014 E3: silver.proveedores splits the RUT with the S-04 rule (0.150113ms)
+✔ REQ-014 E5: the compilation without policy_tag_rut fails naming the variable (438.562561ms)
+✔ REQ-014 E5: a policy_tag_rut that is not a full policy tag name fails naming the variable (434.262283ms)
+✔ REQ-014 E5: policyTagRut accepts only the full name of a policy tag (0.497277ms)
+✔ REQ-014 E6: proveedorKeySql hashes the salt of pii.sal with the RUT (0.156675ms)
+✔ REQ-014 E6: silver.proveedores is keyed by proveedor_key, salted with pii.sal (0.150824ms)
+✔ REQ-014 E6: gold.dim_proveedor and the facts use proveedor_key, never the RUT, and their checks join on it (0.383803ms)
+✔ REQ-014: no silver or gold table keeps the unsalted supplier RUT outside the tagged column (0.432174ms)
+✔ DEC-008: pii.sal is declared in pii, also with the ci suffix, and generar_sal fills it once (0.210606ms)
+✔ REQ-014 E8: with sal_dataset=pii_ci no action reads or writes pii.sal (0.752927ms)
+✔ REQ-014 E8: generar_sal and proveedor_key use pii_ci.sal (0.184587ms)
+✔ REQ-014: sal_dataset defaults to pii (0.156876ms)
+✔ the 5 gold models are tables tagged gold, in gold by default and in gold_ci with the ci suffix (0.820505ms)
+✔ REQ-012 E1: gold.fct_licitaciones is partitioned by month of fecha_documento, clustered and requires a partition filter (0.227478ms)
+✔ REQ-012: gold.fct_licitaciones converts with the BDE UF and dollar and keeps rows without a rate (0.161314ms)
+✔ REQ-012 E1: gold.fct_ordenes_compra is partitioned by month of fecha_documento, clustered and requires a partition filter (0.072176ms)
+✔ REQ-012: gold.fct_ordenes_compra converts with the BDE UF and dollar and keeps rows without a rate (0.05833ms)
+✔ REQ-012 E5: every gold SQLX file declares dependOnDependencyAssertions: true (0.434287ms)
+✔ REQ-012 E5: each gold model depends on every assertion of the tables it reads (0.337726ms)
+✔ the facts read silver and not the quarantine, also with the ci suffix (0.107262ms)
+✔ everything that reads a fact filters its partition (0.245993ms)
+✔ gold.js builds the daily rates, the three amounts and fx_imputado (0.347073ms)
+✔ dim_proveedor takes the key and the split RUT from silver.proveedores (0.139292ms)
+✔ REQ-011: every declared column of gold.fct_licitaciones is in its query (0.926605ms)
+✔ REQ-011: every declared column of gold.fct_ordenes_compra is in its query (0.13265ms)
+✔ REQ-011: every declared column of gold.dim_comprador is in its query (0.096943ms)
+✔ REQ-011: every declared column of gold.dim_proveedor is in its query (0.122741ms)
+✔ REQ-011: every declared column of gold.mart_organismo_mes is in its query (0.109065ms)
+✔ REQ-010 E1: quarantine.licitaciones is incremental, tagged silver and keeps motivos, run_id and quarantined_at (0.800017ms)
+✔ REQ-010 E1: quarantine.licitaciones keeps the rows that fail the shared predicate with all their reasons (0.563972ms)
+✔ REQ-010 E1: quarantine.ordenes_compra is incremental, tagged silver and keeps motivos, run_id and quarantined_at (0.090481ms)
+✔ REQ-010 E1: quarantine.ordenes_compra keeps the rows that fail the shared predicate with all their reasons (0.973794ms)
+✔ REQ-010 E1: silver.licitaciones filters with the same predicate as the quarantine (0.171944ms)
+✔ REQ-010 E1: silver.licitacion_items filters with the same predicate as the quarantine (0.068509ms)
+✔ REQ-010 E1: silver.ordenes_compra filters with the same predicate as the quarantine (0.128722ms)
+✔ REQ-010 E1: silver.compradores filters with the same predicate as the quarantine (0.082205ms)
+✔ REQ-010 E1: silver.proveedores filters with the same predicate as the quarantine (0.213252ms)
+✔ REQ-010 E2: a RUT with a wrong check digit gives rut_dv_invalido (2.697619ms)
+✔ REQ-010 E3: a negative amount and an unknown currency give both reasons in order (0.70076ms)
+✔ REQ-010 E4: a valid row gives no reasons (1.928813ms)
+✔ the check digit follows modulo 11 with K for 10 (0.133631ms)
+✔ REQ-014 E3 / S-04: a RUT body below 50,000,000 or non-numeric is a natural person, in JS and in SQL (0.256553ms)
+✔ clave_nula for a null or empty key; currency is case-insensitive and a null one is no reason (1.254422ms)
+✔ dates must fall between 2000-01-01 and D+1; a null required date is a reason, a null optional one is not (0.434067ms)
+✔ a row that breaks the 5 rules carries the 5 codes in the order of CODIGOS (0.502326ms)
+✔ motivosSql keeps the codes of each entity in order with the same currencies and date limits (1.041571ms)
+✔ REQ-008 E1: silver.licitaciones is incremental by codigo_licitacion and merges with its own rows before QUALIFY (0.935772ms)
+✔ REQ-011: every column of the final SELECT of silver.licitaciones is a declared column (1.114569ms)
+✔ REQ-008 E1: silver.ordenes_compra is incremental by codigo_oc and merges with its own rows before QUALIFY (0.140905ms)
+✔ REQ-011: every column of the final SELECT of silver.ordenes_compra is a declared column (0.08011ms)
+✔ REQ-008 E1: silver.licitacion_items is incremental by codigo_licitacion + correlativo and merges with its own rows before QUALIFY (0.129955ms)
+✔ REQ-011: every column of the final SELECT of silver.licitacion_items is a declared column (0.076434ms)
+✔ REQ-008 E1: silver.compradores is incremental by codigo_organismo and merges with its own rows before QUALIFY (0.102243ms)
+✔ REQ-011: every column of the final SELECT of silver.compradores is a declared column (0.092965ms)
+✔ REQ-008 E1: silver.proveedores is incremental by proveedor_key and merges with its own rows before QUALIFY (0.210797ms)
+✔ REQ-011: every column of the final SELECT of silver.proveedores is a declared column (0.283374ms)
+✔ REQ-008 E1: silver.indicadores_diarios is incremental by serie + fecha and merges with its own rows before QUALIFY (0.136497ms)
+✔ REQ-011: every column of the final SELECT of silver.indicadores_diarios is a declared column (0.060414ms)
+✔ the 7 raw tables are declared in raw by default (0.108244ms)
+✔ the raw_dataset variable moves the declarations to raw_ci (469.325101ms)
+✔ the ci schema suffix moves the models to silver_ci and keeps the declarations in raw (447.041008ms)
+✔ REQ-008: the tender state catalog translates the 6 codes of T-02 (0.173396ms)
+✔ REQ-008: the purchase order state catalog translates the 8 codes of T-02 (0.118603ms)
+✔ REQ-008: tender and purchase order models translate the state with their catalog (0.085721ms)
+✔ REQ-008: indicadores_diarios turns ND into a NULL valor with es_nd (0.197993ms)
+✔ the incremental window reads raw partitions from 3 days before the newest one in the target (0.092885ms)
+ℹ tests 103
+ℹ suites 0
+ℹ pass 103
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2330.320541
+....................                                                     [100%]
+Tests: 0 failed, 20 passed, 20 total
+20 passed in 0.08s
+
+> check:spec
+> node scripts/check-spec.mjs
+
+check:spec: ok
