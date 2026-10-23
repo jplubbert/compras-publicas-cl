@@ -1,0 +1,105 @@
+{
+  "question_id": "plan_verdict",
+  "instructions": "Given this critique of an implementation plan, what is the verdict?",
+  "state": "**Veredicto: REVISAR.** El plan es sólido en lo técnico, pero fallaría la verificación declarada por dos problemas que bloquean (P0 y P1). Además, el plan parte de una premisa falsa: cree que `tests/acceptance/T-13_benchmark.py` no existe. El archivo existe y ya define las interfaces que hay que cumplir. Los corrí en rojo (4 FAIL).\n\n**Problemas que bloquean**\n1. **P0: falta `--dry-run` en el CLI de `report.py`.** La prueba de aceptación E4 invoca ese CLI con `--dry-run` (`tests/acceptance/T-13_benchmark.py:153`). El plan define el CLI sin esa opción (paso 7), así que argparse saldría con código 2 y E4 fallaría.\n2. **P1: el plan sobrescribiría el archivo de aceptación.** El paso 12 propone reemplazar ese archivo por un envoltorio que importa otro módulo. Eso cambiaría las pruebas de aceptación por pruebas que escribe el propio implementador. Además, la verificación del plan deja fuera `scripts/acceptance.sh tests/acceptance/T-13_benchmark.py`, que sí está en la verificación declarada de la tarea.\n\n**Problemas menores**\n3. **P2:** E2 llama a `render` con solo las 3 filas de q1, sin las otras queries ni reescrituras. El plan no dice cómo se comporta `render` cuando faltan queries o pares.\n4. **P3:** en E4 las filas traen `total_bytes_billed` y `total_slot_ms` en `None`. El plan no fija qué campo usa la estimación ni cómo trata ese `None`.\n\nLos supuestos técnicos de fondo coinciden con la práctica documentada. Lo único que no confirmé con fuentes es si los dry runs aparecen en `INFORMATION_SCHEMA.JOBS` y si el filtro de partición se exige por cada referencia a la tabla. El diseño del plan no depende de ninguna de las dos cosas.\n\n```json\n{\"verdict\": \"REVISAR\",\n \"assumptions\": [\n  {\"assumption\": \"Con require_partition_filter, cada referencia a la tabla (incluidas las subconsultas del self-join) necesita su propio predicado sobre la columna de partición.\",\n   \"practice\": \"La documentación exige un predicado sobre la columna de partición en toda query sobre la tabla (también vistas) y falla con 'Cannot query over table ... without a filter'. En la práctica se pone el filtro en cada subconsulta o CTE que lee la tabla, que es lo que hace la regla del paso 5. No encontré texto oficial explícito sobre la exigencia por referencia.\",\n   \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/managing-partitioned-tables\", \"https://oneuptime.com/blog/post/2026-02-17-how-to-require-partition-filters-on-bigquery-tables-to-prevent-full-table-scans/markdown\"]},\n  {\"assumption\": \"El dry run da una cota superior: no descuenta la poda por clustering, así que los bytes reales pueden ser menores.\",\n   \"practice\": \"La guía de costos presenta la estimación del dry run como cota superior. La práctica es comparar después con total_bytes_billed de INFORMATION_SCHEMA.JOBS.\",\n   \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/estimate-costs\", \"https://oneuptime.com/blog/post/2026-02-17-how-to-estimate-bigquery-query-costs-before-running-with-dry-run/markdown\"]},\n  {\"assumption\": \"QueryUsagePerUserPerDay se reinicia a medianoche del Pacífico y se aplica por usuario o cuenta de servicio, así que descontar lo facturado desde esa hora es correcto.\",\n   \"practice\": \"Google documenta el reinicio a medianoche del Pacífico y que la cuota se aplica por separado a cada usuario y cuenta de servicio; una query que supera lo que queda de la cuota se rechaza antes de correr.\",\n   \"sources\": [\"https://docs.cloud.google.com/bigquery/cost-controls\", \"https://codelabs.developers.google.com/bigquery-custom-quota\"]},\n  {\"assumption\": \"INFORMATION_SCHEMA.JOBS expone labels, cache_hit, total_bytes_billed, total_bytes_processed y total_slot_ms, y los valores de etiqueta admiten solo [a-z0-9_-] hasta 63 caracteres; los dry runs no se cuentan como medición.\",\n   \"practice\": \"La vista documenta esas columnas y el recurso Job documenta las reglas de las etiquetas. No encontré si los dry runs aparecen en la vista; el plan lo resuelve sin depender de eso, porque no les pone bench_run y filtra por job_id.\",\n   \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/information-schema-jobs?authuser=0\", \"https://docs.cloud.google.com/bigquery/docs/reference/rest/v2/Job\"]},\n  {\"assumption\": \"Un CTAS cuyo SELECT es solo GENERATE_ARRAY/UNNEST con 40 M filas no factura bytes y no agota recursos.\",\n   \"practice\": \"No encontré una fuente específica. DEC-007 lo da por hecho («la generación no escanea bytes»), y el tope de maximum_bytes_billed de 1 GiB limita el daño si no se cumple.\",\n   \"sources\": []}\n ],\n \"findings\": [\n  {\"id\": \"req-013:report-cli-sin-dry-run\",\n   \"severity\": \"P0\",\n   \"evidence_type\": \"archivo\",\n   \"evidence\": \"tests/acceptance/T-13_benchmark.py:153 — args = [\\\"--dry-run\\\", \\\"--run-id\\\", RUN_ID, \\\"--fecha\\\", FECHA, \\\"--fixture\\\", ..., \\\"--out-dir\\\", ...]\",\n   \"summary\": \"La prueba de aceptación E4 invoca el CLI de benchmarks/report.py con --dry-run y espera código 0, un único .md en --out-dir con la columna «bytes estimados (cota superior)» y sin «bytes facturados». El paso 7 del plan define el CLI solo con --run-id, --project, --location, --fixture, --fecha y --out-dir: argparse rechazaría --dry-run con código 2 y E4 seguiría en rojo, así que la verificación declarada falla.\",\n   \"fix\": \"Agregar --dry-run al CLI de report.py (combinable con --fixture) para que llame a render(..., dry_run=True) y escriba un solo archivo en --out-dir. Agregar una prueba local de ese camino.\"},\n  {\"id\": \"req-013:archivo-aceptacion-ya-existe\",\n   \"severity\": \"P1\",\n   \"evidence_type\": \"archivo\",\n   \"evidence\": \"tests/acceptance/T-13_benchmark.py:3 — \\\"The interfaces come from plans/T-13.md: benchmarks/generate.py exposes SEED, ROWS and render(seed, rows) -> str ...\\\"\",\n   \"summary\": \"El plan supone que tests/acceptance/T-13_benchmark.py no existe y propone (paso 12) dejar como pendiente manual un reemplazo que solo importa benchmarks/tests/test_acceptance_req013.py. El archivo ya existe, es independiente y define el contrato: SEED, ROWS, render(seed, rows), la cabecera '-- target rows:', report.render(rows, fecha, run_id, dry_run) y el CLI con --dry-run. Reemplazarlo cambiaría las pruebas de aceptación por pruebas del implementador. Además, la sección Verificación omite 'scripts/acceptance.sh tests/acceptance/T-13_benchmark.py', que es parte de la verificación declarada.\",\n   \"fix\": \"Eliminar el paso 12 y el claims.manual_pending. Tomar tests/acceptance/T-13_benchmark.py tal como está como el contrato de aceptación. Restituir la verificación declarada completa (test:benchmarks && acceptance.sh tests/acceptance/T-13_benchmark.py && check:spec) y ajustar las interfaces a lo que ese archivo exige. El módulo test_acceptance_req013.py puede quedar como prueba local adicional, sin reemplazar al otro.\"},\n  {\"id\": \"req-013:render-con-queries-parciales\",\n   \"severity\": \"P2\",\n   \"evidence_type\": \"opinión\",\n   \"evidence\": \"E2, E3 y E4 de la prueba de aceptación llaman a render solo con 3 filas de q1_mart_organismo_mes, sin q2, q3 ni reescrituras.\",\n   \"summary\": \"El plan diseña render y sus fixtures con 13 filas y no define qué pasa si faltan queries o pares. Si render recorre las queries esperadas o un 'expected' fijo, podría fallar o generar filas con variante vacía o '—', y romper las aserciones.\",\n   \"fix\": \"Especificar que render arma las tablas solo con las filas recibidas, que una sección de Reescrituras vacía dice «Ninguno» sin tabla, y que la cuenta de jobs faltantes vive en fetch_jobs y no en render. Agregar una prueba local con solo las 3 filas de q1.\"},\n  {\"id\": \"req-013:dry-run-valores-none\",\n   \"severity\": \"P3\",\n   \"evidence_type\": \"opinión\",\n   \"evidence\": \"En E4 las filas traen total_bytes_billed=None y total_slot_ms=None, y la columna estimada debe mostrar total_bytes_processed (1.000.000.000 para la base).\",\n   \"summary\": \"El plan no dice explícitamente que la columna «bytes estimados (cota superior)» sale de total_bytes_processed ni cómo trata los None en el modo dry run.\",\n   \"fix\": \"Indicar que con dry_run=True se usan total_bytes_processed para bytes y % de ahorro, y que los None en billed o slot se ignoran.\"}\n ],\n \"summary\": \"El diseño técnico del plan (generación determinista con dos GENERATE_ARRAY y FARM_FINGERPRINT, las tres variantes, el filtro de partición en cada referencia, use_query_cache=false, etiquetas, maximum_bytes_billed, el descuento de la cuota diaria que se reinicia a medianoche del Pacífico y el dry run rotulado como cota superior) coincide con la práctica documentada. Pero parte de una premisa falsa: tests/acceptance/T-13_benchmark.py ya existe y define las interfaces. Contra ese archivo, el CLI de report.py del plan no acepta --dry-run, así que E4 seguiría en rojo (P0), y el paso 12 lo reemplazaría por un envoltorio que importa pruebas del propio implementador, además de omitir la prueba de aceptación en la verificación (P1). Hay que agregar --dry-run al CLI, eliminar el paso 12, restituir la verificación declarada y precisar cómo se comporta render con filas parciales y valores None.\"}\n```",
+  "options": {
+    "APROBAR": "no P0/P1 finding: the implementer may start with this plan",
+    "REVISAR": "the planner must fix P0/P1 findings before implementing",
+    "ESCALAR": "it needs a decision of the user"
+  },
+  "answer": "REVISAR",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule critic_revises_with_blocking (DEC-051)",
+  "decider": "rule",
+  "rule": "critic_revises_with_blocking",
+  "facts": {
+    "verdict": "REVISAR",
+    "effective": "REVISAR",
+    "assumptions": [
+      {
+        "assumption": "Con require_partition_filter, cada referencia a la tabla (incluidas las subconsultas del self-join) necesita su propio predicado sobre la columna de partición.",
+        "practice": "La documentación exige un predicado sobre la columna de partición en toda query sobre la tabla (también vistas) y falla con 'Cannot query over table ... without a filter'. En la práctica se pone el filtro en cada subconsulta o CTE que lee la tabla, que es lo que hace la regla del paso 5. No encontré texto oficial explícito sobre la exigencia por referencia.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/managing-partitioned-tables",
+          "https://oneuptime.com/blog/post/2026-02-17-how-to-require-partition-filters-on-bigquery-tables-to-prevent-full-table-scans/markdown"
+        ]
+      },
+      {
+        "assumption": "El dry run da una cota superior: no descuenta la poda por clustering, así que los bytes reales pueden ser menores.",
+        "practice": "La guía de costos presenta la estimación del dry run como cota superior. La práctica es comparar después con total_bytes_billed de INFORMATION_SCHEMA.JOBS.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/estimate-costs",
+          "https://oneuptime.com/blog/post/2026-02-17-how-to-estimate-bigquery-query-costs-before-running-with-dry-run/markdown"
+        ]
+      },
+      {
+        "assumption": "QueryUsagePerUserPerDay se reinicia a medianoche del Pacífico y se aplica por usuario o cuenta de servicio, así que descontar lo facturado desde esa hora es correcto.",
+        "practice": "Google documenta el reinicio a medianoche del Pacífico y que la cuota se aplica por separado a cada usuario y cuenta de servicio; una query que supera lo que queda de la cuota se rechaza antes de correr.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/cost-controls",
+          "https://codelabs.developers.google.com/bigquery-custom-quota"
+        ]
+      },
+      {
+        "assumption": "INFORMATION_SCHEMA.JOBS expone labels, cache_hit, total_bytes_billed, total_bytes_processed y total_slot_ms, y los valores de etiqueta admiten solo [a-z0-9_-] hasta 63 caracteres; los dry runs no se cuentan como medición.",
+        "practice": "La vista documenta esas columnas y el recurso Job documenta las reglas de las etiquetas. No encontré si los dry runs aparecen en la vista; el plan lo resuelve sin depender de eso, porque no les pone bench_run y filtra por job_id.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/information-schema-jobs?authuser=0",
+          "https://docs.cloud.google.com/bigquery/docs/reference/rest/v2/Job"
+        ]
+      },
+      {
+        "assumption": "Un CTAS cuyo SELECT es solo GENERATE_ARRAY/UNNEST con 40 M filas no factura bytes y no agota recursos.",
+        "practice": "No encontré una fuente específica. DEC-007 lo da por hecho («la generación no escanea bytes»), y el tope de maximum_bytes_billed de 1 GiB limita el daño si no se cumple.",
+        "sources": []
+      }
+    ],
+    "findings": [
+      {
+        "id": "req-013:report-cli-sin-dry-run",
+        "severity": "P0",
+        "evidence_type": "archivo",
+        "evidence": "tests/acceptance/T-13_benchmark.py:153 — args = [\"--dry-run\", \"--run-id\", RUN_ID, \"--fecha\", FECHA, \"--fixture\", ..., \"--out-dir\", ...]",
+        "summary": "La prueba de aceptación E4 invoca el CLI de benchmarks/report.py con --dry-run y espera código 0, un único .md en --out-dir con la columna «bytes estimados (cota superior)» y sin «bytes facturados». El paso 7 del plan define el CLI solo con --run-id, --project, --location, --fixture, --fecha y --out-dir: argparse rechazaría --dry-run con código 2 y E4 seguiría en rojo, así que la verificación declarada falla.",
+        "fix": "Agregar --dry-run al CLI de report.py (combinable con --fixture) para que llame a render(..., dry_run=True) y escriba un solo archivo en --out-dir. Agregar una prueba local de ese camino."
+      },
+      {
+        "id": "req-013:archivo-aceptacion-ya-existe",
+        "severity": "P1",
+        "evidence_type": "archivo",
+        "evidence": "tests/acceptance/T-13_benchmark.py:3 — \"The interfaces come from plans/T-13.md: benchmarks/generate.py exposes SEED, ROWS and render(seed, rows) -> str ...\"",
+        "summary": "El plan supone que tests/acceptance/T-13_benchmark.py no existe y propone (paso 12) dejar como pendiente manual un reemplazo que solo importa benchmarks/tests/test_acceptance_req013.py. El archivo ya existe, es independiente y define el contrato: SEED, ROWS, render(seed, rows), la cabecera '-- target rows:', report.render(rows, fecha, run_id, dry_run) y el CLI con --dry-run. Reemplazarlo cambiaría las pruebas de aceptación por pruebas del implementador. Además, la sección Verificación omite 'scripts/acceptance.sh tests/acceptance/T-13_benchmark.py', que es parte de la verificación declarada.",
+        "fix": "Eliminar el paso 12 y el claims.manual_pending. Tomar tests/acceptance/T-13_benchmark.py tal como está como el contrato de aceptación. Restituir la verificación declarada completa (test:benchmarks && acceptance.sh tests/acceptance/T-13_benchmark.py && check:spec) y ajustar las interfaces a lo que ese archivo exige. El módulo test_acceptance_req013.py puede quedar como prueba local adicional, sin reemplazar al otro."
+      },
+      {
+        "id": "req-013:render-con-queries-parciales",
+        "severity": "P2",
+        "evidence_type": "opinión",
+        "evidence": "E2, E3 y E4 de la prueba de aceptación llaman a render solo con 3 filas de q1_mart_organismo_mes, sin q2, q3 ni reescrituras.",
+        "summary": "El plan diseña render y sus fixtures con 13 filas y no define qué pasa si faltan queries o pares. Si render recorre las queries esperadas o un 'expected' fijo, podría fallar o generar filas con variante vacía o '—', y romper las aserciones.",
+        "fix": "Especificar que render arma las tablas solo con las filas recibidas, que una sección de Reescrituras vacía dice «Ninguno» sin tabla, y que la cuenta de jobs faltantes vive en fetch_jobs y no en render. Agregar una prueba local con solo las 3 filas de q1."
+      },
+      {
+        "id": "req-013:dry-run-valores-none",
+        "severity": "P3",
+        "evidence_type": "opinión",
+        "evidence": "En E4 las filas traen total_bytes_billed=None y total_slot_ms=None, y la columna estimada debe mostrar total_bytes_processed (1.000.000.000 para la base).",
+        "summary": "El plan no dice explícitamente que la columna «bytes estimados (cota superior)» sale de total_bytes_processed ni cómo trata los None en el modo dry run.",
+        "fix": "Indicar que con dry_run=True se usan total_bytes_processed para bytes y % de ahorro, y que los None en billed o slot se ignoran."
+      }
+    ],
+    "blocking": [
+      "req-013:report-cli-sin-dry-run",
+      "req-013:archivo-aceptacion-ya-existe"
+    ],
+    "opinion_blockers": [],
+    "repeated": [],
+    "summary": "El diseño técnico del plan (generación determinista con dos GENERATE_ARRAY y FARM_FINGERPRINT, las tres variantes, el filtro de partición en cada referencia, use_query_cache=false, etiquetas, maximum_bytes_billed, el descuento de la cuota diaria que se reinicia a medianoche del Pacífico y el dry run rotulado como cota superior) coincide con la práctica documentada. Pero parte de una premisa falsa: tests/acceptance/T-13_benchmark.py ya existe y define las interfaces. Contra ese archivo, el CLI de report.py del plan no acepta --dry-run, así que E4 seguiría en rojo (P0), y el paso 12 lo reemplazaría por un envoltorio que importa pruebas del propio implementador, además de omitir la prueba de aceptación en la verificación (P1). Hay que agregar --dry-run al CLI, eliminar el paso 12, restituir la verificación declarada y precisar cómo se comporta render con filas parciales y valores None."
+  },
+  "timestamp": "2026-10-23T03:45:01.725Z"
+}

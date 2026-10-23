@@ -1,0 +1,25 @@
+{
+  "question_id": "review_verdict",
+  "instructions": "Does this independent review approve the change? Approve only if it reports no blocking finding.",
+  "state": "I recommend approving T-13: I found no blocking issues against REQ-013, DEC-003 or DEC-007. I couldn't re-run the task's unit tests myself, so that part rests on the evidence log.\n\n**What I ran:**\n- **Evidence log:** `sha256sum artifacts/T-13/verify.log` matches the recorded hash (`a6e96f9a…`). The log shows 35/35 passing.\n- **Acceptance tests:** `scripts/acceptance.sh tests/acceptance/T-13_benchmark.py` gives 4 passed (E1–E4).\n- **Spec check:** `node scripts/check-spec.mjs` gives `check:spec: ok`.\n- **Not run:** both `npm run test:benchmarks` and `npm test` were blocked by the permission mode.\n\n**1. Requirements (REQ-013):** all four examples are covered and tested, edges included.\n- **E1:** the generated SQL is the same both times and matches the versioned `generate.sql`; the target is 40,000,000 rows.\n- **E2:** the table has billed bytes, slot ms and % saved, with the base at 0 %.\n- **E3:** a cached job stays out of the table and is listed under «Excluidos».\n- **E4:** with `--dry-run` the column is titled «bytes estimados (cota superior)».\n- **Measured jobs:** they run with the query cache off, the `bench_run` label and a per-job `maximum_bytes_billed`.\n- **Report:** it reads `INFORMATION_SCHEMA.JOBS` by that label and writes `benchmarks/results/<fecha>.md`.\n\n**2. Scope:** the implementation commits only touch `benchmarks/`, `scripts/it/benchmark.sh` and `package.json`, plus the orchestrator's `artifacts/` and `spec/` records. Nothing changed under `tests/acceptance/`, `dataform/`, `infra/` or the spec text.\n\n**3. Decisions:** no violations.\n- **DEC-003 / DEC-009:** every query the scripts run has a byte cap: 1 GiB for setup and metadata, at most 20 GiB per measured job. A budget check runs before anything is measured.\n- **DEC-007:** the data generation is deterministic.\n\n```json\n{\"verdict\": \"approved\", \"findings\": [], \"notes\": \"Verificado: sha256 de artifacts/T-13/verify.log coincide (a6e96f9a…); scripts/acceptance.sh tests/acceptance/T-13_benchmark.py → 4 passed (E1–E4); node scripts/check-spec.mjs → ok. No se pudieron correr npm run test:benchmarks ni npm test (permiso denegado); se apoya en el log de evidencia (35/35). El diff de implementación solo toca benchmarks/, scripts/it/benchmark.sh y package.json (más artifacts/ y spec/ del orquestador); nada bajo tests/acceptance/. Todas las consultas de los scripts llevan maximum_bytes_billed (DEC-003/DEC-009): 1 GiB en creación de variantes y metadatos, cap_bytes ≤ 20 GiB en los jobs medidos. La semántica SQL real (CTAS de 40 M filas, require_partition_filter, JOBS_BY_USER) solo se valida en scripts/it/benchmark.sh, pendiente manual del usuario; bash -n de ese script tampoco se corrió.\"}\n```",
+  "options": {
+    "approved": "the review finds no blocking problem: the change can be accepted",
+    "rejected": "the review reports at least one blocking problem"
+  },
+  "answer": "approved",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule review_approved_without_findings (DEC-051)",
+  "decider": "rule",
+  "rule": "review_approved_without_findings",
+  "facts": {
+    "verdict": "approved",
+    "findings": [],
+    "notes": "Verificado: sha256 de artifacts/T-13/verify.log coincide (a6e96f9a…); scripts/acceptance.sh tests/acceptance/T-13_benchmark.py → 4 passed (E1–E4); node scripts/check-spec.mjs → ok. No se pudieron correr npm run test:benchmarks ni npm test (permiso denegado); se apoya en el log de evidencia (35/35). El diff de implementación solo toca benchmarks/, scripts/it/benchmark.sh y package.json (más artifacts/ y spec/ del orquestador); nada bajo tests/acceptance/. Todas las consultas de los scripts llevan maximum_bytes_billed (DEC-003/DEC-009): 1 GiB en creación de variantes y metadatos, cap_bytes ≤ 20 GiB en los jobs medidos. La semántica SQL real (CTAS de 40 M filas, require_partition_filter, JOBS_BY_USER) solo se valida en scripts/it/benchmark.sh, pendiente manual del usuario; bash -n de ese script tampoco se corrió."
+  },
+  "timestamp": "2026-10-23T03:57:21.007Z"
+}

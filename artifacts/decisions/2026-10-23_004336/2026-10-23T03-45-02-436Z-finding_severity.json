@@ -1,0 +1,29 @@
+{
+  "question_id": "finding_severity",
+  "instructions": "Does this finding of a plan critique block implementing the plan as written?",
+  "state": {
+    "id": "req-013:report-cli-sin-dry-run",
+    "severity": "P0",
+    "evidence_type": "archivo",
+    "evidence": "tests/acceptance/T-13_benchmark.py:153 — args = [\"--dry-run\", \"--run-id\", RUN_ID, \"--fecha\", FECHA, \"--fixture\", ..., \"--out-dir\", ...]",
+    "summary": "La prueba de aceptación E4 invoca el CLI de benchmarks/report.py con --dry-run y espera código 0, un único .md en --out-dir con la columna «bytes estimados (cota superior)» y sin «bytes facturados». El paso 7 del plan define el CLI solo con --run-id, --project, --location, --fixture, --fecha y --out-dir: argparse rechazaría --dry-run con código 2 y E4 seguiría en rojo, así que la verificación declarada falla.",
+    "fix": "Agregar --dry-run al CLI de report.py (combinable con --fixture) para que llame a render(..., dry_run=True) y escriba un solo archivo en --out-dir. Agregar una prueba local de ese camino."
+  },
+  "options": {
+    "blocking": "P0/P1: the plan cannot be implemented as written without fixing this",
+    "not_blocking": "P2/P3: worth fixing, but the plan can go ahead"
+  },
+  "answer": "blocking",
+  "confidence": 0.88,
+  "probabilities": {
+    "blocking": 0.94,
+    "not_blocking": 0.06
+  },
+  "model": "jev-1.13.0",
+  "user_criteria_sha256": "11e0f45aebf08e3cf7a4bfa0abf62cad8d04b7c63c3588a0c5911372a1bee624",
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "",
+  "decider": "/home/pepe/Projects/compras-publicas-cl/scripts/agents/decider/jev.sh",
+  "timestamp": "2026-10-23T03:45:02.436Z"
+}

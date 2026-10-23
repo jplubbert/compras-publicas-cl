@@ -1,0 +1,76 @@
+{
+  "question_id": "plan_verdict",
+  "instructions": "Given this critique of an implementation plan, what is the verdict?",
+  "state": "No encontré problemas P0 ni P1, así que el plan de T-13 queda aprobado y el implementador puede seguirlo. Los dos bloqueos de la ronda 1 están corregidos y no los vuelvo a reportar:\n\n- **`req-013:report-cli-sin-dry-run`:** el CLI de `report.py` ahora acepta `--dry-run` junto con `--fixture` y escribe un solo archivo, `<fecha>-estimado.md`.\n- **`req-013:archivo-aceptacion-ya-existe`:** el plan deja `tests/acceptance/T-13_benchmark.py` tal cual y prohíbe tocar `tests/acceptance/`.\n\nContrasté el plan con la prueba de aceptación (`tests/acceptance/T-13_benchmark.py:27-166`); pasaría los cuatro ejemplos:\n\n- **E1:** `render(SEED, ROWS)` produce la cabecera `-- target rows: 40000000`, y el texto coincide con `generate.sql`.\n- **E2:** las columnas `bytes facturados`, `slot ms` y `% ahorro` están, y los porcentajes salen 0, 75 y 87,5.\n- **E3:** el job con `cache_hit = TRUE` va a «Excluidos» como lista, sin columna `variante` que se pise en la tabla.\n- **E4:** el subproceso del CLI no importa el cliente de BigQuery y escribe un único `.md`.\n\nHay un hallazgo menor (P3) que no bloquea: la suma de segundos a `TIMESTAMP(fecha_publicacion)` debe escribirse con `TIMESTAMP_ADD`.\n\nEn la web hallé fuentes para cuatro de los cinco supuestos de riesgo. Para el límite de tamaño de `GENERATE_ARRAY` (cerca de 1.048.575 elementos) no hallé confirmación oficial, pero el plan lo evita igual al cruzar dos arreglos más pequeños.\n\n```json\n{\"verdict\": \"APROBAR\", \"assumptions\": [{\"assumption\": \"Un solo GENERATE_ARRAY no admite 40 M elementos y el producto cruzado de dos arreglos (40.000 × 1.000) sí funciona.\", \"practice\": \"Se generan rangos grandes cruzando con CROSS JOIN dos UNNEST(GENERATE_ARRAY) más pequeños o por tramos. El límite (~1.048.575 elementos) aparece en la referencia de funciones de arreglo, pero la búsqueda no lo confirmó de forma oficial.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/array_functions?authuser=1\"]}, {\"assumption\": \"Con require_partition_filter, cada referencia a la tabla (también en subconsultas) necesita su propio predicado sobre la columna de partición, y ese predicado no puede envolver la columna en una función.\", \"practice\": \"La documentación dice que todo query sobre la tabla debe llevar un predicado que use solo la columna de partición (también vía vistas). En la práctica se pone el filtro en cada subconsulta o CTE; el plan lo exige y lo cuenta en sus pruebas.\", \"sources\": [\"https://docs.cloud.google.com/bigquery/docs/managing-partitioned-tables\", \"https://oneuptime.com/blog/post/2026-02-17-how-to-require-partition-filters-on-bigquery-tables-to-prevent-full-table-scans/markdown\"]}, {\"assumption\": \"El dry run sobre una tabla clusterizada da total_bytes_processed como cota superior (antes de la poda por clustering), y sirve como base para maximum_bytes_billed.\", \"practice\": \"Las estadísticas del job exponen totalBytesProcessedAccuracy (PRECISE / UPPER_BOUND). Con clustering, la estimación es una cota superior y lo facturado real es menor o igual, así que un tope de 1,2 × la estimación no corta jobs legítimos.\", \"sources\": [\"https://googleapis.dev/nodejs/googleapis/latest/bigquery/interfaces/Schema$JobStatistics2.html\", \"https://oneuptime.com/blog/post/2026-02-17-how-to-estimate-bigquery-query-costs-before-running-with-dry-run/markdown\"]}, {\"assumption\": \"Los dry runs no generan filas medidas en INFORMATION_SCHEMA.JOBS ni consumen cuota de bytes.\", \"practice\": \"Los dry runs son gratis y no escanean datos. El plan además no les pone la etiqueta bench_run y filtra por state = 'DONE'.\", \"sources\": [\"https://oneuptime.com/blog/post/2026-02-17-how-to-estimate-bigquery-query-costs-before-running-with-dry-run/markdown\"]}, {\"assumption\": \"El parser de tablas de la prueba de aceptación tolera los encabezados '###', las secciones múltiples y la lista de Excluidos que propone el plan.\", \"practice\": \"Lo verifiqué leyendo la prueba: tables() corta en la primera línea que no empieza con '|', y section() no confunde '###' con '##'. No requiere fuente externa.\", \"sources\": []}], \"findings\": [{\"id\": \"req-013:timestamp-suma-segundos\", \"severity\": \"P3\", \"evidence_type\": \"opinión\", \"evidence\": \"El paso 2 del plan define ingested_at y fecha_cambio como 'TIMESTAMP(fecha_publicacion) más MOD segundos'; en GoogleSQL, TIMESTAMP + INT64 no es válido.\", \"summary\": \"Si se escribe como suma aritmética, el CTAS falla recién en GCP; la verificación local no lo detecta.\", \"fix\": \"Indicar TIMESTAMP_ADD(TIMESTAMP(fecha_publicacion), INTERVAL ABS(MOD(h('ts'), 86400)) SECOND).\"}], \"summary\": \"Los dos bloqueos de la ronda 1 están resueltos: el CLI de report.py acepta --dry-run junto con --fixture y escribe un solo <fecha>-estimado.md, y el plan deja intacto tests/acceptance/T-13_benchmark.py. Contrastado con la prueba de aceptación, el diseño cumpliría E1 (cabecera target rows y texto igual a generate.sql), E2 (columnas bytes facturados, slot ms y % ahorro con 0/75/87,5), E3 (exclusión en lista bajo Excluidos, sin columna variante duplicada) y E4 (subproceso sin cliente BigQuery y un solo archivo). Los supuestos de nube (GENERATE_ARRAY cruzado, filtro de partición por referencia, dry run como cota superior) coinciden con la práctica documentada, aunque el límite exacto de GENERATE_ARRAY no se confirmó con fuente oficial. Solo queda un detalle P3 sobre TIMESTAMP_ADD. Se aprueba.\"}\n```",
+  "options": {
+    "APROBAR": "no P0/P1 finding: the implementer may start with this plan",
+    "REVISAR": "the planner must fix P0/P1 findings before implementing",
+    "ESCALAR": "it needs a decision of the user"
+  },
+  "answer": "APROBAR",
+  "confidence": 1,
+  "probabilities": null,
+  "model": null,
+  "user_criteria_sha256": null,
+  "threshold": 0.8,
+  "action": "proceed",
+  "reason": "rule critic_approves_without_p0_p1 (DEC-051)",
+  "decider": "rule",
+  "rule": "critic_approves_without_p0_p1",
+  "facts": {
+    "verdict": "APROBAR",
+    "effective": "APROBAR",
+    "assumptions": [
+      {
+        "assumption": "Un solo GENERATE_ARRAY no admite 40 M elementos y el producto cruzado de dos arreglos (40.000 × 1.000) sí funciona.",
+        "practice": "Se generan rangos grandes cruzando con CROSS JOIN dos UNNEST(GENERATE_ARRAY) más pequeños o por tramos. El límite (~1.048.575 elementos) aparece en la referencia de funciones de arreglo, pero la búsqueda no lo confirmó de forma oficial.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/array_functions?authuser=1"
+        ]
+      },
+      {
+        "assumption": "Con require_partition_filter, cada referencia a la tabla (también en subconsultas) necesita su propio predicado sobre la columna de partición, y ese predicado no puede envolver la columna en una función.",
+        "practice": "La documentación dice que todo query sobre la tabla debe llevar un predicado que use solo la columna de partición (también vía vistas). En la práctica se pone el filtro en cada subconsulta o CTE; el plan lo exige y lo cuenta en sus pruebas.",
+        "sources": [
+          "https://docs.cloud.google.com/bigquery/docs/managing-partitioned-tables",
+          "https://oneuptime.com/blog/post/2026-02-17-how-to-require-partition-filters-on-bigquery-tables-to-prevent-full-table-scans/markdown"
+        ]
+      },
+      {
+        "assumption": "El dry run sobre una tabla clusterizada da total_bytes_processed como cota superior (antes de la poda por clustering), y sirve como base para maximum_bytes_billed.",
+        "practice": "Las estadísticas del job exponen totalBytesProcessedAccuracy (PRECISE / UPPER_BOUND). Con clustering, la estimación es una cota superior y lo facturado real es menor o igual, así que un tope de 1,2 × la estimación no corta jobs legítimos.",
+        "sources": [
+          "https://googleapis.dev/nodejs/googleapis/latest/bigquery/interfaces/Schema$JobStatistics2.html",
+          "https://oneuptime.com/blog/post/2026-02-17-how-to-estimate-bigquery-query-costs-before-running-with-dry-run/markdown"
+        ]
+      },
+      {
+        "assumption": "Los dry runs no generan filas medidas en INFORMATION_SCHEMA.JOBS ni consumen cuota de bytes.",
+        "practice": "Los dry runs son gratis y no escanean datos. El plan además no les pone la etiqueta bench_run y filtra por state = 'DONE'.",
+        "sources": [
+          "https://oneuptime.com/blog/post/2026-02-17-how-to-estimate-bigquery-query-costs-before-running-with-dry-run/markdown"
+        ]
+      },
+      {
+        "assumption": "El parser de tablas de la prueba de aceptación tolera los encabezados '###', las secciones múltiples y la lista de Excluidos que propone el plan.",
+        "practice": "Lo verifiqué leyendo la prueba: tables() corta en la primera línea que no empieza con '|', y section() no confunde '###' con '##'. No requiere fuente externa.",
+        "sources": []
+      }
+    ],
+    "findings": [
+      {
+        "id": "req-013:timestamp-suma-segundos",
+        "severity": "P3",
+        "evidence_type": "opinión",
+        "evidence": "El paso 2 del plan define ingested_at y fecha_cambio como 'TIMESTAMP(fecha_publicacion) más MOD segundos'; en GoogleSQL, TIMESTAMP + INT64 no es válido.",
+        "summary": "Si se escribe como suma aritmética, el CTAS falla recién en GCP; la verificación local no lo detecta.",
+        "fix": "Indicar TIMESTAMP_ADD(TIMESTAMP(fecha_publicacion), INTERVAL ABS(MOD(h('ts'), 86400)) SECOND)."
+      }
+    ],
+    "blocking": [],
+    "opinion_blockers": [],
+    "repeated": [],
+    "summary": "Los dos bloqueos de la ronda 1 están resueltos: el CLI de report.py acepta --dry-run junto con --fixture y escribe un solo <fecha>-estimado.md, y el plan deja intacto tests/acceptance/T-13_benchmark.py. Contrastado con la prueba de aceptación, el diseño cumpliría E1 (cabecera target rows y texto igual a generate.sql), E2 (columnas bytes facturados, slot ms y % ahorro con 0/75/87,5), E3 (exclusión en lista bajo Excluidos, sin columna variante duplicada) y E4 (subproceso sin cliente BigQuery y un solo archivo). Los supuestos de nube (GENERATE_ARRAY cruzado, filtro de partición por referencia, dry run como cota superior) coinciden con la práctica documentada, aunque el límite exacto de GENERATE_ARRAY no se confirmó con fuente oficial. Solo queda un detalle P3 sobre TIMESTAMP_ADD. Se aprueba."
+  },
+  "timestamp": "2026-10-23T03:49:18.221Z"
+}
