@@ -1,0 +1,8 @@
+.                                                                        [100%]
+Tests: 0 failed, 1 passed, 1 total
+1 passed in 0.28s
+
+> check:spec
+> node scripts/check-spec.mjs
+
+check:spec: ok

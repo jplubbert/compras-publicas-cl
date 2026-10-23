@@ -1585,16 +1585,27 @@
         "DEC-005"
       ],
       "depends_on": [],
-      "status": "ready",
+      "status": "verified_auto",
       "blocked_by": null,
-      "evidence": null,
+      "evidence": {
+        "command": "scripts/env.sh bash -c 'uv run --frozen pytest scripts/ci/tests/test_t13_acceptance_red.py && npm run check:spec'",
+        "exit_code": 0,
+        "passed": 1,
+        "failed": 0,
+        "total": 1,
+        "log_path": "artifacts/T-18/verify.log",
+        "log_sha256": "3e9020b55eeb2d5559166e5e06b43571da1ab15191b7812658b7d768084302dd",
+        "commit": "31cd232de1b993ab729f68a2fc18093e93f54173",
+        "timestamp": "2026-10-23T03:42:41+00:00",
+        "result": "1/1 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-18/verify.log)"
+      },
       "review": null,
       "touches": [
         "tests/acceptance/T-13_benchmark.py",
         "scripts/ci/tests/test_t13_acceptance_red.py"
       ],
       "verify": "scripts/env.sh bash -c 'uv run --frozen pytest scripts/ci/tests/test_t13_acceptance_red.py && npm run check:spec'",
-      "notes": "2026-10-22: creada en sesión por la respuesta del usuario a Q-09 (opción a). Su diff en tests/acceptance/ lo aprueba el usuario. Interfaces que la prueba fija para T-13 (el plan se rehace): generate.py expone SEED, ROWS y render(seed, rows), y la salida lleva una línea '-- target rows: <rows>'; report.render acepta fecha y run_id como argumentos con nombre (fecha como texto 'AAAA-MM-DD') y filas con las claves job_id, cache_hit, error_result, total_bytes_billed, total_bytes_processed, total_slot_ms, bench_query y bench_variant; en dry run, total_bytes_billed y total_slot_ms vienen en None. Las tablas de Markdown tienen las columnas 'variante', 'bytes facturados' (o 'bytes estimados (cota superior)' en dry run), 'slot ms' y '% ahorro'. No se corrió el archivo completo (DEC-045): el rojo es por ModuleNotFoundError, porque benchmarks/generate.py y report.py todavía no existen. El hook Stop de record_evidence.py no pudo leer conteos del verify de T-18: su salida es la de 'pytest --collect-only -q' ('tests/acceptance/T-13_benchmark.py: 4') y 'check:spec: ok', y el parser solo reconoce los resúmenes de node:test, vitest y jest (scripts/record_evidence.py:48-52). El verify sale con código 0. Para arreglarlo hay que cambiar el verify de T-18 en spec/TASKS.json o enseñarle al parser el formato de collect-only de pytest; las dos cosas quedan fuera de los touches de esta tarea. 2026-10-22: escalada por el orquestador (DEC-005): el decisor (jev) no resolvió la causa del fallo (confidence 0.63 < 0.8 (threshold)); sin informe; bloqueada por Q-10. 2026-10-23: Q-10 respondida por el usuario: el verify pasa a ser la prueba de scripts/ci/tests/test_t13_acceptance_red.py (el de collect-only no imprimía un conteo legible). Correcciones del usuario a tests/acceptance/T-13_benchmark.py, aplicadas en sesión: (a) el % de ahorro se compara como número (savings(...) == 0), sin exigir el formato «0 %»; (b) E4 corre el CLI: python benchmarks/report.py --dry-run --run-id ID --fecha AAAA-MM-DD --fixture <json con la lista de filas> --out-dir <dir>, y lee el único .md que escriba; eso suma --dry-run al CLI de report.py como interfaz para T-13. El ahorro en dry run sobre los bytes estimados, con la base en 0, queda como estaba. El implementador de T-18 no cambia esas aserciones; solo escribe scripts/ci/tests/test_t13_acceptance_red.py.",
+      "notes": "2026-10-22: creada en sesión por la respuesta del usuario a Q-09 (opción a). Su diff en tests/acceptance/ lo aprueba el usuario. Interfaces que la prueba fija para T-13 (el plan se rehace): generate.py expone SEED, ROWS y render(seed, rows), y la salida lleva una línea '-- target rows: <rows>'; report.render acepta fecha y run_id como argumentos con nombre (fecha como texto 'AAAA-MM-DD') y filas con las claves job_id, cache_hit, error_result, total_bytes_billed, total_bytes_processed, total_slot_ms, bench_query y bench_variant; en dry run, total_bytes_billed y total_slot_ms vienen en None. Las tablas de Markdown tienen las columnas 'variante', 'bytes facturados' (o 'bytes estimados (cota superior)' en dry run), 'slot ms' y '% ahorro'. No se corrió el archivo completo (DEC-045): el rojo es por ModuleNotFoundError, porque benchmarks/generate.py y report.py todavía no existen. El hook Stop de record_evidence.py no pudo leer conteos del verify de T-18: su salida es la de 'pytest --collect-only -q' ('tests/acceptance/T-13_benchmark.py: 4') y 'check:spec: ok', y el parser solo reconoce los resúmenes de node:test, vitest y jest (scripts/record_evidence.py:48-52). El verify sale con código 0. Para arreglarlo hay que cambiar el verify de T-18 en spec/TASKS.json o enseñarle al parser el formato de collect-only de pytest; las dos cosas quedan fuera de los touches de esta tarea. 2026-10-22: escalada por el orquestador (DEC-005): el decisor (jev) no resolvió la causa del fallo (confidence 0.63 < 0.8 (threshold)); sin informe; bloqueada por Q-10. 2026-10-23: Q-10 respondida por el usuario: el verify pasa a ser la prueba de scripts/ci/tests/test_t13_acceptance_red.py (el de collect-only no imprimía un conteo legible). Correcciones del usuario a tests/acceptance/T-13_benchmark.py, aplicadas en sesión: (a) el % de ahorro se compara como número (savings(...) == 0), sin exigir el formato «0 %»; (b) E4 corre el CLI: python benchmarks/report.py --dry-run --run-id ID --fecha AAAA-MM-DD --fixture <json con la lista de filas> --out-dir <dir>, y lee el único .md que escriba; eso suma --dry-run al CLI de report.py como interfaz para T-13. El ahorro en dry run sobre los bytes estimados, con la base en 0, queda como estaba. El implementador de T-18 no cambia esas aserciones; solo escribe scripts/ci/tests/test_t13_acceptance_red.py. 2026-10-23: la prueba roja compara el mensaje exacto «ModuleNotFoundError: No module named '<módulo>'» del JUnit XML por prueba (E1 → generate; E2–E4 → report), porque load() de la aceptación importa el módulo por nombre con benchmarks/ en sys.path. El subproceso corre con cwd en tmp_path y -p no:cacheprovider para no dejar archivos en el repo.",
       "status_log": [
         {
           "from": "specified",
@@ -1623,6 +1634,20 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-23T03:34:16.014Z",
           "reason": "Q-10 respondida y diff de tests/acceptance/T-13_benchmark.py aprobado por el usuario"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "apply-result",
+          "at": "2026-10-23T03:42:38.044Z",
+          "reason": "resultado del implementador de T-18 vía autopilot (claude)"
+        },
+        {
+          "from": "in_progress",
+          "to": "verified_auto",
+          "by": "record_evidence.py",
+          "at": "2026-10-23T03:42:41+00:00",
+          "reason": "verify con código 0: 1/1 pasan, 0 fallan"
         }
       ],
       "claims": {

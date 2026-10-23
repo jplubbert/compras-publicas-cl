@@ -890,3 +890,9 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - A pedido del usuario, T-19 y T-20 pasan a `ready` (`set-status --by "José Pedro Lübbert"`). Cola: T-18, T-13 (espera
   a T-18), T-15, T-19, T-20 (espera a T-19). No se relanzó (pedido del usuario).
 - Próxima acción autorizada: el usuario lanza el encadenado de compras.
+
+## 2026-10-23 00:42 · implementador de T-18 vía autopilot (claude)
+- Hecho: T-18: escrita scripts/ci/tests/test_t13_acceptance_red.py (commit 31cd232), según la respuesta a Q-10: corre pytest sobre tests/acceptance/T-13_benchmark.py en un subproceso, lee su JUnit XML y exige que se recolecten exactamente E1–E4 y que cada una falle por ModuleNotFoundError de `generate` (E1) o `report` (E2–E4). Se salta con pytest.skip cuando existan benchmarks/generate.py y benchmarks/report.py, para que T-13 no rompa test:workflows. El conteo lo imprime scripts/ci/tests/conftest.py.
+- tests/acceptance/T-13_benchmark.py no se tocó en esta corrida (su diff ya lo aprobó el usuario, commit 99e38e9).
+- Verificado y cómo: `scripts/env.sh bash -c 'uv run --frozen pytest scripts/ci/tests/test_t13_acceptance_red.py && npm run check:spec'` → 1/1 pasan, 0 fallan (código 0; registrado por record_evidence.py desde artifacts/T-18/verify.log), commit 31cd232.
+- Próxima acción autorizada: el revisor revisa T-18; después, T-13 implementa benchmarks/ hasta que T-13_benchmark.py pase en verde.
