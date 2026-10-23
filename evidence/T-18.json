@@ -62,20 +62,128 @@
         "close": null
       },
       "tree_sha": "c859dd49cc7ecfb9091e6552b7b58bf0ca24a83c"
+    },
+    {
+      "task": "T-18",
+      "run": "2026-10-23_004125",
+      "role": "implementer",
+      "attempt": 1,
+      "started": "2026-10-23T03:41:26.000Z",
+      "minutes": 1.3,
+      "tokens": {
+        "input": 28,
+        "output": 4694,
+        "cache_read": 352131,
+        "cache_write": 29257
+      },
+      "exit_code": 0,
+      "test_runs": {
+        "task": 2,
+        "suite": 3,
+        "agent": {
+          "task": 2,
+          "suite": 1
+        },
+        "hook": {
+          "task": 0,
+          "suite": 1
+        },
+        "orchestrator": {
+          "task": 0,
+          "suite": 1
+        }
+      },
+      "gates": [
+        {
+          "name": "audit",
+          "result": "ok"
+        },
+        {
+          "name": "acceptance_guard",
+          "result": "ok"
+        },
+        {
+          "name": "authority",
+          "result": "ok"
+        },
+        {
+          "name": "scope",
+          "result": "ok"
+        },
+        {
+          "name": "result",
+          "result": "ok"
+        },
+        {
+          "name": "evidence",
+          "result": "ok"
+        },
+        {
+          "name": "check_spec",
+          "result": "ok"
+        }
+      ],
+      "verify_exit_codes": {
+        "hook": 0,
+        "close": 0
+      },
+      "tree_sha": "c8851ce5301e7c69c15a9c67e44db0be162cb311"
+    },
+    {
+      "task": "T-18",
+      "run": "2026-10-23_004125",
+      "role": "reviewer",
+      "attempt": 1,
+      "started": "2026-10-23T03:42:46.000Z",
+      "minutes": 0.7,
+      "tokens": {
+        "input": 10,
+        "output": 2565,
+        "cache_read": 164273,
+        "cache_write": 46533
+      },
+      "exit_code": 0,
+      "test_runs": {
+        "task": 1,
+        "suite": 0,
+        "agent": {
+          "task": 1,
+          "suite": 0
+        },
+        "hook": {
+          "task": 0,
+          "suite": 0
+        },
+        "orchestrator": {
+          "task": 0,
+          "suite": 0
+        }
+      },
+      "gates": [
+        {
+          "name": "review",
+          "result": "approved"
+        }
+      ],
+      "verify_exit_codes": {
+        "hook": null,
+        "close": null
+      },
+      "tree_sha": "c8851ce5301e7c69c15a9c67e44db0be162cb311"
     }
   ],
   "totals": {
-    "records": 1,
-    "minutes": 4.6,
+    "records": 3,
+    "minutes": 6.6,
     "tokens": {
-      "input": 104,
-      "output": 16116,
-      "cache_read": 2008365,
-      "cache_write": 64550
+      "input": 142,
+      "output": 23375,
+      "cache_read": 2524769,
+      "cache_write": 140340
     },
     "test_runs": {
-      "task": 0,
-      "suite": 2
+      "task": 3,
+      "suite": 5
     }
   }
 }
