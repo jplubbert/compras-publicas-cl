@@ -2161,8 +2161,8 @@
       "reqs": [
         "REQ-014"
       ],
-      "status": "ready",
-      "blocked_by": null,
+      "status": "blocked",
+      "blocked_by": "Q-11",
       "evidence": null,
       "review": null,
       "touches": [
@@ -2172,7 +2172,7 @@
         "scripts/ci/tests/test_workflows.py"
       ],
       "verify": "scripts/env.sh bash -c 'npm run test:infra && npm run test:dataform && uv run --frozen pytest scripts/ci/tests/test_workflows.py && npm run check:spec'",
-      "notes": "2026-10-23: creada en sesión a pedido del usuario. Interpretación registrada: la sal de producción queda en `pii` por defecto para que el release config de T-11 no cambie; solo la corrida de ci pasa pii_ci. Depende de T-19 porque las dos tocan scripts/ci/dataform-ci.sh y test_workflows.py.",
+      "notes": "2026-10-23: creada en sesión a pedido del usuario. Interpretación registrada: la sal de producción queda en `pii` por defecto para que el release config de T-11 no cambie; solo la corrida de ci pasa pii_ci. Depende de T-19 porque las dos tocan scripts/ci/dataform-ci.sh y test_workflows.py. 2026-10-23: escalada por el orquestador (DEC-005): el planificador no escribió plans/T-20.md (ronda 1, código 0); sin informe; bloqueada por Q-11.",
       "status_log": [
         {
           "from": "specified",
@@ -2180,6 +2180,13 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-23T03:40:05.408Z",
           "reason": "pedido del usuario"
+        },
+        {
+          "from": "ready",
+          "to": "blocked",
+          "by": "escalate",
+          "at": "2026-10-23T04:09:26.728Z",
+          "reason": "escalada al usuario por Q-11"
         }
       ]
     }
