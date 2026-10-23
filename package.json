@@ -15,8 +15,9 @@
     "test:dataform": "scripts/env.sh bash -c '[ -d dataform/node_modules ] || npm ci --prefix dataform --silent' && scripts/env.sh node --test --test-reporter=spec \"dataform/tests/*.test.mjs\"",
     "test:workflows": "scripts/env.sh uv run --frozen pytest scripts/ci/tests",
     "test:orchestration": "scripts/env.sh uv run --frozen pytest orchestration/tests",
+    "test:benchmarks": "scripts/env.sh uv run --frozen pytest benchmarks/tests",
     "check:repo": "node scripts/ci/check-repo.mjs",
     "check:descriptions": "node scripts/ci/check-descriptions.mjs",
-    "test": "npm run test:ci && npm run test:ingest && npm run test:finops && npm run test:infra && npm run test:dataform && npm run test:sdd && npm run test:workflows && npm run test:orchestration"
+    "test": "npm run test:ci && npm run test:ingest && npm run test:finops && npm run test:infra && npm run test:dataform && npm run test:sdd && npm run test:workflows && npm run test:orchestration && npm run test:benchmarks"
   }
 }
