@@ -1092,3 +1092,8 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   1.128.552 de caché leída. Anotado en ella: el cambio es del orquestador que sdd-base copia a los proyectos; la
   recomendación es hacerlo en sdd-base y traerlo con `upgrade.sh`.
 - Próxima acción autorizada: el usuario hace el despliegue de T-14 (con T-19 y T-20) y decide dónde se implementa T-21.
+
+## 2026-10-23 · Claude (claude-opus-5-5) · sesión: T-21 trasladada a sdd-base
+- A pedido del usuario, T-21 pasa a sdd-base como T-155 (`specified`, misma descripción) y aquí queda `superseded` con
+  la nota del traslado. Llega a este repo con `upgrade.sh` cuando esté revisada en sdd-base.
+- Próxima acción autorizada: el usuario hace el despliegue de T-14 (con T-19 y T-20).

@@ -2281,7 +2281,7 @@
       "reqs": [],
       "decisions": [],
       "depends_on": [],
-      "status": "specified",
+      "status": "superseded",
       "blocked_by": null,
       "evidence": null,
       "review": null,
@@ -2291,7 +2291,16 @@
         "scripts/test/autopilot-tasks.test.mjs"
       ],
       "verify": "node --test --test-name-pattern=T-21 scripts/test/autopilot-tasks.test.mjs && npm run check:spec",
-      "notes": "2026-10-23: creada en sesión a pedido del usuario, en specified. Ojo: scripts/autopilot.sh y scripts/lib/ son el orquestador que sdd-base copia a los proyectos (bootstrap/upgrade.sh): un cambio hecho solo aquí diverge de sdd-base y un upgrade lo pisaría. Recomendación de la sesión: implementarla en sdd-base y traerla con upgrade.sh; queda aquí como registro del pedido hasta que el usuario decida dónde se hace."
+      "notes": "2026-10-23: creada en sesión a pedido del usuario, en specified. Ojo: scripts/autopilot.sh y scripts/lib/ son el orquestador que sdd-base copia a los proyectos (bootstrap/upgrade.sh): un cambio hecho solo aquí diverge de sdd-base y un upgrade lo pisaría. Recomendación de la sesión: implementarla en sdd-base y traerla con upgrade.sh; queda aquí como registro del pedido hasta que el usuario decida dónde se hace. 2026-10-23: trasladada a sdd-base como T-155, con la misma descripción (pedido del usuario): el cambio es del orquestador que sdd-base copia a los proyectos; llega aquí con upgrade.sh. Queda superseded en este repo.",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "superseded",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-23T16:18:02.539Z",
+          "reason": "trasladada a sdd-base como T-155 (pedido del usuario)"
+        }
+      ]
     }
   ]
 }
