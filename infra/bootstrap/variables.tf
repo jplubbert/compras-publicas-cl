@@ -66,7 +66,7 @@ variable "alert_email" {
 }
 
 variable "budget_usd" {
-  description = "Monthly budget in USD; at 100 % the kill switch unlinks billing (REQ-003)."
+  description = "Monthly budget amount in budget_currency (USD 10 by default); at 100 % the kill switch unlinks billing (REQ-003)."
   type        = number
   default     = 10
 
@@ -84,5 +84,15 @@ variable "killswitch_billing_role" {
   validation {
     condition     = contains(["roles/billing.projectManager", "roles/billing.admin"], var.killswitch_billing_role)
     error_message = "killswitch_billing_role debe ser roles/billing.projectManager o roles/billing.admin."
+  }
+}
+
+variable "budget_currency" {
+  description = "Currency of the budget; it has to match the billing account's currency (the Budget API rejects any other)."
+  type        = string
+  default     = "USD"
+  validation {
+    condition     = can(regex("^[A-Z]{3}$", var.budget_currency))
+    error_message = "budget_currency debe ser un código ISO 4217 de tres mayúsculas, el de la cuenta de facturación (p. ej. USD o CLP)."
   }
 }

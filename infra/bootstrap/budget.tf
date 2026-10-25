@@ -36,7 +36,7 @@ resource "google_billing_budget" "cap" {
 
   amount {
     specified_amount {
-      currency_code = "USD"
+      currency_code = var.budget_currency
       units         = tostring(floor(var.budget_usd))
       nanos         = floor((var.budget_usd - floor(var.budget_usd)) * 1000000000 + 0.5)
     }

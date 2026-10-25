@@ -210,6 +210,27 @@ run "presupuesto_de_simulacro" {
   }
 }
 
+run "presupuesto_en_moneda_de_la_cuenta" {
+  command = plan
+  variables {
+    budget_currency = "CLP"
+    budget_usd      = 9500
+  }
+
+  assert {
+    condition     = google_billing_budget.cap.amount[0].specified_amount[0].currency_code == "CLP" && google_billing_budget.cap.amount[0].specified_amount[0].units == "9500"
+    error_message = "budget_currency must reach the budget: CLP 9500"
+  }
+}
+
+run "moneda_invalida" {
+  command = plan
+  variables {
+    budget_currency = "usd"
+  }
+  expect_failures = [var.budget_currency]
+}
+
 run "sin_billing_account" {
   command = plan
   variables {
