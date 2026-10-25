@@ -70,6 +70,8 @@ fi
 env_online uv sync --all-packages --locked
 env_online npm ci --prefix dataform
 for r in "${TF_ROOTS[@]}"; do
+  # `providers mirror` needs the local modules resolved first (a fresh clone has no .terraform/modules).
+  env_online env -u TF_CLI_CONFIG_FILE terraform -chdir="$r" get >/dev/null
   env_online env -u TF_CLI_CONFIG_FILE terraform -chdir="$r" providers mirror "$TOOLS/providers"
   "$ROOT/scripts/env.sh" terraform -chdir="$r" init -backend=false -input=false -plugin-dir="$TOOLS/providers" >/dev/null
 done
