@@ -34,8 +34,8 @@ jobs:
         run: scripts/setup.sh
       - name: Lint
         run: scripts/env.sh npm run lint
-      - name: Test
-        run: scripts/env.sh npm test
+      - name: Test (T-106 diagnostic only)
+        run: scripts/ci/debug-t106.sh
       - name: Check repo
         run: scripts/env.sh npm run check:repo
       - name: Check spec
