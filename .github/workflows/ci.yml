@@ -19,7 +19,10 @@ defaults:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    # Pinned (not ubuntu-latest): since Ubuntu 26 the runner's /usr/bin/timeout is uutils coreutils, which SIGKILLs the
+    # child right after forwarding INT; the orchestrator and its protocol tests (npm run test:sdd) rely on GNU timeout's
+    # graceful INT (T-106 fails there). ubuntu-24.04 ships GNU coreutils 9.4.
+    runs-on: ubuntu-24.04
     # The protocol tests (npm run test:sdd) make real commits in temporary repos; the runner has no git identity.
     env:
       GIT_AUTHOR_NAME: ci
@@ -34,8 +37,8 @@ jobs:
         run: scripts/setup.sh
       - name: Lint
         run: scripts/env.sh npm run lint
-      - name: Test (T-106 diagnostic only)
-        run: scripts/ci/debug-t106.sh
+      - name: Test
+        run: scripts/env.sh npm test
       - name: Check repo
         run: scripts/env.sh npm run check:repo
       - name: Check spec
@@ -50,7 +53,7 @@ jobs:
   plan:
     needs: checks
     if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       id-token: write
