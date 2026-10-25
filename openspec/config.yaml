@@ -1,0 +1,34 @@
+schema: spec-driven
+
+context: |
+  Language: Spanish
+  All artifacts must be written in Spanish.
+  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+  Proyecto: compras-publicas-cl, lakehouse medallion en GCP (ver AGENTS.md). Los requisitos vigentes viven en
+  spec/SPEC.md (REQ-001..016); openspec/specs/ solo recibe capacidades nuevas que SPEC.md no cubra.
+  Toda herramienta corre con scripts/env.sh <comando>; nunca terraform plan/apply, gcloud, bq, gsutil ni
+  scripts/it/* desde un agente: tocan GCP y solo los corre el usuario.
+  El hook commit-msg exige trailers Task: y Req: (T-NN/REQ-NNN o none); nunca toques tests/acceptance/.
+  Código, identificadores y mensajes de commit en inglés; documentos en español.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
