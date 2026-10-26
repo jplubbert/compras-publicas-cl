@@ -36,6 +36,8 @@ jobs:
         run: scripts/env.sh npm run check:repo
       - name: Check spec
         run: scripts/env.sh npm run check:spec
+      - name: Check readme
+        run: scripts/env.sh npm run check:readme
       - name: Check descriptions
         run: scripts/env.sh npm run check:descriptions
       # A placeholder shaped like a policy tag: compilation requires it (REQ-014 E5); only the ci run of deploy.yml
