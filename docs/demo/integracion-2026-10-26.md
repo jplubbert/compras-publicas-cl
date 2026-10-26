@@ -14,6 +14,7 @@ Fecha hábil usada: viernes 2026-10-23.
 | 5.4 | `GOOGLE_CLOUD_PROJECT=… GCP_REGION=us-central1 scripts/it/migrar-proveedor-key.sh` | `migrar-proveedor-key: ok dropped: none` (silver aún no existía) | ok |
 | 5.8 | `STATE_BACKUP_BUCKET=compras-publicas-cl-jpl-bk-tfstate-backup scripts/it/state-backup.sh` | `state-backup: ok gs://…/infra-main/20261026T135459Z-fe28778….tfstate` | ok (tras corregir el script) |
 | 5.5 | `GCP_PROJECT_ID=… GCP_REGION=us-central1 POLICY_TAG_RUT=… scripts/env.sh scripts/it/dataform-ci.sh` | `dataform-ci: ok e2 e3 e4 descriptions req009-e2 req009-e3 req009-e4 req009-e5 cuarentena req012-e1 req012-e2 req012-e3 req012-e4 req012-e6 gold-descripciones mart licitaciones=1 ordenes_compra=4 licitacion_items=2 compradores=1 proveedores=1 indicadores_diarios=35` | ok (tercera corrida) |
+| 7.1 | `GCP_PROJECT_ID=… GCP_REGION=us-central1 scripts/env.sh scripts/it/benchmark.sh` | medición completa: `benchmarks/results/2026-10-26.md` (3 variantes, 2 reescrituras, «Excluidos: Ninguno»); el último paso (`run.py --dry-run`) abortó por la guarda de cuota (12,9 GB facturados hoy) y se corrió aparte tras corregirla: `benchmarks/results/2026-10-26-estimado.md`. `npm run test:benchmarks`: 35 passed | ok |
 
 ## Defectos encontrados por las corridas reales
 
@@ -37,3 +38,5 @@ Fecha hábil usada: viernes 2026-10-23.
 - **5.5, `bq --format=csv` entrecomilla un valor con coma.** La comparación literal de REQ-010
   («monto_negativo,moneda_desconocida») fallaba aunque la fila en cuarentena era correcta. El helper `q()` quita las
   comillas.
+- **7.1, la guarda de cuota frenaba el dry run.** `run.py` restaba lo facturado hoy también en modo `--dry-run`, que
+  no factura nada, así que `benchmark.sh` fallaba justo después de medir. La guarda ahora solo protege los jobs medidos.

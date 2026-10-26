@@ -48,8 +48,8 @@ agente. Las variables de entorno van siempre con `scripts/env.sh` delante del co
 
 ## 7. Benchmark real
 
-- [ ] 7.1 `GCP_PROJECT_ID=… GCP_REGION=us-central1 scripts/env.sh scripts/it/benchmark.sh` **(usuario)** imprime `benchmark: ok` y deja `benchmarks/results/<fecha>.md` con tres variantes, dos reescrituras y «Excluidos»; `npm run test:benchmarks` sigue en 0.
-- [ ] 7.2 Commit de `benchmarks/results/<fecha>.md` y `docs/demo/` con `Task: none` y `Req: none`.
+- [x] 7.1 `GCP_PROJECT_ID=… GCP_REGION=us-central1 scripts/env.sh scripts/it/benchmark.sh` **(usuario)** imprime `benchmark: ok` y deja `benchmarks/results/<fecha>.md` con tres variantes, dos reescrituras y «Excluidos»; `npm run test:benchmarks` sigue en 0.
+- [x] 7.2 Commit de `benchmarks/results/<fecha>.md` y `docs/demo/` con `Task: none` y `Req: none`.
 
 ## 8. README de portafolio (REQ-015, T-15)
 
