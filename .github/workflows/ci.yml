@@ -58,6 +58,7 @@ jobs:
       # REQ-014: HCL lists such as ["group:analistas@example.com"]; empty when the variable is not set.
       TF_VAR_pii_readers: ${{ vars.PII_READERS || '[]' }}
       TF_VAR_lector_impersonators: ${{ vars.LECTOR_IMPERSONATORS || '[]' }}
+      TF_VAR_bronze_readers: ${{ vars.BRONZE_READERS || '[]' }}
     steps:
       - uses: actions/checkout@v5
       - name: Set up tools

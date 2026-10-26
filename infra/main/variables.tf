@@ -56,6 +56,19 @@ variable "pii_readers" {
   }
 }
 
+# Members outside the pipeline that may read bronze objects: the operator who runs scripts/it/run-jobs.sh, which
+# compares bronze lines with raw rows (deploy.yml: variable BRONZE_READERS). Project owners only list the bucket.
+variable "bronze_readers" {
+  description = "Members that may read the bronze bucket objects (user:, group:, serviceAccount: or domain:)."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for m in var.bronze_readers : can(regex("^(user|group|serviceAccount|domain):.+", m))])
+    error_message = "bronze_readers: cada miembro debe empezar por user:, group:, serviceAccount: o domain:."
+  }
+}
+
 # Members that may mint tokens of compras-lector to check REQ-014 E4 (deploy.yml: variable LECTOR_IMPERSONATORS).
 variable "lector_impersonators" {
   description = "Members that may impersonate compras-lector (user:, group:, serviceAccount: or domain:)."

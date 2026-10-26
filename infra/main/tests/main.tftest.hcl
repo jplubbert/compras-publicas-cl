@@ -610,3 +610,28 @@ run "t20_pii_ci_acl" {
     error_message = "pii_ci may only grant project owners and compras-ci"
   }
 }
+
+run "t08_bronze_sin_lectores" {
+  command = apply
+
+  assert {
+    condition     = !anytrue([for b in output.bronze_bindings : b.role == "roles/storage.objectViewer"])
+    error_message = "without bronze_readers nobody outside the pipeline reads bronze"
+  }
+}
+
+run "t08_bronze_readers" {
+  command = apply
+  variables {
+    bronze_readers = ["user:operador@example.com"]
+  }
+
+  assert {
+    condition     = anytrue([for b in output.bronze_bindings : b.role == "roles/storage.objectViewer" && b.members == ["user:operador@example.com"]])
+    error_message = "bronze_readers must get objectViewer on bronze"
+  }
+  assert {
+    condition     = anytrue([for b in output.bronze_bindings : b.role == "roles/storage.objectUser" && contains(b.members, "serviceAccount:${output.service_accounts["ingest"]}")])
+    error_message = "the ingest account keeps objectUser on bronze"
+  }
+}
