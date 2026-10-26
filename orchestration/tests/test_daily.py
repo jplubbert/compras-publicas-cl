@@ -88,12 +88,12 @@ def test_jobs_con_conector_que_espera():
         assert env in s["args"]["name"]
 
 
-def test_compilacion_desde_main_con_vars():
+def test_compilacion_desde_dataform_main_con_vars():
     s = step(load(), "compilar_dataform")
     assert s["call"] == "http.post"
     assert s["args"]["url"].endswith('/compilationResults"}')
     assert s["args"]["auth"]["type"] == "OAuth2"
-    assert s["args"]["body"]["gitCommitish"] == "main"
+    assert s["args"]["body"]["gitCommitish"] == "dataform-main"
     config = s["args"]["body"]["codeCompilationConfig"]
     assert "defaultDatabase" in config
     assert "raw_dataset" in config["vars"]

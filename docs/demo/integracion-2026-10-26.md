@@ -37,3 +37,10 @@ Fecha hábil usada: viernes 2026-10-23.
 - **5.5, `bq --format=csv` entrecomilla un valor con coma.** La comparación literal de REQ-010
   («monto_negativo,moneda_desconocida») fallaba aunque la fila en cuarentena era correcta. El helper `q()` quita las
   comillas.
+- **5.7, Dataform no compila desde la raíz del monorepo.** Con el token ya válido (la versión 1 tenía un salto de línea
+  final: «The access token for remote repository … was rejected»; versión 2 limpia, la 1 deshabilitada), el paso
+  `compilar_dataform` del Workflow sigue en 400: Dataform clona la raíz del remoto y no admite subcarpetas, corre
+  `npm ci` con el `package.json` de la raíz (sin lockfile) y nunca llega a `dataform/workflow_settings.yaml`. Arreglado
+  con la rama derivada `dataform-main` (DEC-010): `deploy.yml` la publica con `git subtree split` tras la corrida en
+  `ci`, y el Workflow y el release config compilan desde ella. Probado a mano: compilación sin errores desde esa rama con
+  las variables del Workflow. La corrida completa (5.7) queda para después del merge.
