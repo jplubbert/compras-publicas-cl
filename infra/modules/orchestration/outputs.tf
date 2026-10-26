@@ -7,7 +7,8 @@ output "orchestration" {
       region          = google_cloud_scheduler_job.daily.region
       uri             = google_cloud_scheduler_job.daily.http_target[0].uri
       service_account = google_cloud_scheduler_job.daily.http_target[0].oauth_token[0].service_account_email
-      retry_count     = google_cloud_scheduler_job.daily.retry_config[0].retry_count
+      # The API omits retry_config when retry_count is 0 and the provider stores an empty list: absent means no retries.
+      retry_count = try(google_cloud_scheduler_job.daily.retry_config[0].retry_count, 0)
     }
     workflow = {
       name            = google_workflows_workflow.daily.name
