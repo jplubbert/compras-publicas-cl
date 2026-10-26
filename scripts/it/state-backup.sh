@@ -53,8 +53,13 @@ gcloud storage cp "$object" "$tmp/restore.tfstate"
 python3 - "$tmp/restore.tfstate" "$tmp/pulled.tfstate" <<'EOF'
 import json, sys
 a, b = (json.load(open(p)) for p in sys.argv[1:3])
-if (a["lineage"], a["serial"]) != (b["lineage"], b["serial"]):
+# `terraform state push` into the empty local backend bumps the serial by one and reorders check_results (variable
+# validations); lineage, resources and outputs must be identical.
+if a["lineage"] != b["lineage"] or b["serial"] < a["serial"]:
     sys.exit(f"state-backup: restored state differs: {a['lineage']}/{a['serial']} vs {b['lineage']}/{b['serial']}")
+same = lambda s: {k: v for k, v in s.items() if k not in ("serial", "check_results")}  # noqa: E731
+if same(a) != same(b):
+    sys.exit("state-backup: the restored state does not match the backup beyond the serial")
 EOF
 [ -s "$tmp/resources.txt" ] || { echo "state-backup: the restored state has no resources" >&2; exit 1; }
 echo "state-backup: ok $object"
