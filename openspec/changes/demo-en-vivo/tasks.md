@@ -25,14 +25,14 @@ agente. Las variables de entorno van siempre con `scripts/env.sh` delante del co
 ## 4. Primer despliegue (usuario)
 
 - [x] 4.1 `git push -u origin main`; abrir un PR de prueba desde una rama del repo; los jobs `checks` y `plan` pasan y el PR recibe el comentario con `Plan:`; `scripts/it/last-ci-run.sh` imprime `last-ci-run: success`.
-- [ ] 4.2 Merge del PR a `main`; `deploy.yml` termina en verde en `apply` y `release` (imagen etiquetada con el commit, Dataform en `ci`, paso «Back up Terraform state» en verde).
-- [ ] 4.3 `scripts/it/tf-plan.sh main` después del apply sale sin cambios (T-03).
-- [ ] 4.4 Cargar una versión de cada secreto (`mercadopublico-ticket`, `bcentral-token`, `dataform-github-token`) con `gcloud secrets versions add`; `gcloud secrets versions list` muestra una versión habilitada en cada uno y `npm run check:repo` sigue en 0.
+- [x] 4.2 Merge del PR a `main`; `deploy.yml` termina en verde en `apply` y `release` (imagen etiquetada con el commit, Dataform en `ci`, paso «Back up Terraform state» en verde).
+- [x] 4.3 `scripts/it/tf-plan.sh main` después del apply sale sin cambios (T-03).
+- [x] 4.4 Cargar una versión de cada secreto (`mercadopublico-ticket`, `bcentral-token`, `dataform-github-token`) con `gcloud secrets versions add`; `gcloud secrets versions list` muestra una versión habilitada en cada uno y `npm run check:repo` sigue en 0.
 
 ## 5. Verificaciones de integración (usuario; salidas a `docs/demo/integracion-<fecha>.md`)
 
-- [ ] 5.1 Ingesta MP (T-06): `GOOGLE_CLOUD_PROJECT=… IT_BUCKET=<bucket de pruebas> scripts/it/ingest-mp.sh <fecha hábil>` imprime `ingest-mp: ok run_id=… lineas=… requests=…` y el ticket no aparece en la salida ni en los objetos.
-- [ ] 5.2 Ingesta BCentral (T-07): `scripts/it/ingest-indicadores.sh <fecha>` imprime tres líneas `S-08 …: encontrada` y `ingest-indicadores: ok … series=3`.
+- [x] 5.1 Ingesta MP (T-06): `GOOGLE_CLOUD_PROJECT=… IT_BUCKET=<bucket de pruebas> scripts/it/ingest-mp.sh <fecha hábil>` imprime `ingest-mp: ok run_id=… lineas=… requests=…` y el ticket no aparece en la salida ni en los objetos.
+- [x] 5.2 Ingesta BCentral (T-07): `scripts/it/ingest-indicadores.sh <fecha>` imprime tres líneas `S-08 …: encontrada` y `ingest-indicadores: ok … series=3`.
 - [ ] 5.3 Carga a raw (T-08): `GOOGLE_CLOUD_PROJECT=… GCP_REGION=us-central1 scripts/it/run-jobs.sh <fecha>` imprime `run-jobs: ok …`.
 - [ ] 5.4 Migración de `proveedor_key` (T-14): `scripts/it/migrar-proveedor-key.sh` termina en 0; relanzar el job `release` si había fallado en Dataform.
 - [ ] 5.5 Dataform en `ci` (T-09, T-10, T-12, T-20): `GCP_PROJECT_ID=… GCP_REGION=us-central1 POLICY_TAG_RUT=$(scripts/env.sh terraform -chdir=infra/main output -raw policy_tag_rut) scripts/env.sh scripts/it/dataform-ci.sh` termina con la línea `dataform-ci: ok …` incluyendo `req012-*`, `cuarentena` y `mart`; `pii_ci.sal` tiene una fila y `pii.sal` no cambió.

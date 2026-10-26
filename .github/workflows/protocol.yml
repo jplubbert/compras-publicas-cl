@@ -1,0 +1,52 @@
+# Tests of the sdd-base protocol (scripts/: the orchestrator, its guards and hooks; `npm run test:sdd`). They take about
+# 17 minutes because they drive real autopilot runs with timeouts, so they run apart from ci.yml and deploy.yml and
+# only when the protocol itself changes; the product checks stay in `npm test`.
+name: protocol
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - ".githooks/**"
+      - "package.json"
+      - ".github/workflows/protocol.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - ".githooks/**"
+      - "package.json"
+      - ".github/workflows/protocol.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: protocol-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  protocol:
+    # Pinned (not ubuntu-latest): since Ubuntu 26 the runner's /usr/bin/timeout is uutils coreutils, which SIGKILLs the
+    # child right after forwarding INT; the orchestrator and its tests rely on GNU timeout's graceful INT (T-106 fails
+    # there). ubuntu-24.04 ships GNU coreutils 9.4.
+    runs-on: ubuntu-24.04
+    # The protocol tests make real commits in temporary repos; the runner has no git identity.
+    env:
+      GIT_AUTHOR_NAME: ci
+      GIT_AUTHOR_EMAIL: ci@example.com
+      GIT_COMMITTER_NAME: ci
+      GIT_COMMITTER_EMAIL: ci@example.com
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Set up tools
+        run: scripts/setup.sh
+      - name: Protocol tests
+        run: scripts/env.sh npm run test:sdd

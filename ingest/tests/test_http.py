@@ -54,6 +54,18 @@ def test_permanent_timeout_gives_4_attempts_and_no_status():
 
 
 @respx.mock
+def test_dropped_connection_retries_like_a_timeout_and_names_the_cause():
+    route = respx.get(URL).mock(side_effect=httpx.RemoteProtocolError)
+    sleeps = []
+    fetched = _fetch(sleeps=sleeps)
+    assert route.call_count == 4
+    assert sleeps == [1.0, 2.0, 4.0]
+    assert fetched.status is None
+    assert fetched.error == "sin respuesta: RemoteProtocolError"
+    assert SECRET not in fetched.url
+
+
+@respx.mock
 def test_retry_after_as_http_date():
     when = datetime.now(UTC) + timedelta(seconds=30)
     respx.get(URL).mock(
