@@ -11,20 +11,20 @@ agente. Las variables de entorno van siempre con `scripts/env.sh` delante del co
 
 ## 2. Cuentas externas (usuario)
 
-- [ ] 2.1 Proyecto GCP nuevo con cuenta de facturación y las APIs que habilita `infra/bootstrap/apis.tf`; `gcloud config get-value project` devuelve el ID elegido.
-- [ ] 2.2 Ticket de la API de Mercado Público (Clave Única) y token de la BDE del Banco Central obtenidos y guardados fuera del repo (gestor de contraseñas); ninguno aparece en `git grep`.
-- [ ] 2.3 Repo `jplubbert/compras-publicas-cl` creado vacío en GitHub (`gh repo create`), y token fine-grained con permiso de lectura de contenidos para Dataform.
+- [x] 2.1 Proyecto GCP nuevo con cuenta de facturación y las APIs que habilita `infra/bootstrap/apis.tf`; `gcloud config get-value project` devuelve el ID elegido.
+- [x] 2.2 Ticket de la API de Mercado Público (Clave Única) y token de la BDE del Banco Central obtenidos y guardados fuera del repo (gestor de contraseñas); ninguno aparece en `git grep`.
+- [x] 2.3 Repo `jplubbert/compras-publicas-cl` creado vacío en GitHub (`gh repo create`), y token fine-grained con permiso de lectura de contenidos para Dataform.
 
 ## 3. Bootstrap y variables de GitHub (usuario)
 
-- [ ] 3.1 Exportar `TF_VAR_project_id`, `TF_VAR_region=us-central1`, `TF_VAR_github_repository=jplubbert/compras-publicas-cl`, `TF_VAR_billing_account`, `TF_VAR_alert_email`; `scripts/it/tf-plan.sh bootstrap` termina en 0.
-- [ ] 3.2 Aplicar `infra/bootstrap` a mano (`scripts/env.sh terraform -chdir=infra/bootstrap apply`); `terraform output` muestra `state_bucket`, `workload_identity_provider` y `ci_service_account`.
+- [x] 3.1 Exportar `TF_VAR_project_id`, `TF_VAR_region=us-central1`, `TF_VAR_github_repository=jplubbert/compras-publicas-cl`, `TF_VAR_billing_account`, `TF_VAR_alert_email`; `scripts/it/tf-plan.sh bootstrap` termina en 0.
+- [x] 3.2 Aplicar `infra/bootstrap` a mano (`scripts/env.sh terraform -chdir=infra/bootstrap apply`); `terraform output` muestra `state_bucket`, `workload_identity_provider` y `ci_service_account`.
 - [ ] 3.3 Crear el environment `production` (con aprobación) y las variables de repositorio `GCP_PROJECT_ID`, `GCP_REGION`, `WIF_PROVIDER`, `CI_SERVICE_ACCOUNT`, `PII_READERS`, `LECTOR_IMPERSONATORS` (listas HCL, p. ej. `["user:…"]`); `gh variable list` las muestra.
-- [ ] 3.4 Respaldo del estado (T-17): crear el proyecto de respaldo, reaplicar bootstrap con `backup_project_id`, correr `scripts/backup-state.sh bootstrap` y cargar `STATE_BACKUP_BUCKET` en `production`.
+- [x] 3.4 Respaldo del estado (T-17): crear el proyecto de respaldo, reaplicar bootstrap con `backup_project_id`, correr `scripts/backup-state.sh bootstrap` y cargar `STATE_BACKUP_BUCKET` en `production`.
 
 ## 4. Primer despliegue (usuario)
 
-- [ ] 4.1 `git push -u origin main`; abrir un PR de prueba desde una rama del repo; los jobs `checks` y `plan` pasan y el PR recibe el comentario con `Plan:`; `scripts/it/last-ci-run.sh` imprime `last-ci-run: success`.
+- [x] 4.1 `git push -u origin main`; abrir un PR de prueba desde una rama del repo; los jobs `checks` y `plan` pasan y el PR recibe el comentario con `Plan:`; `scripts/it/last-ci-run.sh` imprime `last-ci-run: success`.
 - [ ] 4.2 Merge del PR a `main`; `deploy.yml` termina en verde en `apply` y `release` (imagen etiquetada con el commit, Dataform en `ci`, paso «Back up Terraform state» en verde).
 - [ ] 4.3 `scripts/it/tf-plan.sh main` después del apply sale sin cambios (T-03).
 - [ ] 4.4 Cargar una versión de cada secreto (`mercadopublico-ticket`, `bcentral-token`, `dataform-github-token`) con `gcloud secrets versions add`; `gcloud secrets versions list` muestra una versión habilitada en cada uno y `npm run check:repo` sigue en 0.

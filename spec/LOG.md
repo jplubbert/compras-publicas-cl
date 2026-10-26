@@ -1097,3 +1097,20 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - A pedido del usuario, T-21 pasa a sdd-base como T-155 (`specified`, misma descripción) y aquí queda `superseded` con
   la nota del traslado. Llega a este repo con `upgrade.sh` cuando esté revisada en sdd-base.
 - Próxima acción autorizada: el usuario hace el despliegue de T-14 (con T-19 y T-20).
+
+## 2026-10-25 · Claude (claude-fable-5-1) · sesión: primer despliegue (demo en vivo, 3.3–4.1)
+- Retomado desde git, GitHub y GCP tras cerrarse la sesión anterior: 3.3 hecha salvo la regla de aprobación en el
+  environment `production` (sin required reviewers); 3.4 hecha (proyecto `compras-publicas-cl-jpl-bk`, respaldo
+  `bootstrap/20261025T200211Z.tfstate`, `STATE_BACKUP_BUCKET` como variable de repositorio).
+- El deploy a `main` fallaba en `checks` › `Test`. Primera causa: el runner sin identidad git (arreglo f5b6c81, ya
+  en `main`). Segunda causa, diagnosticada con un PR de depuración y `strace` en el runner: `ubuntu-latest` es Ubuntu 26
+  y su `/usr/bin/timeout` es uutils coreutils 0.10.0, que tras reenviar INT manda SIGKILL al hijo en el mismo milisegundo;
+  la prueba T-106 (`AUTOPILOT_STALL_MAX_SECONDS`) del protocolo falla porque el doble de `claude` no alcanza a ejecutar
+  su trap y su hijo ocupado mantiene la tubería 60 s. Pasa en local, con 4 CPU y en un contenedor ubuntu:24.04 (GNU 9.4).
+- Arreglo en el PR #1 (rama `debug/t106-ci`): `runs-on: ubuntu-24.04` en `ci.yml` y `deploy.yml`, con el motivo en
+  comentario. CI del PR en verde (`checks`, `plan` y el comentario «Plan: 91 to add»): cumple 4.1 salvo
+  `scripts/it/last-ci-run.sh`, que corre el usuario.
+- Pendiente para sdd-base (no se hace aquí): hacer que el orquestador tolere el `timeout` de uutils (o documentar que
+  exige GNU coreutils); mientras tanto los runners quedan fijados.
+- Próxima acción autorizada: el usuario hace merge del PR #1 a `main` (dispara `deploy.yml`: `apply` y `release`, 4.2),
+  corre `scripts/it/last-ci-run.sh` y, si quiere cerrar 3.3, agrega required reviewers a `production`.
