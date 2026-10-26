@@ -1157,3 +1157,20 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   `deploy.yml` en verde con el paso «Publish the dataform-main branch», y corre
   `GOOGLE_CLOUD_PROJECT=… GCP_REGION=us-central1 scripts/it/run-workflow.sh` para cerrar 5.7; después 5.6
   (`policy-tags.sh` con `SKIP_RUN=1`) y E5 de 5.7.
+
+## 2026-10-26 · Claude (claude-fable-5-1) · sesión: primer despliegue (5.7: primera corrida completa, códigos de estado fuera del catálogo)
+- PR #8 mergeado y `deploy.yml` en verde con el paso «Publish the dataform-main branch»; el repositorio de Dataform y
+  el Workflow desplegado apuntan a `dataform-main` y la compilación desde ella no da errores (comprobado antes de
+  lanzar la corrida larga).
+- Primera corrida completa de `scripts/it/run-workflow.sh` (ejecución `0f6a46c8`, 19:19–21:52 UTC): ingesta y
+  compilación bien, invocación de Dataform `FAILED`: 28 acciones en verde, `silver.licitaciones` y
+  `silver.ordenes_compra` rojas en `rowConditions` (`estado IS NOT NULL`), gold omitido. Causa: el endpoint de detalle
+  manda licitaciones con `CodigoEstado` 15 y texto «Revocada» (7 filas) y órdenes con 11 «No aceptada» (12 filas);
+  ninguno está en la documentación publicada (que lista 18 Revocada y no tiene 11). Es el incidente de calidad real que
+  pide 6.2 de la demo: la assertion lo atrapó y el Workflow terminó en error como exige REQ-009.
+- Arreglo: los dos códigos entran al catálogo de `dataform/includes/silver.js` (15 Revocada junto al 18 publicado; 11
+  No aceptada), con sus pruebas unitarias, la descripción de `estado` en `ordenes_compra.sqlx` y el párrafo de REQ-008
+  en SPEC.md (ajuste del catálogo de T-02 con lo observado; lo acepta el usuario al mergear). Rama `fix/estados-api`.
+- Próxima acción autorizada: el usuario hace merge del PR `fix/estados-api` (y del PR #7, aún abierto), espera
+  `deploy.yml` en verde y relanza `scripts/it/run-workflow.sh` hasta `SUCCEEDED` (5.7); después 6.1 y 6.2 con las
+  cifras de gold y cuarentena, 5.6 (`policy-tags.sh` con `SKIP_RUN=1`) y E5 de 5.7.

@@ -237,9 +237,11 @@ organismo, proveedor —el RUT, que T-14 reemplaza por `proveedor_key` (REQ-014)
 fecha_cambio DESC, ingested_at DESC) = 1`. En modo incremental, el SQL une las filas nuevas con las filas actuales del
 destino (`${self()}`) para las mismas claves antes del `QUALIFY`, así el MERGE escribe siempre la versión ganadora y no
 la última en llegar (el MERGE de `uniqueKey` actualiza toda fila con clave igual). Además, los modelos van con tipos
-convertidos (fechas, montos NUMERIC, moneda) y el código de estado traducido: licitaciones 5 Publicada, 6 Cerrada, 7 Desierta, 8 Adjudicada, 18 Revocada, 19 Suspendida; órdenes de
-compra 4 Enviada a proveedor, 5 En proceso, 6 Aceptada, 9 Cancelada, 12 Recepción conforme, 13 Pendiente de
-recepcionar, 14 Recepcionada parcialmente, 15 Recepción conforme incompleta (T-02). En `indicadores_diarios`,
+convertidos (fechas, montos NUMERIC, moneda) y el código de estado traducido: licitaciones 5 Publicada, 6 Cerrada, 7 Desierta, 8 Adjudicada, 15 Revocada, 18 Revocada, 19 Suspendida; órdenes de
+compra 4 Enviada a proveedor, 5 En proceso, 6 Aceptada, 9 Cancelada, 11 No aceptada, 12 Recepción conforme, 13 Pendiente de
+recepcionar, 14 Recepcionada parcialmente, 15 Recepción conforme incompleta (T-02; el 15 de licitaciones y el 11 de
+órdenes no están en la documentación publicada: los manda el endpoint de detalle con esos textos, primera corrida real,
+2026-10-26). En `indicadores_diarios`,
 `ND` pasa a `NULL` con `es_nd = TRUE`.
 Si llega una versión más antigua de una clave que ya está en silver, entonces no deberá sobrescribir la más reciente.
 Ejemplos (aceptación):

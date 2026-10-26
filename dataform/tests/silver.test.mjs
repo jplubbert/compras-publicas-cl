@@ -96,9 +96,9 @@ test('the ci schema suffix moves the models to silver_ci and keeps the declarati
   assert.ok(lic.incrementalQuery.includes(`.silver_ci.licitaciones\``));
 });
 
-test('REQ-008: the tender state catalog translates the 6 codes of T-02', () => {
+test('REQ-008: the tender state catalog translates the 6 codes of T-02 and the 15 of the detail endpoint', () => {
   assert.deepEqual(silver.ESTADOS_LICITACION, {
-    5: 'Publicada', 6: 'Cerrada', 7: 'Desierta', 8: 'Adjudicada', 18: 'Revocada', 19: 'Suspendida',
+    5: 'Publicada', 6: 'Cerrada', 7: 'Desierta', 8: 'Adjudicada', 15: 'Revocada', 18: 'Revocada', 19: 'Suspendida',
   });
   const sql = silver.estadoSql('x', silver.ESTADOS_LICITACION);
   assert.ok(sql.includes("WHEN 8 THEN 'Adjudicada'"), sql);
@@ -106,12 +106,13 @@ test('REQ-008: the tender state catalog translates the 6 codes of T-02', () => {
   assert.ok(sql.startsWith('CASE x ') && sql.endsWith(' ELSE NULL END'), sql);
 });
 
-test('REQ-008: the purchase order state catalog translates the 8 codes of T-02', () => {
+test('REQ-008: the purchase order state catalog translates the 8 codes of T-02 and the 11 of the detail endpoint', () => {
   assert.deepEqual(silver.ESTADOS_OC, {
     4: 'Enviada a proveedor',
     5: 'En proceso',
     6: 'Aceptada',
     9: 'Cancelada',
+    11: 'No aceptada',
     12: 'Recepción conforme',
     13: 'Pendiente de recepcionar',
     14: 'Recepcionada parcialmente',
