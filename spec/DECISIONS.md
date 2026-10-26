@@ -36,6 +36,7 @@ El índice lo genera `node scripts/adr.mjs index`; check-adr falla si no está a
 | DEC-007 | Benchmark sobre datos sintéticos a escala GB generados en BigQuery | accepted | [más abajo](#dec-007-benchmark-sobre-datos-sintéticos-a-escala-gb-generados-en-bigquery) |
 | DEC-008 | RUT de persona natural en columna propia con policy tag | accepted | [más abajo](#dec-008-rut-de-persona-natural-en-columna-propia-con-policy-tag) |
 | DEC-009 | Ajustes del spike T-02 a DEC-002, DEC-003 y DEC-004 | accepted | [ADR](adr/0009-ajustes-del-spike-t-02-a-dec-002-dec-003-y-dec-004.md) |
+| DEC-010 | Dataform compila desde la rama derivada `dataform-main` | accepted | [más abajo](#dec-010-dataform-compila-desde-la-rama-derivada-dataform-main) |
 
 <!-- adr-index:end -->
 
@@ -103,3 +104,32 @@ El índice lo genera `node scripts/adr.mjs index`; check-adr falla si no está a
   enmascaramiento queda para un corte futuro.
 - Confirmación: los ejemplos de REQ-014.
 - Revisar si: aparece en los datos un campo explícito de tipo de persona.
+
+## DEC-010 Dataform compila desde la rama derivada `dataform-main`
+- Estado: accepted
+- Alcance: local
+- Fecha: 2026-10-26 · Aprobador: Claude (decisión reversible dentro de DEC-002; la acepta en lote José Pedro Lübbert) · Confianza: alta
+- Problema: el repositorio de Dataform (DEC-002) clona la raíz del remoto de GitHub y no admite subcarpetas (la API
+  `GitRemoteSettings` solo tiene `url`, `defaultBranch` y el secreto del token). El proyecto Dataform vive en
+  `dataform/`, así que compilar desde `main` falla antes de llegar al código: Dataform corre `npm ci` con el
+  `package.json` de la raíz, que no tiene lockfile, y aunque lo tuviera no encontraría `workflow_settings.yaml`. Se vio
+  en la primera corrida real del Workflow (2026-10-26), después de arreglar el token (DEC-004).
+- Alternativas consideradas:
+  1. Una rama `dataform-main` generada con `git subtree split --prefix dataform` y publicada por el job `release` de
+     `deploy.yml` tras cada corrida verde en `ci`; el Workflow y el release config compilan desde ella — a favor:
+     mantiene DEC-002 y la estructura del repo, un paso de CI y una línea en Terraform; en contra: una rama derivada
+     más en GitHub, publicada con `--force`, y `release` necesita `contents: write`.
+  2. Mover el proyecto Dataform a la raíz del repo — a favor: sin rama derivada; en contra: rompe la estructura
+     documentada en AGENTS.md y README, el CI y las rutas de todas las tareas.
+  3. Un Cloud Run Job con la CLI de Dataform (opción 2 de DEC-002) — a favor: no necesita GitHub; en contra: supersede
+     DEC-002 y se pierde el historial de invocaciones en la consola.
+- Decisión: Usaremos la opción 1 y no la 2, para que el Workflow compile el proyecto real sin reordenar el repo,
+  aceptando una rama derivada que solo escribe el CI.
+- Consecuencias: buenas: la compilación desde `dataform-main` ya se probó a mano con las variables del Workflow
+  (compilación `052a86d6`, commit `3cbfbc4d`, sin errores); malas: `dataform-main` va un deploy por detrás de `main`
+  si `release` falla antes de publicarla; neutrales: el token sigue siendo de solo lectura para Dataform, el push lo hace
+  `GITHUB_TOKEN`.
+- Confirmación: `test_compilacion_desde_dataform_main_con_vars` en `orchestration/tests/test_daily.py`, los runs
+  `t11_repositorio_dataform` y el del release config en `infra/main/tests/main.tftest.hcl`, y la primera corrida
+  `SUCCEEDED` de `scripts/it/run-workflow.sh` (5.7 de la demo).
+- Revisar si: Dataform admite un subdirectorio del remoto, o el repo pasa a tener el proyecto Dataform en la raíz.
