@@ -1114,3 +1114,24 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   exige GNU coreutils); mientras tanto los runners quedan fijados.
 - Próxima acción autorizada: el usuario hace merge del PR #1 a `main` (dispara `deploy.yml`: `apply` y `release`, 4.2),
   corre `scripts/it/last-ci-run.sh` y, si quiere cerrar 3.3, agrega required reviewers a `production`.
+
+## 2026-10-26 · Claude (claude-fable-5-1) · sesión: primer despliegue (4.2–4.3: dos apply fallidos y su arreglo)
+- Retomado desde git y GitHub: las dos sesiones anteriores (PR #2 y PR #3) se cerraron sin escribir aquí.
+- El merge del PR #1 disparó `deploy.yml` y `apply` falló al crear el Workflow: «Workflows service agent does not
+  exist». PR #2 (`fix/workflows-service-agent`, mergeado) crea antes la identidad de servicio de Workflows
+  (`google_project_service_identity`).
+- El segundo deploy creó los cuatro recursos que faltaban (la infraestructura ya está completa en
+  `compras-publicas-cl-jpl`) y falló al evaluar el output `orchestration`: la API de Cloud Scheduler omite
+  `retryConfig` cuando `retry_count` es 0 y el proveedor lo guarda como lista vacía, así que `retry_config[0]` es un
+  índice inválido tras un apply real (los tests con mock no lo veían). PR #3 (`fix/scheduler-retry-output`, abierto):
+  el output lee el bloque ausente con `try(..., 0)` y el módulo deja de declarar `retry_config { retry_count = 0 }`,
+  porque es el valor por defecto de la API y declararlo era un diff permanente en cada plan (visto en el primer plan
+  del PR).
+- El plan del segundo commit del PR #3 salió sin cambios de recursos y solo con «Changes to Outputs» (los dos apply
+  fallidos nunca guardaron las salidas). Terraform no imprime ahí ni `Plan:` ni `No changes.`, así que
+  `scripts/ci/plan-comment.sh` salía 1 y el job `plan` quedaba rojo sin comentario. Arreglado en la misma rama: el
+  script resume ese caso como «Sin cambios de recursos; solo cambian outputs.» y conserva la línea «Changes to
+  Outputs:»; prueba nueva en `scripts/ci/tests/test_scripts.py`. Comprobado contra la salida real del plan del CI.
+- Próxima acción autorizada: el usuario espera el CI del PR #3 en verde (con el comentario del plan), hace merge a
+  `main` y confirma `deploy.yml` (`apply` y `release`) en verde: eso cierra 4.2. Luego corre
+  `scripts/it/last-ci-run.sh` y un plan posterior sin cambios cierra 4.3.
