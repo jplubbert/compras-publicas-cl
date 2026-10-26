@@ -51,7 +51,8 @@ for frequency, codes in EXPECTED.items():
     query = urllib.parse.urlencode({"token": token, "function": "SearchSeries", "frequency": frequency})
     try:
         with urllib.request.urlopen(f"{BASE}?{query}", timeout=60) as response:
-            body = json.load(response)
+            # The BDE answers "application/json; charset=ISO-8859-1": json.load() would assume UTF-8 and fail.
+            body = json.loads(response.read().decode(response.headers.get_content_charset() or "utf-8"))
     except Exception as exc:  # the message may carry the URL, token included
         print(f"SearchSeries {frequency} failed: {type(exc).__name__}")
         sys.exit(1)
