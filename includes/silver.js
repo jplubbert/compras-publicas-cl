@@ -1,10 +1,13 @@
 // Shared SQL helpers of the silver models (REQ-008): state catalogs (T-02), the incremental window and type casts.
 
+// Codes 15 and 11 are not in the published catalog: the detail endpoint sends them with the texts "Revocada" and
+// "No aceptada" (first daily run, 2026-10-26); the published 18 Revocada stays for the listing filter.
 const ESTADOS_LICITACION = {
   5: "Publicada",
   6: "Cerrada",
   7: "Desierta",
   8: "Adjudicada",
+  15: "Revocada",
   18: "Revocada",
   19: "Suspendida",
 };
@@ -14,6 +17,7 @@ const ESTADOS_OC = {
   5: "En proceso",
   6: "Aceptada",
   9: "Cancelada",
+  11: "No aceptada",
   12: "Recepción conforme",
   13: "Pendiente de recepcionar",
   14: "Recepcionada parcialmente",
