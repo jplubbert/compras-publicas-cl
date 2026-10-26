@@ -25,6 +25,7 @@ module "iam" {
   source               = "../modules/iam"
   project_id           = local.project_id
   lector_impersonators = var.lector_impersonators
+  bronze_readers       = var.bronze_readers
   depends_on           = [module.apis]
 }
 

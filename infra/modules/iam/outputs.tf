@@ -14,8 +14,11 @@ output "project_bindings" {
 }
 
 output "bucket_bindings" {
-  description = "Bronze bucket bindings: role => members."
-  value       = { "roles/storage.objectUser" = [local.members["ingest"]] }
+  description = "Bronze bucket bindings: role => members. Project owners only list bronze; bronze_readers also read it."
+  value = merge(
+    { "roles/storage.objectUser" = [local.members["ingest"]] },
+    length(var.bronze_readers) > 0 ? { "roles/storage.objectViewer" = var.bronze_readers } : {},
+  )
 }
 
 output "dataset_access" {
