@@ -13,7 +13,17 @@ resource "google_dataform_repository" "this" {
   }
 }
 
+# Workflows service agent: the API provisions it lazily, and the first workflow of a new project fails with
+# "Workflows service agent does not exist" if it is created before the agent (seen in the first apply, 2026-10-26).
+resource "google_project_service_identity" "workflows" {
+  provider = google-beta
+  project  = var.project_id
+  service  = "workflows.googleapis.com"
+}
+
 resource "google_workflows_workflow" "daily" {
+  depends_on = [google_project_service_identity.workflows]
+
   project             = var.project_id
   region              = var.region
   name                = "compras-diario"
