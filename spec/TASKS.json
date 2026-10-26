@@ -1889,7 +1889,7 @@
         "T-14",
         "T-17"
       ],
-      "status": "ready",
+      "status": "in_progress",
       "blocked_by": null,
       "notes": "",
       "touches": [
@@ -1906,6 +1906,13 @@
           "by": "José Pedro Lübbert",
           "at": "2026-10-22T02:23:37.766Z",
           "reason": "Corte 1 aprobado completo a su nombre en sesión (2026-10-21)"
+        },
+        {
+          "from": "ready",
+          "to": "in_progress",
+          "by": "claude",
+          "at": "2026-10-26T14:29:01.340Z",
+          "reason": "README de portafolio: 8.1 a 8.3 de la demo en vivo"
         }
       ]
     },

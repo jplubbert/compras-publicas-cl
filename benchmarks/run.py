@@ -171,7 +171,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     total = sum(row["total_bytes_processed"] or 0 for row in estimates)
     available = available_bytes(args.budget_gib, args.quota_gib, used)
-    if total > available:
+    # Dry runs bill nothing: the guard only protects the measured jobs.
+    if not args.dry_run and total > available:
         print(
             f"run: the dry runs estimate {total} bytes, {used} bytes were billed today and only {available} bytes"
             " are available; nothing was measured",
