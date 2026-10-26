@@ -105,14 +105,23 @@ hasta que el billing vuelve.
 `benchmarks/` genera en BigQuery 40 millones de licitaciones sintéticas en tres variantes (sin partición,
 particionada por fecha, particionada y agrupada por organismo y proveedor) y corre las mismas consultas contra las
 tres, con dos reescrituras del lado del SQL. Los bytes facturados salen de `INFORMATION_SCHEMA.JOBS`, no de
-estimaciones. La tabla más reciente está en `benchmarks/results/`:
+estimaciones. Corrida real del 2026-10-26 (`benchmarks/results/2026-10-26.md`, caché desactivada):
 
-<!-- benchmark -->
-Pendiente: la tabla de la primera corrida real del benchmark.
+| Consulta | Sin partición | Particionada por fecha | Particionada y agrupada | Ahorro |
+|---|---|---|---|---|
+| q1 mart organismo-mes | 1.667 MB | 333 MB | 333 MB | 80 % |
+| q2 organismo-trimestre | 2.668 MB | 132 MB | 69 MB | 97,4 % |
+| q3 adjudicadas por mes | 1.548 MB | 310 MB | 310 MB | 79,9 % |
 
-Por qué los dry runs son cota superior: el estimador de BigQuery no aplica la poda de clusters, así que los bytes de un
-`--dry_run` sobre una tabla agrupada son mayores o iguales que los facturados de verdad. Por eso la tabla reporta bytes
-facturados.
+| Reescritura | Antes | Después | Ahorro |
+|---|---|---|---|
+| r1 `SELECT *` → solo las columnas usadas | 187 MB | 60 MB | 68 % |
+| r2 self join → ventana | 376 MB | 376 MB | 0 % (misma lectura, 3,6 veces más slot-ms: la reescritura no se recomienda) |
+
+Por qué los dry runs son cota superior: el estimador de BigQuery informa los bytes antes de la poda por clustering, así
+que un `--dry_run` sobre una tabla agrupada da bytes mayores o iguales que los facturados de verdad. En la misma
+corrida (`benchmarks/results/2026-10-26-estimado.md`), q2 sobre la variante agrupada estimó 132 MB y facturó 69 MB. Por
+eso la tabla reporta bytes facturados.
 
 ## Calidad
 
