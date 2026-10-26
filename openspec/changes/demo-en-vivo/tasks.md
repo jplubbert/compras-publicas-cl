@@ -25,7 +25,7 @@ agente. Las variables de entorno van siempre con `scripts/env.sh` delante del co
 ## 4. Primer despliegue (usuario)
 
 - [x] 4.1 `git push -u origin main`; abrir un PR de prueba desde una rama del repo; los jobs `checks` y `plan` pasan y el PR recibe el comentario con `Plan:`; `scripts/it/last-ci-run.sh` imprime `last-ci-run: success`.
-- [ ] 4.2 Merge del PR a `main`; `deploy.yml` termina en verde en `apply` y `release` (imagen etiquetada con el commit, Dataform en `ci`, paso «Back up Terraform state» en verde).
+- [x] 4.2 Merge del PR a `main`; `deploy.yml` termina en verde en `apply` y `release` (imagen etiquetada con el commit, Dataform en `ci`, paso «Back up Terraform state» en verde).
 - [ ] 4.3 `scripts/it/tf-plan.sh main` después del apply sale sin cambios (T-03).
 - [ ] 4.4 Cargar una versión de cada secreto (`mercadopublico-ticket`, `bcentral-token`, `dataform-github-token`) con `gcloud secrets versions add`; `gcloud secrets versions list` muestra una versión habilitada en cada uno y `npm run check:repo` sigue en 0.
 
