@@ -25,16 +25,9 @@ defaults:
 
 jobs:
   checks:
-    # Pinned (not ubuntu-latest): since Ubuntu 26 the runner's /usr/bin/timeout is uutils coreutils, which SIGKILLs the
-    # child right after forwarding INT; the orchestrator and its protocol tests (npm run test:sdd) rely on GNU timeout's
-    # graceful INT (T-106 fails there). ubuntu-24.04 ships GNU coreutils 9.4.
+    # Pinned (not ubuntu-latest) to the image protocol.yml needs (GNU coreutils; Ubuntu 26 ships uutils), so every
+    # workflow runs on the same runner.
     runs-on: ubuntu-24.04
-    # The protocol tests (npm run test:sdd) make real commits in temporary repos; the runner has no git identity.
-    env:
-      GIT_AUTHOR_NAME: ci
-      GIT_AUTHOR_EMAIL: ci@example.com
-      GIT_COMMITTER_NAME: ci
-      GIT_COMMITTER_EMAIL: ci@example.com
     steps:
       - uses: actions/checkout@v5
         with:
