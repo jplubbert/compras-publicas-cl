@@ -33,12 +33,12 @@ agente. Las variables de entorno van siempre con `scripts/env.sh` delante del co
 
 - [x] 5.1 Ingesta MP (T-06): `GOOGLE_CLOUD_PROJECT=… IT_BUCKET=<bucket de pruebas> scripts/it/ingest-mp.sh <fecha hábil>` imprime `ingest-mp: ok run_id=… lineas=… requests=…` y el ticket no aparece en la salida ni en los objetos.
 - [x] 5.2 Ingesta BCentral (T-07): `scripts/it/ingest-indicadores.sh <fecha>` imprime tres líneas `S-08 …: encontrada` y `ingest-indicadores: ok … series=3`.
-- [ ] 5.3 Carga a raw (T-08): `GOOGLE_CLOUD_PROJECT=… GCP_REGION=us-central1 scripts/it/run-jobs.sh <fecha>` imprime `run-jobs: ok …`.
-- [ ] 5.4 Migración de `proveedor_key` (T-14): `scripts/it/migrar-proveedor-key.sh` termina en 0; relanzar el job `release` si había fallado en Dataform.
+- [x] 5.3 Carga a raw (T-08): `GOOGLE_CLOUD_PROJECT=… GCP_REGION=us-central1 scripts/it/run-jobs.sh <fecha>` imprime `run-jobs: ok …`.
+- [x] 5.4 Migración de `proveedor_key` (T-14): `scripts/it/migrar-proveedor-key.sh` termina en 0; relanzar el job `release` si había fallado en Dataform.
 - [ ] 5.5 Dataform en `ci` (T-09, T-10, T-12, T-20): `GCP_PROJECT_ID=… GCP_REGION=us-central1 POLICY_TAG_RUT=$(scripts/env.sh terraform -chdir=infra/main output -raw policy_tag_rut) scripts/env.sh scripts/it/dataform-ci.sh` termina con la línea `dataform-ci: ok …` incluyendo `req012-*`, `cuarentena` y `mart`; `pii_ci.sal` tiene una fila y `pii.sal` no cambió.
 - [ ] 5.6 Policy tags (T-14): `POLICY_TAG_RUT=… scripts/it/policy-tags.sh` imprime `policy-tags: ok e2-bq e2-bq-incremental e4 e7 sal` (si falla `revisar_tags`, `scripts/it/reaplicar-policy-tags.sh <dataset.tabla>` y repetir con `SKIP_RUN=1`).
 - [ ] 5.7 Workflow diario (T-11): `scripts/it/run-workflow.sh` imprime `run-workflow: ok execution=…` sin `PERMISSION_DENIED`; E5: con la versión del ticket deshabilitada, `--expect-failure` sale 0, llega el correo «Workflow compras-diario falló» y `finished_execution_count` muestra `status=FAILED`; volver a habilitar el ticket.
-- [ ] 5.8 Respaldo del estado (T-17): `STATE_BACKUP_BUCKET=… scripts/it/state-backup.sh` imprime `state-backup: ok gs://…/infra-main/<marca>-<sha>.tfstate`.
+- [x] 5.8 Respaldo del estado (T-17): `STATE_BACKUP_BUCKET=… scripts/it/state-backup.sh` imprime `state-backup: ok gs://…/infra-main/<marca>-<sha>.tfstate`.
 - [ ] 5.9 Opcional, drill del killswitch (T-05): `DRILL_PROJECT_ID=… DRILL_BILLING_ACCOUNT=… TF_VAR_alert_email=… scripts/it/killswitch-drill.sh` en un proyecto desechable imprime `killswitch-drill: ok role=… unit=MiBy`; si se omite, el README lo declara.
 
 ## 6. Datos en gold
