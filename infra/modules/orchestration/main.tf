@@ -1,4 +1,10 @@
-# Daily orchestration (REQ-007, DEC-002): Scheduler -> Workflow compras-diario -> ingest jobs -> Dataform from main.
+# Daily orchestration (REQ-007, DEC-002): Scheduler -> Workflow compras-diario -> ingest jobs -> Dataform from
+# dataform-main, the branch that deploy.yml publishes with dataform/ as its root (DEC-010).
+locals {
+  # Dataform clones the root of the remote and has no subdirectory setting; the project lives in dataform/ (DEC-010).
+  dataform_branch = "dataform-main"
+}
+
 resource "google_dataform_repository" "this" {
   project         = var.project_id
   region          = var.region
@@ -8,7 +14,7 @@ resource "google_dataform_repository" "this" {
   # The user loads the token version by hand (DEC-004, DEC-009); Terraform only names it.
   git_remote_settings {
     url                                 = "https://github.com/${var.github_repository}.git"
-    default_branch                      = "main"
+    default_branch                      = local.dataform_branch
     authentication_token_secret_version = "${var.github_token_secret_id}/versions/latest"
   }
 }
@@ -49,7 +55,7 @@ resource "google_dataform_repository_release_config" "main" {
   region        = var.region
   repository    = google_dataform_repository.this.name
   name          = "main"
-  git_commitish = "main"
+  git_commitish = local.dataform_branch
 
   code_compilation_config {
     default_database = var.project_id

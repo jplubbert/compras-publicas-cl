@@ -324,8 +324,8 @@ run "t11_repositorio_dataform" {
 
   assert {
     condition = (output.orchestration.repository.url == "https://github.com/demo-owner/compras-publicas-cl.git"
-    && output.orchestration.repository.default_branch == "main")
-    error_message = "the repository must track main of the GitHub repository"
+    && output.orchestration.repository.default_branch == "dataform-main")
+    error_message = "the repository must track dataform-main of the GitHub repository (DEC-010)"
   }
   assert {
     condition     = endswith(output.orchestration.repository.token_secret_version, "/secrets/dataform-github-token/versions/latest")
@@ -533,8 +533,8 @@ run "t14_policy_tag_en_dataform" {
 
   assert {
     condition = (output.release_config.vars["policy_tag_rut"] == output.policy_tag_rut
-    && output.release_config.vars["raw_dataset"] == "raw" && output.release_config.git_commitish == "main")
-    error_message = "the release config compiles main with raw_dataset and policy_tag_rut"
+    && output.release_config.vars["raw_dataset"] == "raw" && output.release_config.git_commitish == "dataform-main")
+    error_message = "the release config compiles dataform-main with raw_dataset and policy_tag_rut"
   }
   assert {
     condition     = output.release_config.default_database == "demo-proj" && output.release_config.default_location == "us-central1"

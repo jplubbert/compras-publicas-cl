@@ -103,7 +103,7 @@ jobs:
     runs-on: ubuntu-24.04
     environment: production
     permissions:
-      contents: read
+      contents: write # publishes the dataform-main branch (DEC-010)
       id-token: write
     env:
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
@@ -112,6 +112,8 @@ jobs:
       POLICY_TAG_RUT: ${{ needs.apply.outputs.policy_tag_rut }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # git subtree split needs the history of dataform/
       - name: Set up tools
         run: scripts/setup.sh
       - uses: google-github-actions/auth@v2
@@ -132,3 +134,10 @@ jobs:
       # with its assertions (no --tags); the CI salt is pii_ci.sal (REQ-014 E8).
       - name: Dataform run in ci (--schema-suffix=ci --vars=raw_dataset=raw_ci,sal_dataset=pii_ci,policy_tag_rut=$POLICY_TAG_RUT)
         run: scripts/env.sh scripts/ci/dataform-ci.sh
+      # Dataform clones the root of the GitHub remote and has no subdirectory setting, so the Workflow and the release
+      # config compile from dataform-main: the history of dataform/ as a root, republished after every green ci run
+      # (DEC-010). Force: the branch is derived from main and never edited by hand.
+      - name: Publish the dataform-main branch
+        run: |
+          sha=$(git subtree split --prefix dataform HEAD)
+          git push --force origin "$sha:refs/heads/dataform-main"

@@ -1135,3 +1135,25 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Próxima acción autorizada: el usuario espera el CI del PR #3 en verde (con el comentario del plan), hace merge a
   `main` y confirma `deploy.yml` (`apply` y `release`) en verde: eso cierra 4.2. Luego corre
   `scripts/it/last-ci-run.sh` y un plan posterior sin cambios cierra 4.3.
+
+## 2026-10-26 · Claude (claude-fable-5-1) · sesión: primer despliegue (5.7: el Workflow no compilaba Dataform)
+- El usuario detectó que `dataform-github-token` versión 1 terminaba en salto de línea («The access token for remote
+  repository … was rejected» en `compilar_dataform`, ejecución de las 14:12 UTC) y cargó la versión 2 limpia (93
+  bytes, la 1 deshabilitada). Dataform ya reporta `tokenStatus: VALID` y lista las ramas del remoto.
+- Con el token válido, una compilación pedida a mano desde `main` falla igual: Dataform clona la raíz del remoto, corre
+  `npm ci` con el `package.json` de la raíz (sin lockfile) y no tiene ajuste de subcarpeta (`GitRemoteSettings`:
+  `url`, `defaultBranch`, token), así que nunca llega a `dataform/workflow_settings.yaml`. El Workflow de DEC-002 no
+  iba a funcionar con ninguna versión del token.
+- Error de método de esta sesión: lancé la corrida completa de `scripts/it/run-workflow.sh` (ingesta de 2,5 h) antes
+  de probar la compilación aislada, que tarda segundos y habría mostrado el defecto. La ejecución
+  `87ab9292` quedó `CANCELLED`; el job de ingesta terminó solo y guardó bronze y su cursor; raw conserva las filas de
+  las corridas anteriores (licitaciones 1.387, órdenes de compra 3.147).
+- DEC-010 (reversible, dentro de DEC-002): el job `release` de `deploy.yml` publica `dataform-main`
+  (`git subtree split --prefix dataform`, `contents: write`, `--force`) tras la corrida en `ci`; el Workflow, el
+  `default_branch` del repositorio y el release config compilan desde esa rama. Probado a mano: rama publicada y
+  compilación `052a86d6` sin errores con las variables del Workflow. Rama `fix/dataform-branch`, PR hacia `main`.
+- Defecto anotado en `docs/demo/integracion-2026-10-26.md` (5.7). El README del PR #7 no cambia: no nombra la rama.
+- Próxima acción autorizada: el usuario hace merge del PR `fix/dataform-branch` (y del PR #7 cuando quiera), espera
+  `deploy.yml` en verde con el paso «Publish the dataform-main branch», y corre
+  `GOOGLE_CLOUD_PROJECT=… GCP_REGION=us-central1 scripts/it/run-workflow.sh` para cerrar 5.7; después 5.6
+  (`policy-tags.sh` con `SKIP_RUN=1`) y E5 de 5.7.
