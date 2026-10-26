@@ -31,7 +31,18 @@ export CHECKPOINT_DISABLE=1 TF_IN_AUTOMATION=1 TF_CLI_CONFIG_FILE="$TOOLS/terraf
 export COMPRAS_TOOLS="$TOOLS" COMPRAS_ENV=1
 # Offline unless setup.sh asks otherwise: a verify never downloads (DEC-005).
 [ "${COMPRAS_ONLINE:-}" = 1 ] || export UV_OFFLINE=1 npm_config_offline=true
+# gcloud and bq are the user's (or the runner's) own install: R-01 pins node, terraform, uv and python, not the cloud
+# CLIs. mise exec drops other mise install paths from PATH, so they are reached through symlinks in .tools/cloud/,
+# appended last, for scripts/it/ and scripts/ci/.
+cloud=$(command -v gcloud 2>/dev/null || true)
 export PATH=/usr/bin:/bin
+if [ -n "$cloud" ]; then
+  mkdir -p "$TOOLS/cloud"
+  for tool in gcloud bq gsutil; do
+    [ -e "$(dirname "$cloud")/$tool" ] && ln -sfn "$(dirname "$cloud")/$tool" "$TOOLS/cloud/$tool"
+  done
+  PATH="$PATH:$TOOLS/cloud"
+fi
 
 case "$PWD/" in "$ROOT"/*) ;; *) cd "$ROOT" ;; esac
 exec "$TOOLS/bin/mise" exec -- "$@"
