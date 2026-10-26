@@ -170,7 +170,7 @@ load() {
 # Single-value query (or DML); the bytes cap guards it (DEC-003, DEC-009).
 q() {
   bq query --project_id="$project" --location="$region" --use_legacy_sql=false --maximum_bytes_billed=1073741824 \
-    --format=csv --quiet "$1" | tail -n 1
+    --format=csv --quiet "$1" | tail -n 1 | sed -E 's/^"(.*)"$/\1/; s/""/"/g'  # bq quotes a value with a comma
 }
 
 expect() {
