@@ -39,6 +39,18 @@ def test_plan_comment_without_changes(tmp_path):
     assert "No changes." in out
 
 
+def test_plan_comment_with_output_changes_only(tmp_path):
+    text = (
+        "Changes to Outputs:\n  + orchestration = {\n      + retry_count = 0\n    }\n\n"
+        "You can apply this plan to save these new output values to the Terraform\nstate, "
+        "without changing any real infrastructure.\n"
+    )
+    code, out, err = plan_comment(tmp_path, text)
+    assert code == 0, err
+    assert "Sin cambios de recursos; solo cambian outputs." in out
+    assert "Changes to Outputs:" in out
+
+
 def test_plan_comment_without_summary_exits_1(tmp_path):
     code, _, err = plan_comment(tmp_path, "Error: something failed\n")
     assert code == 1
