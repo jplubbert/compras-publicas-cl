@@ -3,8 +3,8 @@
 #
 #   scripts/ci/plan-comment.sh <plan-output-file> > comment.md
 #
-# Exit 2 without an argument or when the file does not exist, 1 when the output has neither a "Plan:" line nor
-# "No changes.", otherwise 0.
+# Exit 2 without an argument or when the file does not exist, 1 when the output has no "Plan:" line, no "No changes."
+# and no "Changes to Outputs:" (a plan that only saves output values prints neither of the first two), otherwise 0.
 set -euo pipefail
 
 MAX_CHARS=60000
@@ -14,8 +14,10 @@ file=$1
 
 summary=$(grep -m1 -E '^Plan: [0-9]+ to add, [0-9]+ to change, [0-9]+ to destroy\.' "$file" || true)
 [ -n "$summary" ] || summary=$(grep -m1 -F 'No changes.' "$file" || true)
-[ -n "$summary" ] || { echo "plan-comment: no plan summary found" >&2; exit 1; }
 outputs=$(grep -m1 -F 'Changes to Outputs:' "$file" || true)
+# Only output values change (e.g. after an apply that failed before saving them): terraform prints neither summary.
+[ -n "$summary" ] || [ -z "$outputs" ] || summary="Sin cambios de recursos; solo cambian outputs."
+[ -n "$summary" ] || { echo "plan-comment: no plan summary found" >&2; exit 1; }
 
 body=$(cat "$file")
 note=""

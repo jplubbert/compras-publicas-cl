@@ -68,10 +68,9 @@ resource "google_cloud_scheduler_job" "daily" {
   schedule  = var.schedule
   time_zone = var.time_zone
 
-  # No retries: a second execution would load the day twice.
-  retry_config {
-    retry_count = 0
-  }
+  # No retries: a second execution would load the day twice. retry_count 0 is the API default and it omits the block
+  # when set, so declaring retry_config { retry_count = 0 } would be a permanent diff in every plan (seen on the first
+  # production plan after the apply).
 
   http_target {
     http_method = "POST"
