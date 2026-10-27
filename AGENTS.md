@@ -40,6 +40,8 @@ No cargues la spec completa si la tarea no la cita. Nunca reconstruyas estado de
   herramientas va con `scripts/env.sh <comando>`: no uses terraform, node, uv ni python globales
 - Pruebas: `npm test` | Aceptación: `scripts/acceptance.sh <archivo>` | Lint/tipos: `npm run lint`
 - Desplegar: merge a `main` (GitHub Actions aplica `infra/main`); `infra/bootstrap` lo aplica el usuario a mano (solo el usuario; ver Autoridad)
+- Mergear un PR: `scripts/merge-pr.sh <número>` (trae `main` a la rama, `spec/LOG.md` se une por `merge=union`, espera
+  MERGEABLE y mergea con `--delete-branch`); nunca `gh pr merge` a mano con otro PR abierto
 - Validar protocolo: `npm run check:spec` (también lo corre el hook `commit-msg` de `.githooks/`)
 - Cobertura desde aceptación: `npm run check:coverage` (DEC-011 de sdd-base; con `spec/COVERAGE.json`): toda línea de
   código la ejecuta una prueba de `tests/acceptance/` que cita un REQ; lo no alcanzado se borra o se escala como
