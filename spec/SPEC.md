@@ -273,7 +273,7 @@ Trazas: objetivo §Objetivo («calidad como código») · decisiones: DEC-001 ·
 
 ### REQ-010 Cuarentena con motivo · estado: approved_for_impl · prioridad: must
 Cuando una fila de raw no cumple una regla de fila (RUT con dígito verificador inválido, monto negativo, moneda fuera de
-CLP/CLF/USD/UTM/EUR (la UF viene como `CLF`, T-02; antes decía UF, cambiado en LOG 2026-10-22), fecha fuera de 2000-01-01 … D+1, con D = `_ingest_date`, el día en que se bajó el documento (ajuste 2026-10-27, S-23), o clave nula), el sistema deberá escribirla en
+CLP/CLF/USD/UTM/EUR (la UF viene como `CLF`, T-02; antes decía UF, cambiado en LOG 2026-10-22), fecha fuera de 2000-01-01 … D+1, con D = `_ingest_date`, el día en que se bajó el documento (ajuste 2026-10-27, S-23), fecha presente pero que no es una fecha (`fecha_invalida`; ajuste 2026-10-27: antes el SQL la dejaba pasar como nula), o clave nula), el sistema deberá escribirla en
 `quarantine.<entidad>` con `motivos` (ARRAY de códigos de regla), `run_id` y `quarantined_at`, y no deberá pasarla a
 silver.
 Si una fila incumple varias reglas, entonces `motivos` deberá traerlas todas. Si una fila cumple todas, entonces no
@@ -285,6 +285,8 @@ Ejemplos (aceptación):
 | E2 negativo | prueba unitaria de `includes/reglas.js` con RUT `12.345.678-0` (el DV correcto es 5) | devuelve `rut_dv_invalido` |
 | E3 borde | fila con monto −1 y moneda `XYZ` | `motivos = ["monto_negativo", "moneda_desconocida"]` |
 | E4 positivo | RUT `12.345.678-5`, monto 0, moneda `CLP` | sin motivos |
+| E5 negativo | fecha de creación `31/12/2025` (presente, no interpretable) | `motivos = ["fecha_invalida"]`, sin `fecha_fuera_de_rango`; una fecha obligatoria ausente sigue siendo `fecha_fuera_de_rango` |
+| E6 positivo | `dataform/tests/casos-reglas.json` | el JS (`npm run test:dataform`) y el SQL contra BigQuery (`scripts/it/reglas-sql.sh`) devuelven los mismos motivos para cada caso |
 Trazas: objetivo §Objetivo («calidad como código») · decisiones: DEC-001 · prueba: tests/acceptance/T-10*
 
 ### REQ-011 Descripciones obligatorias persistidas · estado: approved_for_impl · prioridad: must

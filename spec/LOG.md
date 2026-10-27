@@ -1237,3 +1237,17 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   errores.
 - Próxima acción autorizada: el usuario hace merge de este PR tras el de WIF; siguen los PR 2 (`fecha_invalida` y
   prueba SQL) y 4 (gate de calidad y día parcial).
+
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: `fecha_invalida` y la prueba SQL de las reglas (REQ-010)
+- Hallazgo: el SQL de la cuarentena leía las fechas con `SAFE_CAST`, así que una fecha presente pero no interpretable
+  («31/12/2025») quedaba nula y, si era opcional, la fila pasaba limpia a silver; el JS la comparaba como texto y la
+  mandaba a cuarentena. Dirección decidida por el usuario: el SQL hace lo que hace el JS y la basura va a cuarentena.
+- `includes/reglas.js`: motivo nuevo `fecha_invalida` (fecha presente que no es una fecha; `2026-02-30` incluido),
+  antes de `fecha_fuera_de_rango` en `CODIGOS`; una fecha inválida no se mide contra el rango, una obligatoria ausente
+  o vacía sigue siendo `fecha_fuera_de_rango`. El JS acepta la misma forma que `SAFE_CAST(... AS DATETIME)`.
+- Casos compartidos en `dataform/tests/casos-reglas.json` (22): los recorre la prueba unitaria en JS y
+  `scripts/it/reglas-sql.sh` los corre contra BigQuery con `dataform/tests/reglas-sql.mjs` (una consulta sobre
+  `UNNEST`, sin leer tablas). Resultado: 22 casos, 0 diferencias. REQ-010 gana E5 y E6; README corregido (antes decía
+  que las mismas reglas se probaban en SQL). 106 pruebas unitarias y compilación local sin errores.
+- Próxima acción autorizada: el usuario hace merge de este PR tras el #14; sigue el PR 4 (assertions de cuarentena y
+  frescura, tabla de corridas, día parcial en el Workflow, ADR del gate).

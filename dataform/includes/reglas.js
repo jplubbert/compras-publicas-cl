@@ -3,7 +3,9 @@
 // includes.
 
 // Fixed order of the reasons, in JS and in SQL.
-const CODIGOS = ["clave_nula", "rut_dv_invalido", "monto_negativo", "moneda_desconocida", "fecha_fuera_de_rango"];
+const CODIGOS = [
+  "clave_nula", "rut_dv_invalido", "monto_negativo", "moneda_desconocida", "fecha_invalida", "fecha_fuera_de_rango",
+];
 
 const MONEDAS = ["CLP", "CLF", "USD", "UTM", "EUR"];
 
@@ -71,11 +73,26 @@ function sumarDia(fecha) {
 }
 
 const nulo = (v) => v === null || v === undefined;
+const presente = (v) => !nulo(v) && String(v).trim() !== "";
+
+// What SAFE_CAST(x AS DATETIME) accepts: a calendar date, optionally with a time (T or space). The SQL does the same.
+const FORMA_FECHA = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2}(\.\d{1,6})?)?$/;
+
+/** True when the text is a real date in the shape above (2026-02-30 is not); the SQL mirrors it with SAFE_CAST. */
+function fechaValida(f) {
+  const t = String(f).trim();
+  if (!FORMA_FECHA.test(t)) return false;
+  const d = new Date(`${t.slice(0, 10)}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === t.slice(0, 10);
+}
+
+const dia = (f) => String(f).trim().slice(0, 10);
 
 /**
- * Codes of CODIGOS that the row breaks, in that order; fila carries the values already read (dates as YYYY-MM-DD).
+ * Codes of CODIGOS that the row breaks, in that order; fila carries the values as text, the way JSON_VALUE reads them.
  * fechaD is the day the document was fetched (the raw partition _ingest_date, UTC): a date may run until D+1, which
- * covers the Chilean clock. An empty RUT counts as absent (S-23).
+ * covers the Chilean clock. An empty RUT counts as absent (S-23). A date that is present but not a date at all gives
+ * fecha_invalida and is not measured against the range; a missing required date is fecha_fuera_de_rango.
  */
 function motivos(fila, { fechaD }) {
   const { claves = [], rut = null, montos = [], moneda = null, fechasObligatorias = [], fechas = [] } = fila;
@@ -86,8 +103,10 @@ function motivos(fila, { fechaD }) {
     rut_dv_invalido: !nulo(rut) && String(rut).trim() !== "" && !rutValido(rut),
     monto_negativo: montos.some((m) => !nulo(m) && m < 0),
     moneda_desconocida: !nulo(moneda) && !MONEDAS.includes(String(moneda).trim().toUpperCase()),
+    fecha_invalida: [...fechasObligatorias, ...fechas].some((f) => presente(f) && !fechaValida(f)),
     fecha_fuera_de_rango:
-      fechasObligatorias.some((f) => nulo(f) || fuera(f)) || fechas.some((f) => !nulo(f) && fuera(f)),
+      fechasObligatorias.some((f) => !presente(f) || (fechaValida(f) && fuera(dia(f)))) ||
+      fechas.some((f) => presente(f) && fechaValida(f) && fuera(dia(f))),
   };
   return CODIGOS.filter((c) => falla[c]);
 }
@@ -108,6 +127,7 @@ function motivosSql(entidad, { doc = "doc", fechaD = "_ingest_date" } = {}) {
   if (!e) throw new Error(`unknown entity ${entidad}`);
   const valor = (p) => `JSON_VALUE(${doc}, '${p}')`;
   const fecha = (p) => `DATE(SAFE_CAST(${valor(p)} AS DATETIME))`;
+  const presenteSql = (p) => `NULLIF(TRIM(${valor(p)}), '') IS NOT NULL`;
   const rango = `BETWEEN DATE '${FECHA_MINIMA}' AND DATE_ADD(${fechaD}, INTERVAL 1 DAY)`;
   const condiciones = {
     clave_nula: e.claves.map((p) => `${valor(p)} IS NULL OR ${valor(p)} = ''`).join(" OR "),
@@ -116,8 +136,12 @@ function motivosSql(entidad, { doc = "doc", fechaD = "_ingest_date" } = {}) {
     monto_negativo: e.montos.map((p) => `SAFE_CAST(${valor(p)} AS NUMERIC) < 0`).join(" OR "),
     moneda_desconocida:
       e.moneda && `UPPER(TRIM(${valor(e.moneda)})) NOT IN (${MONEDAS.map((m) => `'${m}'`).join(", ")})`,
+    fecha_invalida: [...e.fechasObligatorias, ...e.fechas]
+      .map((p) => `(${presenteSql(p)} AND SAFE_CAST(${valor(p)} AS DATETIME) IS NULL)`)
+      .join(" OR "),
+    // A missing required date is out of range; an unparseable one is NULL here (fecha_invalida above), like in JS.
     fecha_fuera_de_rango: [
-      ...e.fechasObligatorias.map((p) => `IFNULL(${fecha(p)} NOT ${rango}, TRUE)`),
+      ...e.fechasObligatorias.map((p) => `(NOT ${presenteSql(p)} OR ${fecha(p)} NOT ${rango})`),
       ...e.fechas.map((p) => `${fecha(p)} NOT ${rango}`),
     ].join(" OR "),
   };
@@ -145,6 +169,7 @@ module.exports = {
   normalizarRut,
   dvRut,
   rutValido,
+  fechaValida,
   esPersonaNatural,
   motivos,
   rutValidoSql,

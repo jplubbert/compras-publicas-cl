@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -57,12 +58,38 @@ test('dates must fall between 2000-01-01 and D+1; a null required date is a reas
   assert.deepEqual(fecha([null]), []);
 });
 
-test('a row that breaks the 5 rules carries the 5 codes in the order of CODIGOS', () => {
-  const fila = { claves: [null], rut: '12.345.678-0', montos: [-5], moneda: 'XYZ', fechas: ['1990-01-01'] };
+test('a row that breaks the 6 rules carries the 6 codes in the order of CODIGOS', () => {
+  const fila = { claves: [null], rut: '12.345.678-0', montos: [-5], moneda: 'XYZ', fechas: ['31/12/2025', '1990-01-01'] };
   assert.deepEqual(reglas.motivos(fila, D), reglas.CODIGOS);
   assert.deepEqual(reglas.CODIGOS, [
-    'clave_nula', 'rut_dv_invalido', 'monto_negativo', 'moneda_desconocida', 'fecha_fuera_de_rango',
+    'clave_nula', 'rut_dv_invalido', 'monto_negativo', 'moneda_desconocida', 'fecha_invalida', 'fecha_fuera_de_rango',
   ]);
+});
+
+test('REQ-010 E5: a date that is present but not a date gives fecha_invalida and is not measured against the range', () => {
+  const fecha = (fechas, fechasObligatorias = []) => reglas.motivos({ claves: ['X'], fechas, fechasObligatorias }, D);
+  assert.deepEqual(fecha(['31/12/2025']), ['fecha_invalida']);
+  assert.deepEqual(fecha([], ['31/12/2025']), ['fecha_invalida']);
+  assert.deepEqual(fecha(['2026-02-30']), ['fecha_invalida']);
+  assert.deepEqual(fecha(['2026-10-21T15:30:00']), []);
+  assert.deepEqual(fecha(['2026-10-21 15:30:00.123']), []);
+  assert.deepEqual(fecha(['2026-10-23T00:00:00']), ['fecha_fuera_de_rango']);
+  assert.deepEqual(fecha(['']), []);
+  assert.deepEqual(fecha([], ['']), ['fecha_fuera_de_rango']);
+  assert.ok(reglas.fechaValida('2000-01-01') && !reglas.fechaValida('2000-13-01') && !reglas.fechaValida('hoy'));
+  for (const entidad of ['licitaciones', 'ordenes_compra']) {
+    const sql = reglas.motivosSql(entidad);
+    assert.ok(sql.includes("'fecha_invalida'") && sql.includes('AS DATETIME) IS NULL'), sql);
+    assert.ok(sql.indexOf("'fecha_invalida'") < sql.indexOf("'fecha_fuera_de_rango'"), sql);
+  }
+});
+
+test('REQ-010 E6: every shared case of casos-reglas.json gives the expected reasons in JS', () => {
+  const casos = JSON.parse(readFileSync(join(project, 'tests/casos-reglas.json'), 'utf8'));
+  assert.ok(casos.length >= 12);
+  for (const caso of casos) {
+    assert.deepEqual(reglas.motivos(caso.fila, { fechaD: caso.fechaD }), caso.motivos, caso.nombre);
+  }
 });
 
 test('motivosSql keeps the codes of each entity in order with the same currencies and date limits', () => {

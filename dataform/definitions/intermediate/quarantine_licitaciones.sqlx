@@ -6,7 +6,7 @@ config {
   description: "Documentos de licitaciones de Mercado Público que incumplen alguna regla de fila y no pasan a silver, con todos los motivos (REQ-010).",
   columns: {
     codigo_licitacion: "Código externo de la licitación; puede ser nulo, porque la clave nula es una de las reglas",
-    motivos: "Códigos de todas las reglas que incumple el documento, en orden fijo (clave_nula, monto_negativo, moneda_desconocida, fecha_fuera_de_rango)",
+    motivos: "Códigos de todas las reglas que incumple el documento, en orden fijo (clave_nula, monto_negativo, moneda_desconocida, fecha_invalida, fecha_fuera_de_rango)",
     fecha: "Fecha D de la línea de raw, contra la que se mide el límite D+1 de las fechas",
     run_id: "Identificador de la corrida de ingesta que trajo el documento",
     _ingest_date: "Fecha UTC de inicio de la corrida que trajo el documento (partición de raw)",
