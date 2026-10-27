@@ -1227,3 +1227,13 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   solo se ve con un PR y un push reales. Bootstrap lo aplica el usuario a mano.
 - Próxima acción autorizada: el usuario hace merge del PR `infra/wif-rama` y aplica `infra/bootstrap`; siguen los PR 3
   (ventana de la cuarentena), 2 (`fecha_invalida` y prueba SQL) y 4 (gate de calidad y día parcial), en ese orden.
+
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: la cuarentena lee la misma ventana que silver (REQ-010)
+- La cuarentena incremental filtraba raw con `CURRENT_DATE() - 3 días` (`ventanaReciente`): si Dataform no corría
+  más de tres días, las filas más viejas del hueco nunca se reevaluaban. Ahora usa `ventanaIncremental(self())`, la
+  misma de silver: desde tres días antes de la última `_ingest_date` que el propio destino tiene, sin reloj. Si la
+  cuarentena queda vacía o atrasada, relee raw desde su último máximo (como mucho los 400 días que raw conserva) y
+  `fila_id` evita duplicados. `ventanaReciente` se eliminó; 104 pruebas unitarias en verde y compilación local sin
+  errores.
+- Próxima acción autorizada: el usuario hace merge de este PR tras el de WIF; siguen los PR 2 (`fecha_invalida` y
+  prueba SQL) y 4 (gate de calidad y día parcial).

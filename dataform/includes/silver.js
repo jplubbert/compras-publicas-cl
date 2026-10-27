@@ -33,15 +33,15 @@ function estadoSql(expr, catalogo) {
   return `CASE ${expr} ${whens.join(" ")} ELSE NULL END`;
 }
 
-/** Raw partitions to read in incremental mode: from LOOKBACK_DIAS before the newest one in the target. */
+/**
+ * Raw partitions to read in incremental mode: from LOOKBACK_DIAS before the newest one in the target. Measured from the
+ * target and not from the clock, so a target that missed some runs (or the quarantine, which keeps only some rows and may
+ * lag) catches up from where it stopped; duplicates are handled by the key of each target.
+ */
 function ventanaIncremental(selfRef) {
   return `_ingest_date >= IFNULL((SELECT DATE_SUB(MAX(_ingest_date), INTERVAL ${LOOKBACK_DIAS} DAY) FROM ${selfRef}), DATE '1970-01-01')`;
 }
 
-/** Raw partitions of the last LOOKBACK_DIAS days, for targets that keep only some rows (the quarantine). */
-function ventanaReciente() {
-  return `_ingest_date >= DATE_SUB(CURRENT_DATE(), INTERVAL ${LOOKBACK_DIAS} DAY)`;
-}
 
 /** RUT without dots or spaces, upper-case DV (T-10 validates the DV). */
 function rutSql(expr) {
@@ -62,7 +62,6 @@ module.exports = {
   LOOKBACK_DIAS,
   estadoSql,
   ventanaIncremental,
-  ventanaReciente,
   rutSql,
   fechaSql,
   numericSql,

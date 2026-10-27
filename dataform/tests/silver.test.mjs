@@ -140,4 +140,5 @@ test('the incremental window reads raw partitions from 3 days before the newest 
     silver.ventanaIncremental('`p.silver.t`'),
     "_ingest_date >= IFNULL((SELECT DATE_SUB(MAX(_ingest_date), INTERVAL 3 DAY) FROM `p.silver.t`), DATE '1970-01-01')",
   );
+  assert.equal(silver.ventanaReciente, undefined, "the quarantine reads the same window as silver, measured from its own target");
 });

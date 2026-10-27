@@ -37,7 +37,7 @@ WITH filas AS (
   FROM ${ref("mercadopublico_ordenes_compra")}, UNNEST(JSON_QUERY_ARRAY(payload, '$.Listado')) AS doc
   WHERE http_status = 200 AND payload IS NOT NULL AND tipo = 'detalle'
     AND NOT (${reglas.pasaSql("ordenes_compra")})
-    ${when(incremental(), `AND ${silver.ventanaReciente()}`)}
+    ${when(incremental(), `AND ${silver.ventanaIncremental(self())}`)}
 )
 SELECT ${columnas.join(", ")} FROM filas
 ${when(incremental(), `WHERE fila_id NOT IN (SELECT fila_id FROM ${self()})`)}
