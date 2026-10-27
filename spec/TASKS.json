@@ -1812,7 +1812,7 @@
         "T-11",
         "T-12"
       ],
-      "status": "in_progress",
+      "status": "accepted",
       "blocked_by": null,
       "notes": "Implementado según plans/T-14.md (commit 494dfd2). Pregunta abierta para el usuario (no es supuesto ni se resolvió en la tarea): REQ-014 dice que pii.sal es «legible solo por la cuenta de servicio de Dataform»; el ACL del dataset pii lo cumple (compras-dataform y projectOwners), pero compras-ci tiene roles/bigquery.admin de proyecto (T-03, DEC-003) y lee pii.sal, y la corrida de ci ejecuta generar_sal sobre la pii.sal de producción porque el sufijo de esquema no se aplica a la declaración. Opciones: (1) ajustar REQ-014 para incluir a CI y a los dueños y aceptar el riesgo; (2) tarea nueva con una sal propia de ci (pii_ci.sal y una variable de compilación para su dataset). Cambios fuera de touches pendientes: ci.yml (Dataform compile y TF_VAR_pii_readers/TF_VAR_lector_impersonators en el plan), el job checks de deploy.yml junto con ci.yml, scripts/ci/check-descriptions.mjs, scripts/ci/dataform-ci.sh y scripts/ci/tests/test_workflows.py (texto exacto en claims.manual_pending); sin ellos ci.yml y el job release fallan tras el merge, aunque el verify local queda verde. Detalles internos: el test REQ-011 E1 de check-descriptions compila con la variable y usa --graph; el paso de deploy.yml que exporta policy_tag_rut corre `terraform output -raw` después de tf-apply.sh, en el mismo job; migrar-proveedor-key.sh da por migrada licitacion_items si tiene proveedor_key_adjudicado; un override_resource en main.tftest.hcl le da a dato_personal su propio nombre para que la prueba padre-hija no sea trivial. 2026-10-23: el usuario respondió la pregunta de pii.sal con la opción 2 (T-20: sal propia de ci en pii_ci.sal) y ajustó REQ-014 para dejar explícito que compras-ci, como admin, puede leer pii.sal; los cambios fuera de touches pasan a T-19. Relanzamiento: el paso 15 del plan (dataform-ci.sh contra pii.sal) quedó superado por REQ-014 E8 y T-20, aprobados después del plan; se alineó a pii_ci.sal y sal_dataset=pii_ci sin cambiar el enfoque. El nombre del paso de deploy.yml sigue conteniendo --schema-suffix=ci y --vars=raw_dataset=raw_ci, que exige scripts/ci/tests/test_workflows.py. Evidencia de integración 2026-10-27 (demo 5.6, docs/demo/integracion-2026-10-26.md): rut_persona_natural de silver.proveedores y gold.dim_proveedor lleva solo la policy tag; rut_empresa y proveedor_key sin etiqueta; tras una corrida incremental de Dataform (misma creationTime, lastModifiedTime nueva) la etiqueta sigue; pii.sal con una fila y el dataset pii solo para compras-dataform y los dueños; compras-lector recibe accessDenied en rut_persona_natural y lee rut_empresa en ambas tablas (E4). La pregunta de la sal de CI quedó resuelta con pii_ci.sal (REQ-014 E8).",
       "touches": [
@@ -1839,6 +1839,12 @@
           "by": "apply-result",
           "at": "2026-10-23T03:26:12.569Z",
           "reason": "resultado del implementador de T-14 vía autopilot (claude)"
+        },
+        {
+          "from": "in_progress",
+          "to": "accepted",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-27T14:20:27.714Z"
         }
       ],
       "plan_review": {
@@ -1889,7 +1895,7 @@
         "T-14",
         "T-17"
       ],
-      "status": "in_progress",
+      "status": "accepted",
       "blocked_by": null,
       "notes": "README de portafolio publicado en el repo público (PR #7, ampliado en #10, #15, #17 y #18): arquitectura con el mapeo a Composer y Dataflow, «Qué demuestra», «Cómo reproducir» con el refresco completo como procedimiento, «Calidad» con el gate y el estado del día, «Qué se rompió» con los incidentes reales de 2026-10-26 y 27; npm run check:readme ok (11 secciones). Evidencia de integración en docs/demo/integracion-2026-10-26.md.",
       "touches": [
@@ -1913,6 +1919,12 @@
           "by": "claude",
           "at": "2026-10-26T14:29:01.340Z",
           "reason": "README de portafolio: 8.1 a 8.3 de la demo en vivo"
+        },
+        {
+          "from": "in_progress",
+          "to": "accepted",
+          "by": "José Pedro Lübbert",
+          "at": "2026-10-27T14:20:39.605Z"
         }
       ]
     },
