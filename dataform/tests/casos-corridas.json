@@ -1,0 +1,18 @@
+{
+  "corridas": [
+    {"run_id": "20261026T191900Z-aaaa0001", "fuente": "mercadopublico", "_ingest_date": "2026-10-26", "estado": "OK"},
+    {"run_id": "20261026T233000Z-aaaa0002", "fuente": "mercadopublico", "_ingest_date": "2026-10-26", "estado": "PARCIAL"},
+    {"run_id": "20261027T001200Z-bbbb0001", "fuente": "mercadopublico", "_ingest_date": "2026-10-27", "estado": "PARCIAL"},
+    {"run_id": "20261027T023000Z-bbbb0002", "fuente": "mercadopublico", "_ingest_date": "2026-10-27", "estado": "OK"},
+    {"run_id": "20261027T023100Z-cccc0001", "fuente": "indicadores", "_ingest_date": "2026-10-27", "estado": "ERROR"},
+    {"run_id": "20261028T023000Z-dddd0001", "fuente": "mercadopublico", "_ingest_date": "2026-10-28", "estado": "PARCIAL"},
+    {"run_id": "20261028T023000Z-dddd0002", "fuente": "mercadopublico", "_ingest_date": "2026-10-28", "estado": "ERROR"},
+    {"run_id": "20261028T023000Z-dddd0000", "fuente": "mercadopublico", "_ingest_date": "2026-10-28", "estado": "OK"}
+  ],
+  "esperado": [
+    {"nombre": "a partial run after a complete one leaves the day PARCIAL", "fuente": "mercadopublico", "_ingest_date": "2026-10-26", "ultimo_run_id": "20261026T233000Z-aaaa0002", "estado": "PARCIAL", "n_corridas": 2, "n_parciales": 1},
+    {"nombre": "a complete run after a partial one turns the day OK", "fuente": "mercadopublico", "_ingest_date": "2026-10-27", "ultimo_run_id": "20261027T023000Z-bbbb0002", "estado": "OK", "n_corridas": 2, "n_parciales": 1},
+    {"nombre": "sources are independent on the same day", "fuente": "indicadores", "_ingest_date": "2026-10-27", "ultimo_run_id": "20261027T023100Z-cccc0001", "estado": "ERROR", "n_corridas": 1, "n_parciales": 0},
+    {"nombre": "same second: the run_id suffix decides, the last is ERROR", "fuente": "mercadopublico", "_ingest_date": "2026-10-28", "ultimo_run_id": "20261028T023000Z-dddd0002", "estado": "ERROR", "n_corridas": 3, "n_parciales": 1}
+  ]
+}

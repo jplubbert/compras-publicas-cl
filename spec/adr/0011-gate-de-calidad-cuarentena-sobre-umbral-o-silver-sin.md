@@ -1,9 +1,10 @@
 # DEC-011 Gate de calidad: cuarentena sobre umbral o silver sin frescura bloquean gold
 
-- Estado: proposed
+- Estado: accepted
 - Fecha: 2026-10-27
-- Aprobador: pendiente: lo acepta Jev (node scripts/adr.mjs accept 0011, DEC-036)
-- Módulos: dataform/definitions/assertions, dataform/definitions/outputs, dataform/workflow_settings.yaml
+- Aprobador: José Pedro
+  Lübbert, 2026-10-27 (aprobación nominal en sesión)
+- Módulos: dataform/definitions/assertions/assert_cuarentena_proporcion.sqlx, dataform/definitions/assertions/assert_silver_frescura.sqlx, dataform/definitions/outputs/fct_licitaciones.sqlx, dataform/workflow_settings.yaml
 - Enforced-by: cmd: npm run test:dataform
 
 ## Contexto

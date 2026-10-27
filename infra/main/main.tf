@@ -50,6 +50,8 @@ module "bigquery" {
     "bcentral_ipc",
     "mindicador_uf",
     "mindicador_dolar",
+    # One row per ingest run: OK, PARCIAL or ERROR (DEC-012); the Workflow and gold.dim_corrida read it.
+    "corridas",
   ]
   depends_on = [module.apis]
 }

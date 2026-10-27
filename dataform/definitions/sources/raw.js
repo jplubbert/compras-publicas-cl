@@ -13,6 +13,7 @@ const TABLES = {
   bcentral_ipc: "Respuestas GetSeries del IPC de la BDE del Banco Central cargadas desde bronze, sin transformar.",
   mindicador_uf: "Respuestas de mindicador.cl para la UF cargadas desde bronze, sin transformar (fuente secundaria).",
   mindicador_dolar: "Respuestas de mindicador.cl para el dólar cargadas desde bronze, sin transformar (fuente secundaria).",
+  corridas: "Una fila por corrida de ingesta con su estado OK, PARCIAL o ERROR, escrita por el job al terminar (DEC-012).",
 };
 
 for (const [name, description] of Object.entries(TABLES)) {

@@ -24,6 +24,7 @@ const RAW = [
   'bcentral_ipc',
   'mindicador_uf',
   'mindicador_dolar',
+  'corridas',
 ];
 
 const TAG = 'projects/p/locations/us-central1/taxonomies/1/policyTags/2';
@@ -79,7 +80,7 @@ for (const [name, key] of Object.entries(MODELS)) {
   });
 }
 
-test('the 7 raw tables are declared in raw by default', () => {
+test('the 7 raw tables and the run record are declared in raw by default', () => {
   assert.deepEqual(declared(graph), RAW.map((n) => `raw.${n}`).sort());
 });
 
@@ -131,7 +132,7 @@ test('REQ-008: indicadores_diarios turns ND into a NULL valor with es_nd', () =>
   const q = tables['silver.indicadores_diarios'].query;
   assert.ok(q.includes("JSON_VALUE(obs, '$.statusCode') = 'ND'"));
   assert.match(q, /IF\(IFNULL\(.*'ND'.*\), NULL, SAFE_CAST\(JSON_VALUE\(obs, '\$\.value'\) AS NUMERIC\)\) AS valor/);
-  for (const n of RAW.filter((r) => !r.startsWith('mercadopublico'))) assert.ok(q.includes(`'${n}' AS serie`), n);
+  for (const n of RAW.filter((r) => !r.startsWith('mercadopublico') && r !== 'corridas')) assert.ok(q.includes(`'${n}' AS serie`), n);
 });
 
 test('the incremental window reads raw partitions from 3 days before the newest one in the target', () => {
