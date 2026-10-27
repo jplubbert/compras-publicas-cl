@@ -1,5 +1,8 @@
 # compras-publicas-cl
 
+[![CI](https://github.com/jplubbert/compras-publicas-cl/actions/workflows/ci.yml/badge.svg)](https://github.com/jplubbert/compras-publicas-cl/actions/workflows/ci.yml)
+[![Deploy](https://github.com/jplubbert/compras-publicas-cl/actions/workflows/deploy.yml/badge.svg)](https://github.com/jplubbert/compras-publicas-cl/actions/workflows/deploy.yml)
+
 Lakehouse medallion en GCP que ingiere a diario las licitaciones y órdenes de compra de Mercado Público, las cruza con
 la UF, el dólar y el IPC del Banco Central y lo despliega todo con Terraform y GitHub Actions, con un costo de USD 0 a 1
 al mes y un tope duro de USD 10.
