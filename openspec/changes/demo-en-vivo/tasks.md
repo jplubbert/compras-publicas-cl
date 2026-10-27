@@ -60,8 +60,8 @@ agente. Las variables de entorno van siempre con `scripts/env.sh` delante del co
 
 ## 9. Cierre
 
-- [ ] 9.1 `spec/TASKS.json`: T-14 y T-15 con la evidencia de integración citada en `notes` y estado acordado por el usuario; `spec/LOG.md` con una entrada que enlaza `docs/demo/integracion-<fecha>.md`; `npm run check:spec` en 0.
-- [ ] 9.2 Gasto del mes leído en la consola de facturación y anotado en el README (criterio de éxito 3: bajo USD 1).
+- [x] 9.1 `spec/TASKS.json`: T-14 y T-15 con la evidencia de integración citada en `notes` y estado acordado por el usuario; `spec/LOG.md` con una entrada que enlaza `docs/demo/integracion-<fecha>.md`; `npm run check:spec` en 0.
+- [x] 9.2 Gasto del mes leído en la consola de facturación y anotado en el README (criterio de éxito 3: bajo USD 1).
 
 ## Workflow follow-up
 

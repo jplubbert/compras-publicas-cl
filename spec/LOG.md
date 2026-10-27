@@ -1312,3 +1312,12 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   compras-diario falló» y da la cifra de gasto de octubre para 9.2.
 - Próxima acción autorizada: el usuario mergea el PR #18 con `scripts/merge-pr.sh`, fija el estado de T-14 y T-15 y
   entrega la cifra de 9.2; con ella se anota en el README y se cierra el checklist.
+
+## 2026-10-27 · José Pedro Lübbert y Claude (claude-fable-5-1) · sesión: checklist de la demo cerrado (9.1, 9.2)
+- T-14 y T-15 pasan a `accepted` por el usuario (set-status) con la evidencia de integración en `notes` (9.1). Gasto
+  de octubre (1 al 27) leído por el usuario en la consola de facturación: CLP 0 facturados, CLP 751 de uso cubiertos
+  por el nivel gratuito; anotado en el README (9.2). E5: correo de alerta a las 14:20 UTC. Los puntos del checklist
+  `openspec/changes/demo-en-vivo/tasks.md` quedan todos marcados salvo 5.9, opcional.
+- Próxima acción autorizada: el usuario mergea el PR #22 con `scripts/merge-pr.sh`; la corrida nocturna del 27 escribe
+  la primera fila de `raw.corridas` y el gate corre en producción por su cuenta; siguiente sesión: revisar
+  `gold.dim_corrida` y el resultado de la nocturna.
