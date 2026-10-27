@@ -24,4 +24,4 @@ printf '{"projectId": "%s", "location": "%s"}\n' "$GCP_PROJECT_ID" "$GCP_REGION"
 
 cd "$ROOT/dataform"
 node_modules/.bin/dataform run . --credentials="$creds" --default-database="$GCP_PROJECT_ID" \
-  --default-location="$GCP_REGION" --schema-suffix=ci "--vars=raw_dataset=raw_ci,sal_dataset=pii_ci,policy_tag_rut=$POLICY_TAG_RUT"
+  --default-location="$GCP_REGION" --schema-suffix=ci "--vars=raw_dataset=raw_ci,sal_dataset=pii_ci,policy_tag_rut=$POLICY_TAG_RUT,umbral_cuarentena=1"

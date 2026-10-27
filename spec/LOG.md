@@ -1280,3 +1280,12 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   notificación; sin acceso a los datos de los logs). Prueba de bootstrap ajustada.
 - Próxima acción autorizada: el usuario hace merge, aplica `infra/bootstrap` con su `.tfvars` y relanza el
   despliegue fallido (`gh run rerun <id> --failed`); después mergea #18 y acepta el ADR 0011.
+
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: el gate de cuarentena no aplica en la corrida de CI (DEC-011)
+- Con el rol de Logging el apply pasó y la alerta «Ingesta parcial» existe. Falló `release`: `assert_cuarentena_proporcion`
+  en `quarantine_ci` con 1 de 2 licitaciones en cuarentena (0,5 > 0,2): `raw_ci` es un juego de datos con filas malas
+  a propósito. `scripts/ci/dataform-ci.sh` pasa ahora `umbral_cuarentena=1` (gate apagado solo en `ci`); el gate real
+  lo cubren `dataform/tests/calidad.test.mjs` y la evidencia del ADR 0011. Prueba de `test_workflows.py` y comentario
+  de `deploy.yml` ajustados; nota en el ADR.
+- Próxima acción autorizada: el usuario hace merge; `deploy.yml` corre completo y `release` publica `dataform-main`
+  con el gate y `dim_corrida`; después mergea #18 y acepta el ADR 0011.
