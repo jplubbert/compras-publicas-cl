@@ -74,8 +74,19 @@ test('motivosSql keeps the codes of each entity in order with the same currencie
     assert.deepEqual(posiciones, [...posiciones].sort((a, b) => a - b));
     assert.ok(sql.includes("IN ('CLP', 'CLF', 'USD', 'UTM', 'EUR')"), sql);
     assert.ok(sql.includes("DATE '2000-01-01'"), sql);
-    assert.ok(sql.includes('DATE_ADD(fecha, INTERVAL 1 DAY)'), sql);
+    assert.ok(sql.includes('DATE_ADD(_ingest_date, INTERVAL 1 DAY)'), sql);
+    assert.ok(reglas.motivosSql(entidad, { fechaD: 'fecha' }).includes('DATE_ADD(fecha, INTERVAL 1 DAY)'));
     assert.equal(reglas.pasaSql(entidad), `ARRAY_LENGTH(${sql}) = 0`);
   }
   assert.ok(!reglas.motivosSql('licitaciones').includes('rut_dv_invalido'));
+});
+
+test('S-23: the range rule leaves out the planned dates of a tender and an empty RUT counts as absent', () => {
+  const lic = reglas.motivosSql('licitaciones');
+  assert.ok(lic.includes('FechaCreacion') && lic.includes('FechaPublicacion'), lic);
+  assert.ok(!lic.includes('FechaAdjudicacion') && !lic.includes('FechaCierre'), lic);
+  assert.deepEqual(reglas.motivos({ claves: ['X'], rut: '' }, D), []);
+  assert.deepEqual(reglas.motivos({ claves: ['X'], rut: '  ' }, D), []);
+  assert.deepEqual(reglas.motivos({ claves: ['X'], rut: '12.345.678-0' }, D), ['rut_dv_invalido']);
+  assert.ok(reglas.motivosSql('ordenes_compra').includes("NULLIF(TRIM(JSON_VALUE(doc, '$.Proveedor.RutSucursal')), '') IS NOT NULL AND NOT"));
 });
