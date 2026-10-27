@@ -49,9 +49,7 @@ frescura: un día en que el job no escribió nada en raw no se detecta aquí; es
 
 Buenas: un día con la cuarentena disparada o con silver vacío no llega a gold y avisa por correo esa misma noche.
 Malas: gold queda un día atrás hasta corregir la causa y relanzar (si la cuarentena era legítima, subir el umbral con
-`--vars=umbral_cuarentena=…` en una invocación manual y volver a bajarlo). Neutrales: en la corrida de CI (`scripts/ci/dataform-ci.sh`) el umbral va en 1, porque `raw_ci` es un juego de datos
-con filas malas a propósito (la primera corrida real del gate en CI falló con 1 de 2 licitaciones en cuarentena, 2026-10-27);
-el gate mide silver y cuarentena,
+`--vars=umbral_cuarentena=…` en una invocación manual y volver a bajarlo). Neutrales: el gate mide silver y cuarentena,
 no raw, para no leer el payload; un documento bajado dos veces el mismo día cuenta una vez en silver.
 
 ## Confirmación
