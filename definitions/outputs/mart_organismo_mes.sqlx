@@ -12,7 +12,8 @@ config {
       "n_licitaciones > 0",
       "tasa_desiertas BETWEEN 0 AND 1",
       "tasa_revocadas BETWEEN 0 AND 1",
-      "monto_adjudicado_uf IS NULL OR monto_adjudicado_uf >= 0"
+      "monto_adjudicado_uf IS NULL OR monto_adjudicado_uf >= 0",
+      "n_licitaciones_dias_parciales BETWEEN 0 AND n_licitaciones"
     ]
   },
   description: "Mart por organismo comprador y mes de publicación: monto adjudicado en UF, número de licitaciones y tasas de licitaciones desiertas y revocadas (REQ-012).",
@@ -24,15 +25,22 @@ config {
     n_revocadas: "Número de esas licitaciones en estado Revocada",
     tasa_desiertas: "Fracción de las licitaciones del mes que quedaron desiertas (entre 0 y 1)",
     tasa_revocadas: "Fracción de las licitaciones del mes que fueron revocadas (entre 0 y 1)",
-    monto_adjudicado_uf: "Suma del monto adjudicado en UF de la fecha de publicación; nulo si ninguna licitación tiene monto en UF"
+    monto_adjudicado_uf: "Suma del monto adjudicado en UF de la fecha de publicación; nulo si ninguna licitación tiene monto en UF",
+    n_licitaciones_dias_parciales: "Cuántas de esas licitaciones tienen su versión vigente traída en un día de ingesta PARCIAL (gold.dim_corrida, DEC-012): el mes se armó con días incompletos si es mayor que 0"
   }
 }
 
-WITH por_mes AS (
+WITH dias_parciales AS (
+  SELECT l.codigo_licitacion
+  FROM ${ref({ schema: "silver", name: "licitaciones" })} l
+  JOIN ${ref("dim_corrida")} d ON d.fuente = 'mercadopublico' AND d._ingest_date = l._ingest_date AND d.estado = 'PARCIAL'
+),
+por_mes AS (
   SELECT
     codigo_organismo,
     DATE_TRUNC(fecha_documento, MONTH) AS mes,
     COUNT(DISTINCT codigo_licitacion) AS n_licitaciones,
+    COUNT(DISTINCT IF(codigo_licitacion IN (SELECT codigo_licitacion FROM dias_parciales), codigo_licitacion, NULL)) AS n_licitaciones_dias_parciales,
     COUNT(DISTINCT IF(estado = 'Desierta', codigo_licitacion, NULL)) AS n_desiertas,
     COUNT(DISTINCT IF(estado = 'Revocada', codigo_licitacion, NULL)) AS n_revocadas,
     SUM(monto_adjudicado_uf) AS monto_adjudicado_uf
@@ -48,5 +56,6 @@ SELECT
   n_revocadas,
   SAFE_DIVIDE(n_desiertas, n_licitaciones) AS tasa_desiertas,
   SAFE_DIVIDE(n_revocadas, n_licitaciones) AS tasa_revocadas,
-  monto_adjudicado_uf
+  monto_adjudicado_uf,
+  n_licitaciones_dias_parciales
 FROM por_mes
