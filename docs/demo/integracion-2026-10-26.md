@@ -45,5 +45,11 @@ Fecha hábil usada: viernes 2026-10-23.
   con la rama derivada `dataform-main` (DEC-010): `deploy.yml` la publica con `git subtree split` tras la corrida en
   `ci`, y el Workflow y el release config compilan desde ella. Probado a mano: compilación sin errores desde esa rama con
   las variables del Workflow. La corrida completa (5.7) queda para después del merge.
+- **5.7, la API manda códigos de estado fuera de su catálogo publicado.** La primera corrida completa del Workflow
+  (ejecución `0f6a46c8`, tras DEC-010) compiló e invocó Dataform: 28 acciones en verde y dos `rowConditions` de silver
+  rojas (`estado IS NOT NULL`), gold omitido. El endpoint de detalle manda licitaciones con `CodigoEstado` 15 y
+  `Estado` «Revocada» (7 filas; la documentación solo lista 18 Revocada) y órdenes de compra con 11 «No aceptada» (12
+  filas; no documentado). Es el incidente de calidad real de 6.2: la assertion lo atrapó y el Workflow terminó
+  `FAILED` como pide REQ-009. Arreglado agregando los dos códigos al catálogo (`dataform/includes/silver.js`, REQ-008).
 - **7.1, la guarda de cuota frenaba el dry run.** `run.py` restaba lo facturado hoy también en modo `--dry-run`, que
   no factura nada, así que `benchmark.sh` fallaba justo después de medir. La guarda ahora solo protege los jobs medidos.

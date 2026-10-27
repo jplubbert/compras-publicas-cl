@@ -18,7 +18,7 @@ config {
     codigo_oc: "Código de la orden de compra (clave natural)",
     nombre: "Nombre de la orden de compra",
     codigo_estado: "Código numérico del estado de la orden de compra según la API",
-    estado: "Estado de la orden de compra traducido del código (Enviada a proveedor, En proceso, Aceptada, Cancelada, Recepción conforme, Pendiente de recepcionar, Recepcionada parcialmente, Recepción conforme incompleta); nulo si el código no está en el catálogo",
+    estado: "Estado de la orden de compra traducido del código (Enviada a proveedor, En proceso, Aceptada, Cancelada, No aceptada, Recepción conforme, Pendiente de recepcionar, Recepcionada parcialmente, Recepción conforme incompleta); nulo si el código no está en el catálogo",
     codigo_licitacion: "Código de la licitación de origen, si la hay",
     codigo_organismo: "Código del organismo comprador",
     nombre_organismo: "Nombre del organismo comprador",
