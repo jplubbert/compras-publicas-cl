@@ -16,6 +16,9 @@ locals {
     "roles/cloudscheduler.admin",
     "roles/dataform.admin",
     "roles/monitoring.editor",
+    # DEC-012: the partial-day alert is a log-match policy, which needs logging.notificationRules.* (configWriter: log
+    # metrics, sinks and notification rules; no access to log data).
+    "roles/logging.configWriter",
     # T-14: infra/main creates the taxonomy, the policy tags and their IAM bindings.
     "roles/datacatalog.categoryAdmin",
   ]

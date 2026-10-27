@@ -1271,6 +1271,24 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Próxima acción autorizada: el usuario hace merge de #16, #15 y de este PR, acepta el ADR 0011; después el README con
   el refresco completo como procedimiento y la corrección del paso de bootstrap en «Cómo reproducir».
 
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: rol de Logging para la cuenta de CI (DEC-012)
+- El despliegue del #17 falló en `Terraform apply`: crear la alerta por registros «Ingesta parcial» exige
+  `logging.notificationRules.create` y la cuenta de CI no tenía ningún rol de Logging. Quedaron aplicados el Workflow
+  nuevo, sus permisos y `raw.corridas`; faltan la alerta y la publicación de `dataform-main` (el job `release` no corrió,
+  así que Dataform sigue compilando la versión anterior: sin gate ni `dim_corrida` hasta que el despliegue pase).
+- `infra/bootstrap/ci.tf`: `roles/logging.configWriter` para la cuenta de CI (métricas de logs, sinks y reglas de
+  notificación; sin acceso a los datos de los logs). Prueba de bootstrap ajustada.
+- Próxima acción autorizada: el usuario hace merge, aplica `infra/bootstrap` con su `.tfvars` y relanza el
+  despliegue fallido (`gh run rerun <id> --failed`); después mergea #18 y acepta el ADR 0011.
+
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: el gate de cuarentena no aplica en la corrida de CI (DEC-011)
+- Con el rol de Logging el apply pasó y la alerta «Ingesta parcial» existe. Falló `release`: `assert_cuarentena_proporcion`
+  en `quarantine_ci` con 1 de 2 licitaciones en cuarentena (0,5 > 0,2): `raw_ci` es un juego de datos con filas malas
+  a propósito. `scripts/ci/dataform-ci.sh` pasa ahora `umbral_cuarentena=1` (gate apagado solo en `ci`); el gate real
+  lo cubren `dataform/tests/calidad.test.mjs` y la evidencia del ADR 0011. Prueba de `test_workflows.py` y comentario
+  de `deploy.yml` ajustados; nota en el ADR.
+- Próxima acción autorizada: el usuario hace merge; `deploy.yml` corre completo y `release` publica `dataform-main`
+  con el gate y `dim_corrida`; después mergea #18 y acepta el ADR 0011.
 ## 2026-10-27 · Claude (claude-fable-5-1) · sesión: refresco completo como procedimiento (REQ-008) y README
 - `scripts/it/full-refresh.sh [--dry-run]`: compila `dataform-main` con las variables de producción (se detiene ante
   errores de compilación) y lanza una invocación con `fullyRefreshIncrementalTablesEnabled` sobre silver y gold,
