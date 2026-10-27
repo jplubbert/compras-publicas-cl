@@ -7,3 +7,5 @@ defaultAssertionDataset: quarantine
 vars:
   raw_dataset: raw
   sal_dataset: pii
+  # Quality gate (DEC-011): the fraction of the last ingest day that may sit in quarantine before gold stops.
+  umbral_cuarentena: "0.2"
