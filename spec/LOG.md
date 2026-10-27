@@ -1251,3 +1251,15 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   que las mismas reglas se probaban en SQL). 106 pruebas unitarias y compilación local sin errores.
 - Próxima acción autorizada: el usuario hace merge de este PR tras el #14; sigue el PR 4 (assertions de cuarentena y
   frescura, tabla de corridas, día parcial en el Workflow, ADR del gate).
+
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: refresco completo como procedimiento (REQ-008) y README
+- `scripts/it/full-refresh.sh [--dry-run]`: compila `dataform-main` con las variables de producción (se detiene ante
+  errores de compilación) y lanza una invocación con `fullyRefreshIncrementalTablesEnabled` sobre silver y gold,
+  espera y cuenta las acciones por estado; `--dry-run` solo compila. Probado hoy el `--dry-run` contra el proyecto
+  (compila sin errores). Es lo que se hizo a mano dos veces el 2026-10-27.
+- README «Cómo reproducir»: el refresco completo como procedimiento (qué hace, qué no toca, la sal); el paso de
+  bootstrap corregido (un `.tfvars` fuera de git y `terraform -chdir=infra/bootstrap apply -var-file=…`; el script
+  `tf-apply.sh` aplica solo `infra/main`); «Calidad» con el incidente real atrapado en vez del marcador pendiente; en
+  «Qué se rompió» la regla de fechas ya no está «propuesta en un PR aparte» sino corregida.
+- Próxima acción autorizada: el usuario hace merge de #17 y de este PR y acepta el ADR 0011; quedan de la demo 5.6
+  (confirmar la etiqueta tras la corrida incremental de hoy), E5 de 5.7, 9.1 y 9.2.
