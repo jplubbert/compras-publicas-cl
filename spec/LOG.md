@@ -1203,3 +1203,16 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   la corrida siguiente y silver las incorpora; no hace falta refresco completo.
 - Próxima acción autorizada: el usuario decide el merge de este PR después del #10; con `deploy.yml` en verde, la
   corrida nocturna siguiente debe bajar `quarantine.licitaciones` a cero y dejar solo los 3 RUT vacíos fuera.
+
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: merge de #10 y #11, cuarentena en cero
+- El usuario hizo merge de #10 (cierre de la demo) y #11 (regla de fechas, REQ-010); `deploy.yml` en verde en ambos,
+  `dataform-main` republicada. La corrida nocturna del Scheduler (`5ef20d3d`, 02:30–04:50 UTC) terminó `SUCCEEDED`
+  sin intervención: segunda corrida completa en verde.
+- Las filas ya retenidas en cuarentena no se reevalúan solas (tablas incrementales), así que, para no esperar a la
+  corrida siguiente, compilación de prueba desde `dataform-main` (sin errores, SQL con `DATE_ADD(_ingest_date, INTERVAL
+  1 DAY)` y sin `FechaAdjudicacion`) y una invocación única con `fullyRefreshIncrementalTablesEnabled`: 37 de 37 en
+  verde. Resultado: `quarantine.licitaciones` 0 y `quarantine.ordenes_compra` 0 (los 3 RUT vacíos pasan, S-23);
+  gold con 1.597 licitaciones y 10.452 órdenes. Anotado en `docs/demo/integracion-2026-10-26.md`.
+- Próxima acción autorizada: el usuario hace público el repo o da acceso a la reclutadora; con su aprobación, correr
+  5.6 (`policy-tags.sh` con `SKIP_RUN=1`) y E5 de 5.7; leer el gasto del mes en facturación y anotarlo en el README
+  (9.2).
