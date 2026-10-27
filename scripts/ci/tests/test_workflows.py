@@ -224,7 +224,7 @@ def test_req014_dataform_ci_requires_and_passes_policy_tag_rut():
 def test_req014_e8_dataform_ci_uses_its_own_salt():
     text = DATAFORM_CI.read_text()
     [run] = [line for line in text.replace("\\\n", " ").splitlines() if "dataform run" in line]
-    assert '"--vars=raw_dataset=raw_ci,sal_dataset=pii_ci,policy_tag_rut=$POLICY_TAG_RUT"' in run
+    assert '"--vars=raw_dataset=raw_ci,sal_dataset=pii_ci,policy_tag_rut=$POLICY_TAG_RUT,umbral_cuarentena=1"' in run
     assert "sal_dataset=pii," not in text and 'sal_dataset=pii"' not in text
 
 
