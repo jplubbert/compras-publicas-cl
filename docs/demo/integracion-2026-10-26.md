@@ -14,6 +14,7 @@ Fecha hábil usada: viernes 2026-10-23.
 | 5.4 | `GOOGLE_CLOUD_PROJECT=… GCP_REGION=us-central1 scripts/it/migrar-proveedor-key.sh` | `migrar-proveedor-key: ok dropped: none` (silver aún no existía) | ok |
 | 5.8 | `STATE_BACKUP_BUCKET=compras-publicas-cl-jpl-bk-tfstate-backup scripts/it/state-backup.sh` | `state-backup: ok gs://…/infra-main/20261026T135459Z-fe28778….tfstate` | ok (tras corregir el script) |
 | 5.5 | `GCP_PROJECT_ID=… GCP_REGION=us-central1 POLICY_TAG_RUT=… scripts/env.sh scripts/it/dataform-ci.sh` | `dataform-ci: ok e2 e3 e4 descriptions req009-e2 req009-e3 req009-e4 req009-e5 cuarentena req012-e1 req012-e2 req012-e3 req012-e4 req012-e6 gold-descripciones mart licitaciones=1 ordenes_compra=4 licitacion_items=2 compradores=1 proveedores=1 indicadores_diarios=35` | ok (tercera corrida) |
+| 5.7 | `GOOGLE_CLOUD_PROJECT=… GCP_REGION=us-central1 scripts/env.sh scripts/it/run-workflow.sh` | ejecución `23575928` `SUCCEEDED` (2026-10-27 00:12–02:34 UTC), 37 acciones de Dataform en verde; la nocturna del Scheduler partió sola a las 02:30 UTC | ok (tercer intento: DEC-010 y los códigos 15 y 11) |
 | 7.1 | `GCP_PROJECT_ID=… GCP_REGION=us-central1 scripts/env.sh scripts/it/benchmark.sh` | medición completa: `benchmarks/results/2026-10-26.md` (3 variantes, 2 reescrituras, «Excluidos: Ninguno»); el último paso (`run.py --dry-run`) abortó por la guarda de cuota (12,9 GB facturados hoy) y se corrió aparte tras corregirla: `benchmarks/results/2026-10-26-estimado.md`. `npm run test:benchmarks`: 35 passed | ok |
 
 ## Defectos encontrados por las corridas reales
@@ -53,3 +54,28 @@ Fecha hábil usada: viernes 2026-10-23.
   `FAILED` como pide REQ-009. Arreglado agregando los dos códigos al catálogo (`dataform/includes/silver.js`, REQ-008).
 - **7.1, la guarda de cuota frenaba el dry run.** `run.py` restaba lo facturado hoy también en modo `--dry-run`, que
   no factura nada, así que `benchmark.sh` fallaba justo después de medir. La guarda ahora solo protege los jobs medidos.
+
+## Datos en gold tras la primera corrida completa (6.1 y 6.2)
+
+Conteos con `bq query --maximum_bytes_billed` después de la ejecución `23575928` (2026-10-27 02:34 UTC):
+
+| Tabla | Filas |
+|---|---|
+| gold.fct_licitaciones | 639 |
+| gold.fct_ordenes_compra | 6.567 |
+| gold.dim_comprador | 692 |
+| gold.dim_proveedor | 3.105 |
+| gold.mart_organismo_mes | 326 |
+| quarantine.licitaciones | 932 (todas `fecha_fuera_de_rango`) |
+| quarantine.ordenes_compra | 391 (388 `fecha_fuera_de_rango`, 3 `rut_dv_invalido`) |
+
+Incidentes de calidad reales atrapados (6.2):
+
+- **Códigos de estado fuera del catálogo publicado** (licitaciones 15 «Revocada», órdenes 11 «No aceptada»): la
+  assertion `estado IS NOT NULL` detuvo la corrida anterior antes de gold; corregido en el catálogo (REQ-008).
+- **Tres órdenes con RUT de proveedor vacío** (`RutSucursal` en blanco) quedaron en cuarentena con `rut_dv_invalido`.
+  Un RUT nulo no es motivo (S-23); uno vacío sí lo es hoy. Queda como observación.
+- **Falso positivo de la regla de fechas**: las 932 licitaciones y 388 órdenes con `fecha_fuera_de_rango` son
+  legítimas. La regla compara con la fecha del listado (`fecha` = 2026-10-23) más un día, pero el detalle se bajó el
+  26, y `FechaAdjudicacion` es una fecha planificada (hasta 2029-02-26), como `FechaCierre`, que la regla ya excluye.
+  Las órdenes caen por `FechaAceptacion` entre el 24 y el 26. Cambio de regla propuesto en un PR aparte (REQ-010).
