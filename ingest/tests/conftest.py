@@ -90,11 +90,17 @@ class FakeBigQueryClient:
     def __init__(self, storage: FakeStorageClient | None = None):
         self.storage = storage
         self.loads: list[LoadCall] = []
+        self.json_loads: list[LoadCall] = []
         self.fail: dict[str, Exception] = {}
 
     def schema_from_json(self, path):
         with open(path, encoding="utf-8") as fh:
             return [bigquery.SchemaField.from_api_repr(f) for f in json.load(fh)]
+
+    def load_table_from_json(self, rows, destination, job_config=None, job_id_prefix=None):
+        """Records the run rows of raw.corridas (DEC-012)."""
+        self.json_loads.append(LoadCall([dict(r) for r in rows], destination, job_config, job_id_prefix))
+        return FakeLoadJob(f"{job_id_prefix}{len(self.json_loads)}", len(rows), self.fail.get(destination))
 
     def load_table_from_uri(self, uris, destination, job_config=None, job_id_prefix=None):
         self.loads.append(LoadCall(list(uris), destination, job_config, job_id_prefix))

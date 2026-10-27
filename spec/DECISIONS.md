@@ -37,6 +37,8 @@ El índice lo genera `node scripts/adr.mjs index`; check-adr falla si no está a
 | DEC-008 | RUT de persona natural en columna propia con policy tag | accepted | [más abajo](#dec-008-rut-de-persona-natural-en-columna-propia-con-policy-tag) |
 | DEC-009 | Ajustes del spike T-02 a DEC-002, DEC-003 y DEC-004 | accepted | [ADR](adr/0009-ajustes-del-spike-t-02-a-dec-002-dec-003-y-dec-004.md) |
 | DEC-010 | Dataform compila desde la rama derivada `dataform-main` | accepted | [más abajo](#dec-010-dataform-compila-desde-la-rama-derivada-dataform-main) |
+| DEC-011 | Gate de calidad: cuarentena sobre umbral o silver sin frescura bloquean gold | accepted | [ADR](adr/0011-gate-de-calidad-cuarentena-sobre-umbral-o-silver-sin.md) |
+| DEC-012 | Registro de corridas en `raw.corridas`: el día es OK solo si la última corrida fue OK | accepted | [más abajo](#dec-012-registro-de-corridas-en-rawcorridas-el-día-es-ok-solo-si-la-última-corrida-fue-ok) |
 
 <!-- adr-index:end -->
 
@@ -133,3 +135,33 @@ El índice lo genera `node scripts/adr.mjs index`; check-adr falla si no está a
   `t11_repositorio_dataform` y el del release config en `infra/main/tests/main.tftest.hcl`, y la primera corrida
   `SUCCEEDED` de `scripts/it/run-workflow.sh` (5.7 de la demo).
 - Revisar si: Dataform admite un subdirectorio del remoto, o el repo pasa a tener el proyecto Dataform en la raíz.
+
+## DEC-012 Registro de corridas en `raw.corridas`: el día es OK solo si la última corrida fue OK
+- Estado: accepted
+- Alcance: local
+- Fecha: 2026-10-27 · Aprobador: José Pedro Lübbert (sesión 2026-10-27: «Sí a 4b. Regla: dim_corrida toma la última
+  corrida por run_id; el día es OK solo si la última fue OK») · Confianza: alta
+- Problema: cuando el job de Mercado Público agota el presupuesto de requests termina con código 0 y un aviso en el
+  registro (REQ-004); el Workflow seguía como si el día estuviera completo y gold se reconstruía sin marca. Ni el
+  operador ni quien consulta gold sabían que el día quedó parcial.
+- Alternativas consideradas:
+  1. Una fila por corrida en `raw.corridas`, cargada por el propio job al terminar (carga por lote, gratis) con `estado`
+     OK, PARCIAL o ERROR; el Workflow la consulta justo después del job (última fila por `run_id`), registra `WARNING`
+     y devuelve `estado_dia`, y `gold.dim_corrida` la resume por fuente y fecha de ingesta con la misma regla — a favor:
+     un solo mecanismo para el operador y para gold, sin reloj ni GCS; en contra: el job gana una escritura más, y si no
+     puede escribirla termina con código 1 (fail-closed: el Workflow no toma la corrida anterior por la de hoy).
+  2. Leer el cursor de GCS desde el Workflow (existe solo si el día quedó a medias) — a favor: sin tabla nueva; en
+     contra: gold no lo ve, y serían dos mecanismos para el mismo hecho.
+  3. Código de salida distinto de 0 en el job — a favor: nada que leer; en contra: el Workflow falla y Dataform no corre
+     con los datos parciales, que son válidos.
+- Decisión: la opción 1. `dim_corrida` toma la última corrida del día por `run_id` (su prefijo es la hora UTC de
+  inicio): un reintento completo después de una corrida parcial deja el día OK; una parcial después de una completa lo
+  deja PARCIAL. `raw.corridas` no es una entidad de bronze: es el registro del job (REQ-006 no cambia).
+- Consecuencias: buenas: el correo de «Ingesta parcial» sale esa noche y `mart_organismo_mes.n_licitaciones_dias_parciales`
+  dice cuántas licitaciones del mes vienen de días incompletos; malas: una fila más por corrida y dos permisos más para la
+  cuenta del Workflow (`bigquery.jobUser` y lectura de raw); neutrales: sin fila (primera corrida) el Workflow devuelve
+  `SIN_REGISTRO`.
+- Confirmación: `ingest/tests/test_corridas.py` (OK, PARCIAL, ERROR y la escritura fallida), `orchestration/tests/test_daily.py`
+  (pasos nuevos), `dataform/tests/corridas.test.mjs` y `scripts/it/corridas-sql.sh` (la regla contra BigQuery: 4 casos, 0
+  diferencias el 2026-10-27), `t08_raw_tables`, `t11_e4_alerta` y `t11_permisos` de `infra/main/tests/main.tftest.hcl`.
+- Revisar si: aparece otra fuente de ingesta (sumarla a `dim_corrida`), o el job deja de ser quien escribe el registro.

@@ -1,0 +1,14 @@
+[
+  {"name": "run_id", "type": "STRING", "mode": "REQUIRED", "description": "Identificador de la corrida de ingesta (AAAAMMDDThhmmssZ-<hex>); ordena las corridas de un día"},
+  {"name": "_ingest_date", "type": "DATE", "mode": "REQUIRED", "description": "Fecha UTC de inicio de la corrida; columna de partición"},
+  {"name": "fuente", "type": "STRING", "mode": "REQUIRED", "description": "Job que corrió: mercadopublico o indicadores"},
+  {"name": "estado", "type": "STRING", "mode": "REQUIRED", "description": "OK (completa), PARCIAL (presupuesto de requests agotado, cursor guardado) o ERROR (terminó con código distinto de 0 o falló una carga)"},
+  {"name": "exit_code", "type": "INTEGER", "mode": "REQUIRED", "description": "Código de salida del job"},
+  {"name": "requests", "type": "INTEGER", "mode": "REQUIRED", "description": "Requests HTTP consumidos del presupuesto"},
+  {"name": "fechas", "type": "DATE", "mode": "REPEATED", "description": "Fechas D procesadas en la corrida"},
+  {"name": "presupuesto_agotado", "type": "BOOLEAN", "mode": "REQUIRED", "description": "Verdadero si la corrida se detuvo por el presupuesto diario de requests"},
+  {"name": "cursor", "type": "STRING", "mode": "NULLABLE", "description": "URI del cursor guardado en GCS cuando el día quedó parcial; nulo si no quedó cursor"},
+  {"name": "objetos", "type": "INTEGER", "mode": "REQUIRED", "description": "Archivos escritos en bronze"},
+  {"name": "cargas_fallidas", "type": "INTEGER", "mode": "REQUIRED", "description": "Cargas a raw que fallaron"},
+  {"name": "finished_at", "type": "TIMESTAMP", "mode": "REQUIRED", "description": "Momento UTC en que el job terminó"}
+]

@@ -1,6 +1,7 @@
 # Daily pipeline compras-diario (REQ-007, DEC-002): both ingest jobs, then Dataform silver and gold from main.
 # Each step waits for the previous one. No try/retry/except: a failed ingest job fails the execution and Dataform
-# never runs (E3). The user env vars are set by infra/modules/orchestration.
+# never runs (E3). A PARCIAL day of Mercado Público is read from raw.corridas, logged and returned (E6, DEC-012).
+# The user env vars are set by infra/modules/orchestration.
 main:
   steps:
     - init:
@@ -18,6 +19,39 @@ main:
           connector_params:
             timeout: 25200
         result: ejecucion_mp
+    # Day state of the Mercado Público ingest (DEC-012, REQ-007 E6): the job records OK, PARCIAL or ERROR in
+    # raw.corridas; the last row by run_id is this run. A PARCIAL day (request budget exhausted, cursor kept) still
+    # goes through Dataform, but is logged as a WARNING (the alert of Terraform matches "ingesta parcial") and
+    # returned as the state of the execution.
+    - estado_ingesta_mp:
+        call: googleapis.bigquery.v2.jobs.query
+        args:
+          projectId: ${project}
+          body:
+            query: ${"SELECT estado FROM `" + project + "." + raw_dataset + ".corridas` WHERE fuente = 'mercadopublico' ORDER BY run_id DESC LIMIT 1"}
+            useLegacySql: false
+        result: corrida_mp
+    - leer_estado_mp:
+        switch:
+          - condition: ${len(default(map.get(corrida_mp, "rows"), [])) == 0}
+            steps:
+              - sin_corrida:
+                  assign:
+                    - estado_dia: "SIN_REGISTRO"
+          - condition: ${true}
+            steps:
+              - con_corrida:
+                  assign:
+                    - estado_dia: ${corrida_mp.rows[0].f[0].v}
+    - avisar_parcial:
+        switch:
+          - condition: ${estado_dia == "PARCIAL"}
+            steps:
+              - log_parcial:
+                  call: sys.log
+                  args:
+                    severity: WARNING
+                    text: ${"ingesta parcial de Mercado Publico, presupuesto de requests agotado; el cursor retoma en la proxima corrida (fila PARCIAL en " + raw_dataset + ".corridas)"}
     - ingesta_indicadores:
         call: googleapis.run.v2.projects.locations.jobs.run
         args:
@@ -79,6 +113,7 @@ main:
         next: esperar_dataform
     - fin:
         return:
+          estado_dia: ${estado_dia}
           ejecucion_mercadopublico: ${ejecucion_mp.name}
           ejecucion_indicadores: ${ejecucion_indicadores.name}
           invocacion_dataform: ${invocacion.body.name}

@@ -29,6 +29,11 @@ output "orchestration" {
       filter                = google_monitoring_alert_policy.workflow_failed.conditions[0].condition_threshold[0].filter
       notification_channels = google_monitoring_alert_policy.workflow_failed.notification_channels
     }
+    alert_parcial = {
+      filter                = google_monitoring_alert_policy.ingesta_parcial.conditions[0].condition_matched_log[0].filter
+      notification_channels = google_monitoring_alert_policy.ingesta_parcial.notification_channels
+      rate_limit_period     = google_monitoring_alert_policy.ingesta_parcial.alert_strategy[0].notification_rate_limit[0].period
+    }
   }
 }
 

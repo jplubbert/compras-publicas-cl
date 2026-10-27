@@ -1,0 +1,34 @@
+config {
+  type: "assertion",
+  tags: ["silver"],
+  description: "Gate de calidad (REQ-008, DEC-011): la última fecha de ingesta con documentos en raw de cada entidad de Mercado Público aparece en silver o en cuarentena; cada fila es una entidad cuya última ingesta no llegó a ninguna de las dos. Límite conocido: un día sin filas nuevas en raw (el job no escribió nada) no se detecta aquí, lo cubre el fallo del job de ingesta."
+}
+
+js {
+  const entidades = {
+    licitaciones: {
+      raw: ref("mercadopublico_licitaciones"),
+      silver: ref({ schema: "silver", name: "licitaciones" }),
+      cuarentena: ref({ schema: "quarantine", name: "licitaciones" }),
+    },
+    ordenes_compra: {
+      raw: ref("mercadopublico_ordenes_compra"),
+      silver: ref({ schema: "silver", name: "ordenes_compra" }),
+      cuarentena: ref({ schema: "quarantine", name: "ordenes_compra" }),
+    },
+  };
+  // Only the partition column and two small ones are read from raw; payload stays untouched.
+  const porEntidad = (entidad, t) => `
+  SELECT
+    '${entidad}' AS entidad,
+    (SELECT MAX(_ingest_date) FROM ${t.raw} WHERE http_status = 200 AND tipo = 'detalle') AS esperada,
+    (SELECT MAX(_ingest_date) FROM ${t.silver}) AS en_silver,
+    (SELECT MAX(_ingest_date) FROM ${t.cuarentena}) AS en_cuarentena`;
+}
+
+WITH fechas AS (
+  ${Object.entries(entidades).map(([e, t]) => porEntidad(e, t)).join("\n  UNION ALL")}
+)
+SELECT entidad, esperada, en_silver, en_cuarentena
+FROM fechas
+WHERE esperada IS NOT NULL AND NOT (esperada = en_silver OR esperada = en_cuarentena)

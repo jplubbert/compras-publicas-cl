@@ -116,3 +116,34 @@ resource "google_monitoring_alert_policy" "workflow_failed" {
     content   = "Falló una ejecución del Workflow compras-diario. Revisa la ejecución en la consola de Workflows (el paso que falló y su error) y, si llegó a Dataform, la invocación en el repositorio compras-publicas-cl de Dataform."
   }
 }
+
+# REQ-007 E6 / DEC-012: a PARCIAL day of Mercado Público (request budget exhausted) is logged by the Workflow as a
+# WARNING with "ingesta parcial"; this log-match alert mails it. The execution still succeeds, so the FAILED alert
+# above does not cover it.
+resource "google_monitoring_alert_policy" "ingesta_parcial" {
+  project               = var.project_id
+  display_name          = "Ingesta parcial de Mercado Público"
+  combiner              = "OR"
+  notification_channels = var.alert_channel_ids
+
+  conditions {
+    display_name = "Día parcial en compras-diario"
+
+    condition_matched_log {
+      filter = "resource.type = \"workflows.googleapis.com/Workflow\" AND resource.labels.workflow_id = \"${google_workflows_workflow.daily.name}\" AND severity = \"WARNING\" AND textPayload:\"ingesta parcial\""
+    }
+  }
+
+  alert_strategy {
+    auto_close = "604800s"
+
+    notification_rate_limit {
+      period = "3600s"
+    }
+  }
+
+  documentation {
+    mime_type = "text/markdown"
+    content   = "El job de Mercado Público agotó su presupuesto de requests y el día quedó parcial: el cursor sigue en la próxima corrida y gold.dim_corrida marca el día PARCIAL (DEC-012). Si se repite varios días, el atraso crece: revisa el presupuesto (S-06) o lanza una corrida manual."
+  }
+}

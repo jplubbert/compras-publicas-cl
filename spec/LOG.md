@@ -1252,6 +1252,25 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Próxima acción autorizada: el usuario hace merge de este PR tras el #14; sigue el PR 4 (assertions de cuarentena y
   frescura, tabla de corridas, día parcial en el Workflow, ADR del gate).
 
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: gate de calidad fail-closed y estado del día (DEC-011, DEC-012)
+- Gate (DEC-011, ADR `proposed`, lo acepta el usuario): `assert_cuarentena_proporcion` (cuarentena / (silver nuevas +
+  cuarentena) de la última `_ingest_date` por entidad > `umbral_cuarentena`, 0,2 por defecto como variable de
+  compilación) y `assert_silver_frescura` (la última `_ingest_date` con documentos en raw aparece en silver o en
+  cuarentena; límite anotado: un día sin filas en raw lo cubre el fallo del job). Todo gold declara `dependencies`
+  sobre las dos. Verificado contra la primera corrida real con la regla vieja de fechas: licitaciones 0,673 y 0,5
+  (habría fallado), órdenes 0,045 y 0,076 (no). Hoy ambas assertions pasan en producción.
+- Estado del día (DEC-012, pedido 4b): el job de ingesta carga una fila en `raw.corridas` (OK, PARCIAL o ERROR; no
+  poder escribirla es código 1); `daily.yaml` lee la última fila por `run_id` tras el job de Mercado Público, registra
+  `WARNING` «ingesta parcial» y devuelve `estado_dia`; alerta por registros en Terraform; la cuenta del Workflow gana
+  `bigquery.jobUser` y lectura de raw. `gold.dim_corrida` toma la última corrida por `run_id` (el día es OK solo si la
+  última fue OK) con conteos de silver y cuarentena; `mart_organismo_mes.n_licitaciones_dias_parciales`.
+  `scripts/it/corridas-sql.sh`: 4 casos (PARCIAL→OK = OK, OK→PARCIAL = PARCIAL, fuentes independientes, mismo segundo),
+  0 diferencias en BigQuery. Pruebas: ingesta 118, orquestación 19, Terraform 55, Dataform 115; lint y chequeos ok.
+- Pendiente manual: la primera corrida tras el despliegue escribe la primera fila de `raw.corridas`; hasta entonces el
+  Workflow devuelve `estado_dia = SIN_REGISTRO` (no es error).
+- Próxima acción autorizada: el usuario hace merge de #16, #15 y de este PR, acepta el ADR 0011; después el README con
+  el refresco completo como procedimiento y la corrección del paso de bootstrap en «Cómo reproducir».
+
 ## 2026-10-27 · Claude (claude-fable-5-1) · sesión: refresco completo como procedimiento (REQ-008) y README
 - `scripts/it/full-refresh.sh [--dry-run]`: compila `dataform-main` con las variables de producción (se detiene ante
   errores de compilación) y lanza una invocación con `fullyRefreshIncrementalTablesEnabled` sobre silver y gold,

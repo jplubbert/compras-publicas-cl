@@ -38,6 +38,12 @@ const ROW_CONDITIONS = {
     'tasa_desiertas BETWEEN 0 AND 1',
     'tasa_revocadas BETWEEN 0 AND 1',
     'monto_adjudicado_uf IS NULL OR monto_adjudicado_uf >= 0',
+    'n_licitaciones_dias_parciales BETWEEN 0 AND n_licitaciones',
+  ],
+  dim_corrida: [
+    "estado IN ('OK', 'PARCIAL', 'ERROR')",
+    'n_corridas >= 1 AND n_parciales BETWEEN 0 AND n_corridas',
+    "(fuente = 'mercadopublico') = (filas_silver IS NOT NULL)",
   ],
 };
 
@@ -46,6 +52,7 @@ const CLAVES_GOLD = {
   dim_comprador: ['codigo_organismo'],
   dim_proveedor: ['proveedor_key'],
   mart_organismo_mes: ['codigo_organismo', 'mes'],
+  dim_corrida: ['fuente', '_ingest_date'],
 };
 
 // The facts require a partition filter, so their assertions are their own (assert_<fact>) and not the built-in ones.

@@ -155,3 +155,41 @@ def test_variables_de_entorno():
         "POLICY_TAG_RUT",
     }
     assert user == declared
+
+
+def test_estado_del_dia_desde_raw_corridas():
+    """REQ-007 E6 / DEC-012: right after the Mercado Público job, the Workflow reads the last run row by run_id."""
+    doc = load()
+    found = names(doc)
+    assert found.index("ingesta_mercadopublico") < found.index("estado_ingesta_mp") < found.index("ingesta_indicadores")
+    s = step(doc, "estado_ingesta_mp")
+    assert s["call"] == "googleapis.bigquery.v2.jobs.query"
+    query = s["args"]["body"]["query"]
+    assert ".corridas`" in query and "raw_dataset" in query
+    assert "fuente = 'mercadopublico'" in query and "ORDER BY run_id DESC LIMIT 1" in query
+    assert s["args"]["body"]["useLegacySql"] is False
+
+
+def test_dia_parcial_se_registra_como_warning_y_se_devuelve():
+    """E6: a PARCIAL day logs a WARNING with 'ingesta parcial' (the alert filter) and the execution returns estado_dia."""
+    doc = load()
+    aviso = step(doc, "avisar_parcial")["switch"]
+    [parcial] = [c for c in aviso if 'estado_dia == "PARCIAL"' in c["condition"]]
+    [log_step] = parcial["steps"]
+    body = next(iter(log_step.values()))
+    assert body["call"] == "sys.log"
+    assert body["args"]["severity"] == "WARNING"
+    assert "ingesta parcial" in body["args"]["text"]
+    assert step(doc, "fin")["return"]["estado_dia"] == "${estado_dia}"
+    # Reading the state never swallows a job failure: the lookup is a plain step, outside any try.
+    assert not has_key(doc, "try")
+
+
+def test_sin_fila_en_corridas_no_es_parcial():
+    """A missing row (first run ever, or the record not written) is SIN_REGISTRO, not PARCIAL and not OK."""
+    doc = load()
+    lectura = step(doc, "leer_estado_mp")["switch"]
+    [vacio] = [c for c in lectura if "== 0" in str(c["condition"])]
+    assert "SIN_REGISTRO" in str(vacio["steps"])
+    [resto] = [c for c in lectura if c["condition"] == "${true}"]
+    assert "rows[0].f[0].v" in str(resto["steps"])

@@ -219,6 +219,10 @@ etiquetas `silver` y `gold`), y espera a que cada paso termine. Los pasos de los
 en 7 h y los Cloud Run Jobs, un timeout de tarea de 7 h (la ventana de R-04).
 Si un paso falla, entonces el Workflow no deberá ejecutar los siguientes y deberá terminar en error, y una política de
 alertas de Cloud Monitoring deberá avisar por correo.
+Si el job de Mercado Público terminó con el presupuesto agotado (día parcial, REQ-004), entonces el Workflow deberá
+leer el estado de la última corrida por `run_id` en `raw.corridas` (DEC-012, ajuste 2026-10-27), registrar un aviso
+`WARNING` con «ingesta parcial», seguir con Dataform y devolver `estado_dia` en el resultado de la ejecución; una
+política de alertas sobre ese registro deberá avisar por correo.
 Ejemplos (aceptación):
 | caso | entrada / contexto | resultado esperado |
 |---|---|---|
@@ -227,7 +231,8 @@ Ejemplos (aceptación):
 | E3 negativo | `orchestration/daily.yaml` | ningún paso de ingesta está dentro de un `try` que capture su error, y si la invocación de Dataform termina `FAILED` o `CANCELLED` el Workflow levanta una excepción |
 | E4 positivo | `terraform test` | política de alertas sobre ejecuciones fallidas del Workflow con canal de correo |
 | E5 negativo | integración: el job de Mercado Público falla (ticket inválido) | la ejecución del Workflow queda `FAILED`, no hay invocación de Dataform y llega el correo |
-Trazas: objetivo §Criterio de éxito (1) · decisiones: DEC-002 · prueba: tests/acceptance/T-11*
+| E6 borde | el job de Mercado Público escribió `PARCIAL` en `raw.corridas` (DEC-012) | `orchestration/daily.yaml` consulta la última fila por `run_id` justo después del job, registra `WARNING` «ingesta parcial», Dataform corre igual y la ejecución devuelve `estado_dia = PARCIAL`; `terraform test` tiene la alerta por registros con el canal de correo; sin fila, `estado_dia = SIN_REGISTRO` |
+Trazas: objetivo §Criterio de éxito (1) · decisiones: DEC-002, DEC-012 · prueba: tests/acceptance/T-11*
 
 ### REQ-008 Silver incremental en Dataform · estado: approved_for_impl · prioridad: must
 Cuando Dataform corre, el sistema deberá materializar `silver.licitaciones`, `silver.ordenes_compra`,
@@ -251,7 +256,8 @@ Ejemplos (aceptación):
 | E2 borde | en `ci`: misma licitación en estado 5 y luego 8, y la corrida de E3 de REQ-006 | una sola fila, estado `Adjudicada` |
 | E3 borde | en `ci`: llega la versión en estado 5 después de la 8 | la fila sigue en `Adjudicada` |
 | E4 positivo | en `ci`: UF con `ND` en un día | fila con `valor NULL` y `es_nd TRUE` |
-Trazas: objetivo §Alcance 2 · decisiones: DEC-001, DEC-006 · prueba: tests/acceptance/T-09*
+| E5 negativo | gate de frescura (DEC-011, ajuste 2026-10-27): la última `_ingest_date` con documentos en raw de una entidad de Mercado Público no aparece ni en silver ni en cuarentena | `assert_silver_frescura` falla y gold no se reconstruye; un día sin filas nuevas en raw no se detecta aquí (lo cubre el fallo del job, REQ-007 E3) |
+Trazas: objetivo §Alcance 2 · decisiones: DEC-001, DEC-006, DEC-011 · prueba: tests/acceptance/T-09*
 
 ### REQ-009 Assertions y criterio de promoción · estado: approved_for_impl · prioridad: must
 Cuando Dataform corre, cada modelo de silver y de gold deberá ejecutar sus assertions: `uniqueKey` sobre su clave,
@@ -287,7 +293,8 @@ Ejemplos (aceptación):
 | E4 positivo | RUT `12.345.678-5`, monto 0, moneda `CLP` | sin motivos |
 | E5 negativo | fecha de creación `31/12/2025` (presente, no interpretable) | `motivos = ["fecha_invalida"]`, sin `fecha_fuera_de_rango`; una fecha obligatoria ausente sigue siendo `fecha_fuera_de_rango` |
 | E6 positivo | `dataform/tests/casos-reglas.json` | el JS (`npm run test:dataform`) y el SQL contra BigQuery (`scripts/it/reglas-sql.sh`) devuelven los mismos motivos para cada caso |
-Trazas: objetivo §Objetivo («calidad como código») · decisiones: DEC-001 · prueba: tests/acceptance/T-10*
+| E7 negativo | gate de cuarentena (DEC-011, ajuste 2026-10-27): en la última `_ingest_date` de una entidad, cuarentena / (silver nuevas + cuarentena) supera `umbral_cuarentena` (0,2 por defecto, variable de compilación) | `assert_cuarentena_proporcion` falla, la invocación termina `FAILED`, gold no se reconstruye y llega el correo de REQ-007 |
+Trazas: objetivo §Objetivo («calidad como código») · decisiones: DEC-001, DEC-011 · prueba: tests/acceptance/T-10*
 
 ### REQ-011 Descripciones obligatorias persistidas · estado: approved_for_impl · prioridad: must
 Cuando se compila Dataform, cada modelo y cada columna de silver, gold y quarantine deberá tener una descripción en
@@ -323,7 +330,8 @@ Ejemplos (aceptación):
 | E4 negativo | en `ci`: OC de una fecha sin UF | `monto_uf NULL` y la fila está en el hecho |
 | E5 positivo | grafo compilado | cada modelo de gold tiene `dependOnDependencyAssertions: true` |
 | E6 negativo | en `ci`: se inyecta una licitación duplicada en silver | `gold.fct_licitaciones` conserva su `last_modified_time` |
-Trazas: objetivo §Alcance 3, «calidad como código» · decisiones: DEC-001 · prueba: tests/acceptance/T-12*
+| E7 borde | `gold.dim_corrida` (DEC-012, ajuste 2026-10-27): un día con una corrida PARCIAL y después una OK, y otro con una OK y después una PARCIAL | el día toma la última corrida por `run_id`: el primero queda `OK` y el segundo `PARCIAL`; `n_corridas` y `n_parciales` cuentan ambas; `mart_organismo_mes.n_licitaciones_dias_parciales` cuenta las licitaciones cuya versión vigente llegó en un día PARCIAL (`dataform/tests/casos-corridas.json`, `scripts/it/corridas-sql.sh`) |
+Trazas: objetivo §Alcance 3, «calidad como código» · decisiones: DEC-001, DEC-012 · prueba: tests/acceptance/T-12*
 
 ### REQ-013 Benchmark antes y después · estado: approved_for_impl · prioridad: must
 Cuando el usuario corre `benchmarks/run.py`, el sistema deberá generar en `bench` las licitaciones sintéticas de S-12

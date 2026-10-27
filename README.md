@@ -153,6 +153,15 @@ eso la tabla reporta bytes facturados.
 - **Assertions de Dataform** en `dataform/definitions/assertions/`: unicidad de claves, continuidad de la UF y del
   dólar (un hueco de cinco días hábiles falla), conciliación de la UF entre el Banco Central y mindicador.cl, y
   condiciones por fila en los hechos.
+- **Gate de calidad, fail-closed** (DEC-011): dos assertions de silver detienen la corrida antes de gold y disparan el
+  correo de alerta: `assert_cuarentena_proporcion` (más del 20 % del último día en cuarentena; umbral como variable de
+  compilación `umbral_cuarentena`) y `assert_silver_frescura` (la última ingesta de raw no llegó ni a silver ni a
+  cuarentena). Gold se queda con el día anterior hasta que alguien mire.
+- **Estado del día** (DEC-012): cada corrida de ingesta deja una fila en `raw.corridas` (OK, PARCIAL si agotó el
+  presupuesto de requests, ERROR). El Workflow la lee justo después del job: un día parcial se registra como aviso,
+  dispara el correo «Ingesta parcial» y la ejecución devuelve `estado_dia`. `gold.dim_corrida` resume el día por la
+  última corrida (el día es OK solo si la última fue OK) y el mart mensual dice cuántas licitaciones vienen de días
+  incompletos.
 - **Cuarentena con motivo**: las reglas de `dataform/includes/reglas.js` (`clave_nula`, `rut_dv_invalido`,
   `monto_negativo`, `moneda_desconocida`, `fecha_invalida`, `fecha_fuera_de_rango`) mandan la fila a `quarantine.*` con
   la lista de motivos y la corrida, y silver no la recibe. Las reglas se prueban unitariamente en JavaScript y, contra
