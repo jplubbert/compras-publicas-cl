@@ -3,6 +3,8 @@ config {
   schema: "gold",
   tags: ["gold"],
   dependOnDependencyAssertions: true,
+  // Fail-closed (DEC-011): gold is not rebuilt while the quality gate of silver fails.
+  dependencies: ["assert_cuarentena_proporcion", "assert_silver_frescura"],
   assertions: {
     uniqueKey: ["proveedor_key"],
     nonNull: ["proveedor_key"],

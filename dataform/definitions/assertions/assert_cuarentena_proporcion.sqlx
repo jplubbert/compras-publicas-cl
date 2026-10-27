@@ -1,0 +1,32 @@
+config {
+  type: "assertion",
+  tags: ["silver"],
+  description: "Gate de calidad (REQ-010, DEC-011): para la última fecha de ingesta de cada entidad de Mercado Público, la fracción de documentos en cuarentena sobre el total del día (filas nuevas en silver más cuarentena) no supera umbral_cuarentena; cada fila es una entidad que lo supera. Un día sin documentos no produce fila: ese caso lo cubre el fallo del job de ingesta."
+}
+
+js {
+  const umbral = Number(dataform.projectConfig.vars.umbral_cuarentena);
+  if (!(umbral >= 0 && umbral <= 1)) {
+    throw new Error("umbral_cuarentena debe ser un número entre 0 y 1 (variable de compilación)");
+  }
+  const entidades = {
+    licitaciones: { silver: ref({ schema: "silver", name: "licitaciones" }), cuarentena: ref({ schema: "quarantine", name: "licitaciones" }) },
+    ordenes_compra: { silver: ref({ schema: "silver", name: "ordenes_compra" }), cuarentena: ref({ schema: "quarantine", name: "ordenes_compra" }) },
+  };
+  const porDia = (entidad, t) => `
+  SELECT '${entidad}' AS entidad, _ingest_date, COUNTIF(origen = 'silver') AS en_silver, COUNTIF(origen = 'cuarentena') AS en_cuarentena
+  FROM (
+    SELECT 'silver' AS origen, _ingest_date FROM ${t.silver}
+    UNION ALL
+    SELECT 'cuarentena', _ingest_date FROM ${t.cuarentena}
+  )
+  GROUP BY _ingest_date
+  QUALIFY _ingest_date = MAX(_ingest_date) OVER ()`;
+}
+
+WITH dias AS (
+  ${Object.entries(entidades).map(([e, t]) => porDia(e, t)).join("\n  UNION ALL")}
+)
+SELECT entidad, _ingest_date, en_silver, en_cuarentena, SAFE_DIVIDE(en_cuarentena, en_silver + en_cuarentena) AS proporcion
+FROM dias
+WHERE SAFE_DIVIDE(en_cuarentena, en_silver + en_cuarentena) > ${umbral}

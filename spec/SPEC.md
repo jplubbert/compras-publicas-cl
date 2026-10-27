@@ -251,7 +251,8 @@ Ejemplos (aceptación):
 | E2 borde | en `ci`: misma licitación en estado 5 y luego 8, y la corrida de E3 de REQ-006 | una sola fila, estado `Adjudicada` |
 | E3 borde | en `ci`: llega la versión en estado 5 después de la 8 | la fila sigue en `Adjudicada` |
 | E4 positivo | en `ci`: UF con `ND` en un día | fila con `valor NULL` y `es_nd TRUE` |
-Trazas: objetivo §Alcance 2 · decisiones: DEC-001, DEC-006 · prueba: tests/acceptance/T-09*
+| E5 negativo | gate de frescura (DEC-011, ajuste 2026-10-27): la última `_ingest_date` con documentos en raw de una entidad de Mercado Público no aparece ni en silver ni en cuarentena | `assert_silver_frescura` falla y gold no se reconstruye; un día sin filas nuevas en raw no se detecta aquí (lo cubre el fallo del job, REQ-007 E3) |
+Trazas: objetivo §Alcance 2 · decisiones: DEC-001, DEC-006, DEC-011 · prueba: tests/acceptance/T-09*
 
 ### REQ-009 Assertions y criterio de promoción · estado: approved_for_impl · prioridad: must
 Cuando Dataform corre, cada modelo de silver y de gold deberá ejecutar sus assertions: `uniqueKey` sobre su clave,
@@ -287,7 +288,8 @@ Ejemplos (aceptación):
 | E4 positivo | RUT `12.345.678-5`, monto 0, moneda `CLP` | sin motivos |
 | E5 negativo | fecha de creación `31/12/2025` (presente, no interpretable) | `motivos = ["fecha_invalida"]`, sin `fecha_fuera_de_rango`; una fecha obligatoria ausente sigue siendo `fecha_fuera_de_rango` |
 | E6 positivo | `dataform/tests/casos-reglas.json` | el JS (`npm run test:dataform`) y el SQL contra BigQuery (`scripts/it/reglas-sql.sh`) devuelven los mismos motivos para cada caso |
-Trazas: objetivo §Objetivo («calidad como código») · decisiones: DEC-001 · prueba: tests/acceptance/T-10*
+| E7 negativo | gate de cuarentena (DEC-011, ajuste 2026-10-27): en la última `_ingest_date` de una entidad, cuarentena / (silver nuevas + cuarentena) supera `umbral_cuarentena` (0,2 por defecto, variable de compilación) | `assert_cuarentena_proporcion` falla, la invocación termina `FAILED`, gold no se reconstruye y llega el correo de REQ-007 |
+Trazas: objetivo §Objetivo («calidad como código») · decisiones: DEC-001, DEC-011 · prueba: tests/acceptance/T-10*
 
 ### REQ-011 Descripciones obligatorias persistidas · estado: approved_for_impl · prioridad: must
 Cuando se compila Dataform, cada modelo y cada columna de silver, gold y quarantine deberá tener una descripción en

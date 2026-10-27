@@ -37,6 +37,7 @@ El índice lo genera `node scripts/adr.mjs index`; check-adr falla si no está a
 | DEC-008 | RUT de persona natural en columna propia con policy tag | accepted | [más abajo](#dec-008-rut-de-persona-natural-en-columna-propia-con-policy-tag) |
 | DEC-009 | Ajustes del spike T-02 a DEC-002, DEC-003 y DEC-004 | accepted | [ADR](adr/0009-ajustes-del-spike-t-02-a-dec-002-dec-003-y-dec-004.md) |
 | DEC-010 | Dataform compila desde la rama derivada `dataform-main` | accepted | [más abajo](#dec-010-dataform-compila-desde-la-rama-derivada-dataform-main) |
+| DEC-011 | Gate de calidad: cuarentena sobre umbral o silver sin frescura bloquean gold | proposed | [ADR](adr/0011-gate-de-calidad-cuarentena-sobre-umbral-o-silver-sin.md) |
 
 <!-- adr-index:end -->
 
