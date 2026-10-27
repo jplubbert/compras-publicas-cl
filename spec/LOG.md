@@ -1216,3 +1216,14 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Próxima acción autorizada: el usuario hace público el repo o da acceso a la reclutadora; con su aprobación, correr
   5.6 (`policy-tags.sh` con `SKIP_RUN=1`) y E5 de 5.7; leer el gasto del mes en facturación y anotarlo en el README
   (9.2).
+
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: WIF restringido a main y pull requests (DEC-004)
+- El proveedor del pool de GitHub aceptaba cualquier workflow del repositorio. Ahora mapea `assertion.ref` y
+  `assertion.event_name` y exige, además del repositorio, `ref == refs/heads/main` (el apply de `deploy.yml`) o
+  `event_name == pull_request` (el plan de `ci.yml`, cuyo ref es `refs/pull/N/merge`). Cualquier otra rama o un
+  `workflow_dispatch` no obtiene credenciales. La separación en dos cuentas (plan de solo lectura para los PR) queda
+  fuera de este corte.
+- `infra/bootstrap/tests/bootstrap.tftest.hcl` comprueba la condición y el mapeo como texto; que GitHub lo respete
+  solo se ve con un PR y un push reales. Bootstrap lo aplica el usuario a mano.
+- Próxima acción autorizada: el usuario hace merge del PR `infra/wif-rama` y aplica `infra/bootstrap`; siguen los PR 3
+  (ventana de la cuarentena), 2 (`fecha_invalida` y prueba SQL) y 4 (gate de calidad y día parcial), en ese orden.

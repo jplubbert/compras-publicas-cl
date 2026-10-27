@@ -38,8 +38,12 @@ run "state_bucket_and_wif" {
     error_message = "the state bucket must live in var.region"
   }
   assert {
-    condition     = google_iam_workload_identity_pool_provider.github.attribute_condition == "attribute.repository == \"demo-owner/compras-publicas-cl\""
-    error_message = "the WIF provider must be restricted to the repository"
+    condition     = google_iam_workload_identity_pool_provider.github.attribute_condition == "attribute.repository == \"demo-owner/compras-publicas-cl\" && (attribute.ref == \"refs/heads/main\" || attribute.event_name == \"pull_request\")"
+    error_message = "the WIF provider must be restricted to the repository, and to main or a pull request"
+  }
+  assert {
+    condition     = google_iam_workload_identity_pool_provider.github.attribute_mapping["attribute.ref"] == "assertion.ref" && google_iam_workload_identity_pool_provider.github.attribute_mapping["attribute.event_name"] == "assertion.event_name"
+    error_message = "the WIF provider must map the ref and the event name, which the condition reads"
   }
   assert {
     condition     = google_iam_workload_identity_pool.github.workload_identity_pool_id == "github"
