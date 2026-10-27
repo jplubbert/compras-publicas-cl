@@ -15,8 +15,9 @@ const TOLERANCIA_RECONCILIACION = "0.01";
 // A RUT whose body is below this number belongs to a natural person (S-04, DEC-008).
 const UMBRAL_PERSONA_NATURAL = 50000000;
 
-// JSON fields of the document that each rule reads. FechaCierre is left out of the range rule: it is a future date in
-// a published tender.
+// JSON fields of the document that each rule reads. FechaCierre and FechaAdjudicacion are left out of the range rule:
+// both are planned, future dates in a published tender (the first real run held 932 tenders by FechaAdjudicacion, up
+// to 2029; S-23).
 const ENTIDADES = {
   licitaciones: {
     claves: ["$.CodigoExterno"],
@@ -24,7 +25,7 @@ const ENTIDADES = {
     montos: ["$.MontoEstimado"],
     moneda: "$.Moneda",
     fechasObligatorias: ["$.Fechas.FechaPublicacion"],
-    fechas: ["$.Fechas.FechaCreacion", "$.Fechas.FechaAdjudicacion"],
+    fechas: ["$.Fechas.FechaCreacion"],
   },
   ordenes_compra: {
     claves: ["$.Codigo"],
@@ -71,14 +72,18 @@ function sumarDia(fecha) {
 
 const nulo = (v) => v === null || v === undefined;
 
-/** Codes of CODIGOS that the row breaks, in that order; fila carries the values already read (dates as YYYY-MM-DD). */
+/**
+ * Codes of CODIGOS that the row breaks, in that order; fila carries the values already read (dates as YYYY-MM-DD).
+ * fechaD is the day the document was fetched (the raw partition _ingest_date, UTC): a date may run until D+1, which
+ * covers the Chilean clock. An empty RUT counts as absent (S-23).
+ */
 function motivos(fila, { fechaD }) {
   const { claves = [], rut = null, montos = [], moneda = null, fechasObligatorias = [], fechas = [] } = fila;
   const maxima = sumarDia(fechaD);
   const fuera = (f) => f < FECHA_MINIMA || f > maxima;
   const falla = {
     clave_nula: claves.some((c) => nulo(c) || c === ""),
-    rut_dv_invalido: !nulo(rut) && !rutValido(rut),
+    rut_dv_invalido: !nulo(rut) && String(rut).trim() !== "" && !rutValido(rut),
     monto_negativo: montos.some((m) => !nulo(m) && m < 0),
     moneda_desconocida: !nulo(moneda) && !MONEDAS.includes(String(moneda).trim().toUpperCase()),
     fecha_fuera_de_rango:
@@ -93,8 +98,12 @@ function rutValidoSql(rutNormalizado) {
   return `(SELECT REGEXP_CONTAINS(rut, r'^[0-9]{1,9}-[0-9K]$') AND RIGHT(rut, 1) = (SELECT CASE ${r} WHEN 10 THEN 'K' ELSE CAST(${r} AS STRING) END FROM UNNEST(SPLIT(REVERSE(SPLIT(rut, '-')[SAFE_OFFSET(0)]), '')) AS d WITH OFFSET pos) FROM (SELECT ${rutNormalizado} AS rut))`;
 }
 
-/** ARRAY<STRING> with every code the document breaks, in the order of CODIGOS (empty when it passes). */
-function motivosSql(entidad, { doc = "doc", fechaD = "fecha" } = {}) {
+/**
+ * ARRAY<STRING> with every code the document breaks, in the order of CODIGOS (empty when it passes). fechaD defaults
+ * to _ingest_date, the day the detail was fetched: the listing date (`fecha`) can be days earlier and a legitimate
+ * acceptance or creation in between would fall "in the future" (388 orders in the first real run).
+ */
+function motivosSql(entidad, { doc = "doc", fechaD = "_ingest_date" } = {}) {
   const e = ENTIDADES[entidad];
   if (!e) throw new Error(`unknown entity ${entidad}`);
   const valor = (p) => `JSON_VALUE(${doc}, '${p}')`;
@@ -102,7 +111,8 @@ function motivosSql(entidad, { doc = "doc", fechaD = "fecha" } = {}) {
   const rango = `BETWEEN DATE '${FECHA_MINIMA}' AND DATE_ADD(${fechaD}, INTERVAL 1 DAY)`;
   const condiciones = {
     clave_nula: e.claves.map((p) => `${valor(p)} IS NULL OR ${valor(p)} = ''`).join(" OR "),
-    rut_dv_invalido: e.rut && `NOT ${rutValidoSql(`UPPER(REGEXP_REPLACE(${valor(e.rut)}, r'[^0-9kK-]', ''))`)}`,
+    rut_dv_invalido:
+      e.rut && `NULLIF(TRIM(${valor(e.rut)}), '') IS NOT NULL AND NOT ${rutValidoSql(`UPPER(REGEXP_REPLACE(${valor(e.rut)}, r'[^0-9kK-]', ''))`)}`,
     monto_negativo: e.montos.map((p) => `SAFE_CAST(${valor(p)} AS NUMERIC) < 0`).join(" OR "),
     moneda_desconocida:
       e.moneda && `UPPER(TRIM(${valor(e.moneda)})) NOT IN (${MONEDAS.map((m) => `'${m}'`).join(", ")})`,

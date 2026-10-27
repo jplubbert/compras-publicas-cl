@@ -1192,3 +1192,14 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Próxima acción autorizada: el usuario hace merge del PR `demo/cierre-5.7`; decide el PR de la regla de fechas
   (REQ-010); hace público el repo o da acceso a la reclutadora; corre 5.6 (`policy-tags.sh` con `SKIP_RUN=1`) y E5 de
   5.7; lee el gasto del mes en facturación y lo anota en el README (9.2).
+
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: regla de fechas de la cuarentena (REQ-010, propuesta)
+- Cambio de regla de negocio propuesto como PR aparte (`fix/regla-fechas`, sobre `demo/cierre-5.7`), lo decide el
+  usuario al mergear: (1) `FechaAdjudicacion` sale del rango, como `FechaCierre`: es planificada y futura; (2) D pasa
+  a ser `_ingest_date`, el día en que se bajó el documento, y no `fecha`, la del listado; (3) un RUT vacío cuenta como
+  ausente, igual que uno nulo (S-23). Evidencia: 932 licitaciones y 388 órdenes legítimas en cuarentena en la primera
+  corrida real. S-23 y el texto de REQ-010 ajustados; pruebas unitarias de `reglas.js` actualizadas.
+- Tras el merge, la cuarentena es incremental sobre los últimos 3 días de raw: las filas mal retenidas se reevalúan en
+  la corrida siguiente y silver las incorpora; no hace falta refresco completo.
+- Próxima acción autorizada: el usuario decide el merge de este PR después del #10; con `deploy.yml` en verde, la
+  corrida nocturna siguiente debe bajar `quarantine.licitaciones` a cero y dejar solo los 3 RUT vacíos fuera.
