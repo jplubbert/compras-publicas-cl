@@ -1,5 +1,8 @@
 # compras-publicas-cl
 
+[![CI](https://github.com/jplubbert/compras-publicas-cl/actions/workflows/ci.yml/badge.svg)](https://github.com/jplubbert/compras-publicas-cl/actions/workflows/ci.yml)
+[![Deploy](https://github.com/jplubbert/compras-publicas-cl/actions/workflows/deploy.yml/badge.svg)](https://github.com/jplubbert/compras-publicas-cl/actions/workflows/deploy.yml)
+
 Lakehouse medallion en GCP que ingiere a diario las licitaciones y órdenes de compra de Mercado Público, las cruza con
 la UF, el dólar y el IPC del Banco Central y lo despliega todo con Terraform y GitHub Actions, con un costo de USD 0 a 1
 al mes y un tope duro de USD 10.
@@ -123,7 +126,10 @@ hasta que el billing vuelve.
   incluidas), declaradas en `infra/modules/quotas/`. Un error en una consulta no puede gastar más que eso.
 - **Presupuesto de requests**: el job de Mercado Público tiene un tope diario de 9.000 requests contra la API, para
   no agotar el ticket.
-- **Costo mensual medido**: <!-- costo --> pendiente de leer en la consola de facturación al cierre de octubre de 2026.
+- **Costo mensual medido**: <!-- costo --> del 1 al 27 de octubre de 2026, con la construcción completa, dos
+  corridas diarias enteras, varios refrescos completos y la corrida de CI en cada despliegue, la consola de
+  facturación muestra CLP 0 facturados: CLP 751 de uso (Cloud Run 746, Cloud Run Functions 5; unos USD 0,8) cubiertos
+  por el nivel gratuito, y BigQuery, GCS, Dataform, Workflows y Scheduler en cero. Criterio de éxito: bajo USD 1.
 
 ## Benchmark
 

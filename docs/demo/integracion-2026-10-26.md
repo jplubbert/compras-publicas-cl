@@ -102,7 +102,12 @@ la cuarentena quedó en cero en ambas tablas y gold se recalculó con las dos co
 - **E5 de 5.7, prueba de falla**: con la versión 1 de `mercadopublico-ticket` deshabilitada,
   `scripts/it/run-workflow.sh --expect-failure` terminó en 0 en 77 s: ejecución `21f6d01e` `FAILED` en
   `ingesta_mercadopublico`, sin invocación de Dataform. El job no llegó a escribir en `raw.corridas` (falla al leer el
-  secreto, antes de empezar la corrida), como corresponde. La versión se habilitó de nuevo a mano.
+  secreto, antes de empezar la corrida), como corresponde. El correo de la política «Workflow compras-diario falló»
+  llegó a las 14:20 UTC, cuatro minutos después de la ejecución («Finished execution count is above threshold of 0
+  with a value of 1»). La versión se habilitó de nuevo a mano.
 - **Gate y estado del día en producción** (DEC-011, DEC-012): la invocación `1793110140-727c0193` desde el
   `dataform-main` nuevo corrió `assert_cuarentena_proporcion`, `assert_silver_frescura` y `gold.dim_corrida` en verde
   (42 acciones). `raw.corridas` recibe su primera fila con la corrida nocturna del 27.
+- **9.1 y 9.2**: T-14 y T-15 en `accepted` por el usuario con la evidencia en `notes`; gasto del 1 al 27 de octubre
+  de 2026 leído en la consola: CLP 0 facturados, CLP 751 de uso (Cloud Run 746, Functions 5) cubiertos por el nivel
+  gratuito. Checklist de la demo cerrado.
