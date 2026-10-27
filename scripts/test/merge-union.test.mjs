@@ -47,4 +47,5 @@ test('scripts/merge-pr.sh brings main into the PR branch, waits for MERGEABLE an
     assert.ok(script.includes(s), s);
   }
   assert.throws(() => execFileSync(join(root, 'scripts/merge-pr.sh'), ['abc'], { stdio: 'pipe' }), /usage/);
+  assert.ok(script.includes('gh pr view --json number'), 'without a number it takes the PR of the current branch');
 });
