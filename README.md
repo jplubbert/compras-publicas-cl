@@ -69,10 +69,12 @@ Mercado Público, un token de la BDE del Banco Central y un token fine-grained d
 Dataform. Sin sudo: `scripts/setup.sh` instala en `.tools/` las versiones fijadas de Node, Terraform, uv y Python; todo
 comando de herramientas va con `scripts/env.sh` delante.
 
-1. **Bootstrap** (estado remoto, WIF, presupuesto y killswitch): exporta `TF_VAR_project_id`, `TF_VAR_region`,
-   `TF_VAR_github_repository`, `TF_VAR_billing_account` y `TF_VAR_alert_email`, y aplica `infra/bootstrap/` a mano con
-   `scripts/it/tf-apply.sh bootstrap`. Sus salidas (`state_bucket`, `workload_identity_provider`, `ci_service_account`)
-   van como variables del repo de GitHub junto con el environment `production`.
+1. **Bootstrap** (estado remoto, WIF, presupuesto y killswitch): deja `project_id`, `region`, `github_repository`,
+   `billing_account` y `alert_email` en un `.tfvars` fuera de git (`*.tfvars` está en `.gitignore`) y aplica
+   `infra/bootstrap/` a mano, con estado local:
+   `scripts/env.sh terraform -chdir=infra/bootstrap apply -var-file="$PWD/infra/bootstrap/<archivo>.tfvars"`.
+   Sus salidas (`state_bucket`, `workload_identity_provider`, `ci_service_account`) van como variables del repo de
+   GitHub junto con el environment `production`. (`scripts/it/tf-apply.sh` aplica solo `infra/main`.)
 2. **Secretos**: una versión de cada uno con `gcloud secrets versions add <nombre> --data-file=-`:
    `mercadopublico-ticket`, `bcentral-token` y `dataform-github-token`. Terraform crea los secretos vacíos y nunca ve
    los valores.
@@ -85,6 +87,23 @@ comando de herramientas va con `scripts/env.sh` delante.
 Las verificaciones de integración de `scripts/it/` (ingesta real de cada fuente, carga a raw, Dataform en `ci`, policy
 tags, respaldo del estado) se corren a mano con las credenciales del dueño; el resultado de la primera vuelta está en
 `docs/demo/integracion-2026-10-26.md`.
+
+**Refresco completo desde raw** (REQ-008): silver y la cuarentena son incrementales, así que un cambio de regla o de
+catálogo no corrige las filas ya cargadas; raw y bronze conservan todo (400 días), y se reconstruye desde ahí.
+
+```
+export GOOGLE_CLOUD_PROJECT=<proyecto> GCP_REGION=us-central1
+export POLICY_TAG_RUT=$(scripts/env.sh terraform -chdir=infra/main output -raw policy_tag_rut)
+scripts/it/full-refresh.sh --dry-run   # compila dataform-main con las variables de producción: segundos, gratis
+scripts/it/full-refresh.sh             # una invocación con fullyRefreshIncrementalTablesEnabled sobre silver y gold
+```
+
+Qué hace y qué no: compila la rama `dataform-main` (DEC-010) y se detiene ante cualquier error de compilación; luego
+una sola invocación reconstruye cada tabla incremental de silver y de la cuarentena desde raw y, si las assertions
+pasan, gold. La sal de `pii.sal` no cambia (solo se inserta si la tabla está vacía), así que `proveedor_key` se
+conserva. No toca bronze ni raw, y no reingesta nada: lo que no esté en raw no vuelve. Después, los conteos de
+cuarentena y de gold se verifican con `bq query` (ver `docs/demo/integracion-2026-10-26.md`). Se usó dos veces el
+2026-10-27: tras ampliar el catálogo de estados y tras corregir la regla de fechas.
 
 **Restaurar el estado de Terraform** (REQ-016): cada apply deja una copia en el bucket de respaldo de un proyecto
 aparte, `infra-main/<marca>-<sha>.tfstate`, y `scripts/backup-state.sh bootstrap` sube la del bootstrap. Para
@@ -147,7 +166,10 @@ eso la tabla reporta bytes facturados.
   `monto_negativo`, `moneda_desconocida`, `fecha_invalida`, `fecha_fuera_de_rango`) mandan la fila a `quarantine.*` con
   la lista de motivos y la corrida, y silver no la recibe. Las reglas se prueban unitariamente en JavaScript y, contra
   BigQuery, en SQL con los mismos casos (`dataform/tests/casos-reglas.json`, `scripts/it/reglas-sql.sh`).
-- **Incidente real atrapado**: <!-- incidente --> pendiente de la primera corrida diaria completa.
+- **Incidente real atrapado**: <!-- incidente --> la primera corrida completa se detuvo en una assertion de silver por
+  códigos de estado fuera del catálogo publicado de la API (licitaciones 15, órdenes 11), y la primera corrida en
+  verde dejó en cuarentena 932 licitaciones legítimas por una regla de fechas demasiado estricta; las dos están
+  contadas en «Qué se rompió».
 
 ## Gobierno
 
@@ -204,7 +226,8 @@ en `spec/LOG.md`. La demo en vivo (despliegue real, verificaciones de integraci�
 - **La regla de fechas de la cuarentena es demasiado estricta.** Compara contra la fecha del listado más un día, pero
   el detalle se baja días después, y la fecha de adjudicación de una licitación es una fecha planificada a futuro,
   igual que la de cierre. En la primera corrida 932 licitaciones y 388 órdenes legítimas quedaron en cuarentena por
-  `fecha_fuera_de_rango`. El ajuste de la regla está propuesto en un PR aparte.
+  `fecha_fuera_de_rango`. La regla se corrigió (la fecha de referencia pasó a ser el día de descarga y la de
+  adjudicación salió del rango) y un refresco completo desde raw dejó la cuarentena en cero.
 - **Dos tareas escaladas al usuario durante la construcción** (T-06 y T-18): el orquestador no pudo clasificar la causa
   del fallo con suficiente confianza y paró a preguntar, que es lo que debe hacer.
 

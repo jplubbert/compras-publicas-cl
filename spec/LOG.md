@@ -1289,3 +1289,26 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   de `deploy.yml` ajustados; nota en el ADR.
 - Próxima acción autorizada: el usuario hace merge; `deploy.yml` corre completo y `release` publica `dataform-main`
   con el gate y `dim_corrida`; después mergea #18 y acepta el ADR 0011.
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: refresco completo como procedimiento (REQ-008) y README
+- `scripts/it/full-refresh.sh [--dry-run]`: compila `dataform-main` con las variables de producción (se detiene ante
+  errores de compilación) y lanza una invocación con `fullyRefreshIncrementalTablesEnabled` sobre silver y gold,
+  espera y cuenta las acciones por estado; `--dry-run` solo compila. Probado hoy el `--dry-run` contra el proyecto
+  (compila sin errores). Es lo que se hizo a mano dos veces el 2026-10-27.
+- README «Cómo reproducir»: el refresco completo como procedimiento (qué hace, qué no toca, la sal); el paso de
+  bootstrap corregido (un `.tfvars` fuera de git y `terraform -chdir=infra/bootstrap apply -var-file=…`; el script
+  `tf-apply.sh` aplica solo `infra/main`); «Calidad» con el incidente real atrapado en vez del marcador pendiente; en
+  «Qué se rompió» la regla de fechas ya no está «propuesta en un PR aparte» sino corregida.
+- Próxima acción autorizada: el usuario hace merge de #17 y de este PR y acepta el ADR 0011; quedan de la demo 5.6
+  (confirmar la etiqueta tras la corrida incremental de hoy), E5 de 5.7, 9.1 y 9.2.
+
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: cierre de la demo (5.6, E5, gate en producción, 9.1)
+- 5.6 cerrado con los chequeos de `policy-tags.sh` corridos uno a uno (etiquetas, sal, E4 y la rama incremental tras
+  la invocación `1793110140-727c0193`, 42 de 42). E5 de 5.7: con el ticket deshabilitado por el usuario,
+  `run-workflow.sh --expect-failure` salió 0 (ejecución `21f6d01e` `FAILED`, sin Dataform). El gate y `dim_corrida`
+  corrieron en verde en producción desde el `dataform-main` nuevo. Detalle en `docs/demo/integracion-2026-10-26.md`.
+- 9.1: notas de evidencia en T-14 y T-15 de `spec/TASKS.json`; el estado lo fija el usuario con
+  `node scripts/lib/autopilot-tasks.mjs set-status T-NN accepted --by "<nombre>"`.
+- Pendiente manual: el usuario habilita de nuevo la versión 1 de `mercadopublico-ticket`, confirma el correo «Workflow
+  compras-diario falló» y da la cifra de gasto de octubre para 9.2.
+- Próxima acción autorizada: el usuario mergea el PR #18 con `scripts/merge-pr.sh`, fija el estado de T-14 y T-15 y
+  entrega la cifra de 9.2; con ella se anota en el README y se cierra el checklist.

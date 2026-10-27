@@ -1,0 +1,2 @@
+# spec/LOG.md is append-only: concurrent entries merge by union instead of conflicting (every PR appends one).
+spec/LOG.md merge=union
