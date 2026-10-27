@@ -1174,3 +1174,21 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Próxima acción autorizada: el usuario hace merge del PR `fix/estados-api` (y del PR #7, aún abierto), espera
   `deploy.yml` en verde y relanza `scripts/it/run-workflow.sh` hasta `SUCCEEDED` (5.7); después 6.1 y 6.2 con las
   cifras de gold y cuarentena, 5.6 (`policy-tags.sh` con `SKIP_RUN=1`) y E5 de 5.7.
+
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: primer despliegue (5.7 cerrado, 6.1 y 6.2, hallazgos de cuarentena)
+- PR #9 mergeado y desplegado. La compilación aislada desde `dataform-main` seguía roja con las mismas 19 filas: silver
+  es incremental y las versiones ya guardadas con `estado` nulo empataban con la versión retraducida (mismo
+  `fecha_cambio` e `ingested_at`). Invocación única con `fullyRefreshIncrementalTablesEnabled` (la sal de `pii.sal`
+  solo se inserta si la tabla está vacía, no se tocó): 37 de 37 acciones en verde, gold construido por primera vez.
+- 5.7: `scripts/it/run-workflow.sh` terminó con la ejecución `23575928` `SUCCEEDED` (00:12–02:34 UTC). La corrida
+  nocturna del Scheduler partió sola a las 02:30 UTC y se solapó 4 minutos con la manual (silver deduplica).
+- 6.1 y 6.2 anotados en `docs/demo/integracion-2026-10-26.md`. Hallazgo nuevo: 932 licitaciones y 388 órdenes legítimas
+  en cuarentena por `fecha_fuera_de_rango`. La regla de `includes/reglas.js` compara con `fecha` (la del listado) + 1
+  día, pero el detalle se baja después, y `FechaAdjudicacion` es planificada (hasta 2029), como `FechaCierre`. Es un
+  cambio de regla de negocio (REQ-010): escalado al usuario como PR aparte, no aplicado. Tres órdenes con RUT vacío
+  caen como `rut_dv_invalido` (S-23 habla de nulo, no de vacío): observación.
+- README: párrafo de por qué Workflows y Cloud Run en vez de Composer y Dataflow, y los tres incidentes de hoy en «Qué
+  se rompió». Checklist de la demo: 3.3, 5.7, 6.1, 6.2 y 8.1–8.4 marcados.
+- Próxima acción autorizada: el usuario hace merge del PR `demo/cierre-5.7`; decide el PR de la regla de fechas
+  (REQ-010); hace público el repo o da acceso a la reclutadora; corre 5.6 (`policy-tags.sh` con `SKIP_RUN=1`) y E5 de
+  5.7; lee el gasto del mes en facturación y lo anota en el README (9.2).

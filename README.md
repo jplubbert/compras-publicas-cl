@@ -40,6 +40,12 @@ silver limpia, tipa y deduplica en Dataform; quarantine recibe las filas rechaza
 dimensiones y un mart mensual. Todo se crea con Terraform (`infra/`) y se despliega desde `main` con GitHub Actions
 autenticado por Workload Identity Federation, sin llaves de cuenta de servicio.
 
+Por qué no Composer ni Dataflow: el volumen diario cabe en un Cloud Run Job y en SQL de BigQuery, y Workflows y
+Scheduler cuestan cero en reposo, sin clúster que mantener. Las piezas se trasladan una a una: el Workflow hace el
+papel del DAG de Airflow (dependencias, reintentos y alerta si un paso falla), los Cloud Run Jobs el de los operadores
+de ingesta, y Dataform el de las transformaciones; con un flujo en streaming, la ingesta pasaría a Pub/Sub y Dataflow
+y el resto (raw, silver, gold, assertions, Terraform y CI) se mantiene.
+
 ## Qué demuestra
 
 | Requisito del rol | Pieza del repo |
@@ -176,6 +182,19 @@ en `spec/LOG.md`. La demo en vivo (despliegue real, verificaciones de integraci�
 - **Scripts de verificación demasiado estrictos.** La comparación del estado restaurado exigía el mismo `serial`
   (`terraform state push` lo sube en uno) y `bq --format=csv` entrecomilla un valor con coma. Y `scripts/env.sh`
   escondía `gcloud` y `bq` del operador.
+- **Dataform no acepta el proyecto en una subcarpeta.** El repositorio de Dataform clona la raíz del remoto de GitHub
+  y no tiene ajuste de subdirectorio, así que compilar desde `main` corría `npm ci` con el `package.json` de la raíz y
+  nunca llegaba a `dataform/workflow_settings.yaml`. Se vio en la primera corrida real del Workflow, después de
+  arreglar un token con salto de línea. El job `release` de `deploy.yml` publica ahora la rama derivada
+  `dataform-main` (`git subtree split`) y el Workflow compila desde ella (DEC-010).
+- **La API manda códigos de estado fuera de su catálogo publicado.** La primera corrida completa terminó en error
+  porque una assertion de silver atrapó licitaciones con código 15 («Revocada»; la documentación solo lista 18) y
+  órdenes con 11 («No aceptada», no documentado). Los dos entraron al catálogo de `dataform/includes/silver.js`, y
+  como silver es incremental, hizo falta un refresco completo desde raw para corregir las filas ya cargadas.
+- **La regla de fechas de la cuarentena es demasiado estricta.** Compara contra la fecha del listado más un día, pero
+  el detalle se baja días después, y la fecha de adjudicación de una licitación es una fecha planificada a futuro,
+  igual que la de cierre. En la primera corrida 932 licitaciones y 388 órdenes legítimas quedaron en cuarentena por
+  `fecha_fuera_de_rango`. El ajuste de la regla está propuesto en un PR aparte.
 - **Dos tareas escaladas al usuario durante la construcción** (T-06 y T-18): el orquestador no pudo clasificar la causa
   del fallo con suficiente confianza y paró a preguntar, que es lo que debe hacer.
 

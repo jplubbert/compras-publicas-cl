@@ -19,7 +19,7 @@ agente. Las variables de entorno van siempre con `scripts/env.sh` delante del co
 
 - [x] 3.1 Exportar `TF_VAR_project_id`, `TF_VAR_region=us-central1`, `TF_VAR_github_repository=jplubbert/compras-publicas-cl`, `TF_VAR_billing_account`, `TF_VAR_alert_email`; `scripts/it/tf-plan.sh bootstrap` termina en 0.
 - [x] 3.2 Aplicar `infra/bootstrap` a mano (`scripts/env.sh terraform -chdir=infra/bootstrap apply`); `terraform output` muestra `state_bucket`, `workload_identity_provider` y `ci_service_account`.
-- [ ] 3.3 Crear el environment `production` (con aprobación) y las variables de repositorio `GCP_PROJECT_ID`, `GCP_REGION`, `WIF_PROVIDER`, `CI_SERVICE_ACCOUNT`, `PII_READERS`, `LECTOR_IMPERSONATORS` (listas HCL, p. ej. `["user:…"]`); `gh variable list` las muestra.
+- [x] 3.3 Crear el environment `production` (con aprobación) y las variables de repositorio `GCP_PROJECT_ID`, `GCP_REGION`, `WIF_PROVIDER`, `CI_SERVICE_ACCOUNT`, `PII_READERS`, `LECTOR_IMPERSONATORS` (listas HCL, p. ej. `["user:…"]`); `gh variable list` las muestra.
 - [x] 3.4 Respaldo del estado (T-17): crear el proyecto de respaldo, reaplicar bootstrap con `backup_project_id`, correr `scripts/backup-state.sh bootstrap` y cargar `STATE_BACKUP_BUCKET` en `production`.
 
 ## 4. Primer despliegue (usuario)
@@ -37,14 +37,14 @@ agente. Las variables de entorno van siempre con `scripts/env.sh` delante del co
 - [x] 5.4 Migración de `proveedor_key` (T-14): `scripts/it/migrar-proveedor-key.sh` termina en 0; relanzar el job `release` si había fallado en Dataform.
 - [x] 5.5 Dataform en `ci` (T-09, T-10, T-12, T-20): `GCP_PROJECT_ID=… GCP_REGION=us-central1 POLICY_TAG_RUT=$(scripts/env.sh terraform -chdir=infra/main output -raw policy_tag_rut) scripts/env.sh scripts/it/dataform-ci.sh` termina con la línea `dataform-ci: ok …` incluyendo `req012-*`, `cuarentena` y `mart`; `pii_ci.sal` tiene una fila y `pii.sal` no cambió.
 - [ ] 5.6 Policy tags (T-14): `POLICY_TAG_RUT=… scripts/it/policy-tags.sh` imprime `policy-tags: ok e2-bq e2-bq-incremental e4 e7 sal` (si falla `revisar_tags`, `scripts/it/reaplicar-policy-tags.sh <dataset.tabla>` y repetir con `SKIP_RUN=1`).
-- [ ] 5.7 Workflow diario (T-11): `scripts/it/run-workflow.sh` imprime `run-workflow: ok execution=…` sin `PERMISSION_DENIED`; E5: con la versión del ticket deshabilitada, `--expect-failure` sale 0, llega el correo «Workflow compras-diario falló» y `finished_execution_count` muestra `status=FAILED`; volver a habilitar el ticket.
+- [x] 5.7 Workflow diario (T-11): `scripts/it/run-workflow.sh` imprime `run-workflow: ok execution=…` sin `PERMISSION_DENIED`; E5: con la versión del ticket deshabilitada, `--expect-failure` sale 0, llega el correo «Workflow compras-diario falló» y `finished_execution_count` muestra `status=FAILED`; volver a habilitar el ticket.
 - [x] 5.8 Respaldo del estado (T-17): `STATE_BACKUP_BUCKET=… scripts/it/state-backup.sh` imprime `state-backup: ok gs://…/infra-main/<marca>-<sha>.tfstate`.
 - [ ] 5.9 Opcional, drill del killswitch (T-05): `DRILL_PROJECT_ID=… DRILL_BILLING_ACCOUNT=… TF_VAR_alert_email=… scripts/it/killswitch-drill.sh` en un proyecto desechable imprime `killswitch-drill: ok role=… unit=MiBy`; si se omite, el README lo declara.
 
 ## 6. Datos en gold
 
-- [ ] 6.1 Primera corrida diaria completa vía Scheduler (o `scripts/it/run-workflow.sh`) **(usuario)**; `bq query --maximum_bytes_billed` cuenta filas en `gold.*` y `quarantine.*` y las cifras quedan en `docs/demo/integracion-<fecha>.md`.
-- [ ] 6.2 Registrar en el mismo documento un incidente de calidad real atrapado (fila en cuarentena con su motivo) o declarar que la primera corrida no dejó ninguno.
+- [x] 6.1 Primera corrida diaria completa vía Scheduler (o `scripts/it/run-workflow.sh`) **(usuario)**; `bq query --maximum_bytes_billed` cuenta filas en `gold.*` y `quarantine.*` y las cifras quedan en `docs/demo/integracion-<fecha>.md`.
+- [x] 6.2 Registrar en el mismo documento un incidente de calidad real atrapado (fila en cuarentena con su motivo) o declarar que la primera corrida no dejó ninguno.
 
 ## 7. Benchmark real
 
@@ -53,10 +53,10 @@ agente. Las variables de entorno van siempre con `scripts/env.sh` delante del co
 
 ## 8. README de portafolio (REQ-015, T-15)
 
-- [ ] 8.1 `scripts/ci/check-readme.mjs` con pruebas `node:test` en `scripts/ci/tests/` (secciones en orden, rutas y comandos citados existentes, nomenclatura R-07) y script `check:readme` en `package.json`; los ejemplos E2, E3 y E4 de REQ-015 fallan como se espera.
-- [ ] 8.2 `README.md` con las secciones de REQ-015 en orden, diagrama Mermaid de la arquitectura, la tabla de `benchmarks/results/<fecha>.md`, costo mensual medido, revinculación del billing, carga de secretos, restauración del estado (REQ-016), nota GitLab CI, «Cómo se construyó» y «Qué se rompió» desde `spec/LOG.md`, cita a ChileCompra y Banco Central; `npm run check:readme` sale en 0.
-- [ ] 8.3 `check:readme` agregado al job `checks` de `ci.yml`; `npm run test:workflows` sigue en 0; commits con `Task: T-15` y `Req: REQ-015`.
-- [ ] 8.4 PR a `main` con el README; `checks` verde y merge **(usuario)**.
+- [x] 8.1 `scripts/ci/check-readme.mjs` con pruebas `node:test` en `scripts/ci/tests/` (secciones en orden, rutas y comandos citados existentes, nomenclatura R-07) y script `check:readme` en `package.json`; los ejemplos E2, E3 y E4 de REQ-015 fallan como se espera.
+- [x] 8.2 `README.md` con las secciones de REQ-015 en orden, diagrama Mermaid de la arquitectura, la tabla de `benchmarks/results/<fecha>.md`, costo mensual medido, revinculación del billing, carga de secretos, restauración del estado (REQ-016), nota GitLab CI, «Cómo se construyó» y «Qué se rompió» desde `spec/LOG.md`, cita a ChileCompra y Banco Central; `npm run check:readme` sale en 0.
+- [x] 8.3 `check:readme` agregado al job `checks` de `ci.yml`; `npm run test:workflows` sigue en 0; commits con `Task: T-15` y `Req: REQ-015`.
+- [x] 8.4 PR a `main` con el README; `checks` verde y merge **(usuario)**.
 
 ## 9. Cierre
 
