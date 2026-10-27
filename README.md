@@ -135,8 +135,9 @@ eso la tabla reporta bytes facturados.
   dólar (un hueco de cinco días hábiles falla), conciliación de la UF entre el Banco Central y mindicador.cl, y
   condiciones por fila en los hechos.
 - **Cuarentena con motivo**: las reglas de `dataform/includes/reglas.js` (`clave_nula`, `rut_dv_invalido`,
-  `monto_negativo`, `moneda_desconocida`, `fecha_fuera_de_rango`) mandan la fila a `quarantine.*` con la lista de
-  motivos y la corrida, y silver no la recibe. Las mismas reglas se prueban en JavaScript y en SQL.
+  `monto_negativo`, `moneda_desconocida`, `fecha_invalida`, `fecha_fuera_de_rango`) mandan la fila a `quarantine.*` con
+  la lista de motivos y la corrida, y silver no la recibe. Las reglas se prueban unitariamente en JavaScript y, contra
+  BigQuery, en SQL con los mismos casos (`dataform/tests/casos-reglas.json`, `scripts/it/reglas-sql.sh`).
 - **Incidente real atrapado**: <!-- incidente --> pendiente de la primera corrida diaria completa.
 
 ## Gobierno
