@@ -1300,3 +1300,15 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   «Qué se rompió» la regla de fechas ya no está «propuesta en un PR aparte» sino corregida.
 - Próxima acción autorizada: el usuario hace merge de #17 y de este PR y acepta el ADR 0011; quedan de la demo 5.6
   (confirmar la etiqueta tras la corrida incremental de hoy), E5 de 5.7, 9.1 y 9.2.
+
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: cierre de la demo (5.6, E5, gate en producción, 9.1)
+- 5.6 cerrado con los chequeos de `policy-tags.sh` corridos uno a uno (etiquetas, sal, E4 y la rama incremental tras
+  la invocación `1793110140-727c0193`, 42 de 42). E5 de 5.7: con el ticket deshabilitado por el usuario,
+  `run-workflow.sh --expect-failure` salió 0 (ejecución `21f6d01e` `FAILED`, sin Dataform). El gate y `dim_corrida`
+  corrieron en verde en producción desde el `dataform-main` nuevo. Detalle en `docs/demo/integracion-2026-10-26.md`.
+- 9.1: notas de evidencia en T-14 y T-15 de `spec/TASKS.json`; el estado lo fija el usuario con
+  `node scripts/lib/autopilot-tasks.mjs set-status T-NN accepted --by "<nombre>"`.
+- Pendiente manual: el usuario habilita de nuevo la versión 1 de `mercadopublico-ticket`, confirma el correo «Workflow
+  compras-diario falló» y da la cifra de gasto de octubre para 9.2.
+- Próxima acción autorizada: el usuario mergea el PR #18 con `scripts/merge-pr.sh`, fija el estado de T-14 y T-15 y
+  entrega la cifra de 9.2; con ella se anota en el README y se cierra el checklist.

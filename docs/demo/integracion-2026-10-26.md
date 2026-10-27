@@ -90,3 +90,19 @@ la cuarentena quedó en cero en ambas tablas y gold se recalculó con las dos co
 | gold.fct_ordenes_compra | 10.452 |
 | quarantine.licitaciones | 0 |
 | quarantine.ordenes_compra | 0 |
+
+## Cierre del 2026-10-27: policy tags (5.6), prueba de falla (E5 de 5.7) y gate en producción
+
+- **5.6, policy tags** (sin `policy-tags.sh` completo, que relanza la corrida diaria de 2,5 h; sus chequeos se corrieron uno
+  a uno): `rut_persona_natural` de `silver.proveedores` y `gold.dim_proveedor` lleva solo la etiqueta `dato_personal.rut`;
+  `rut_empresa` y `proveedor_key` sin etiqueta; `pii.sal` con una fila y el dataset `pii` legible solo por
+  `compras-dataform` y los dueños; `compras-lector` recibe `accessDenied` en `rut_persona_natural` y lee `rut_empresa`
+  en ambas tablas (E4). Tras una invocación incremental de Dataform (`1793110140-727c0193`, 42 de 42 acciones,
+  `silver.proveedores` con la misma `creationTime` y `lastModifiedTime` nueva) la etiqueta sigue (E7 incremental).
+- **E5 de 5.7, prueba de falla**: con la versión 1 de `mercadopublico-ticket` deshabilitada,
+  `scripts/it/run-workflow.sh --expect-failure` terminó en 0 en 77 s: ejecución `21f6d01e` `FAILED` en
+  `ingesta_mercadopublico`, sin invocación de Dataform. El job no llegó a escribir en `raw.corridas` (falla al leer el
+  secreto, antes de empezar la corrida), como corresponde. La versión se habilitó de nuevo a mano.
+- **Gate y estado del día en producción** (DEC-011, DEC-012): la invocación `1793110140-727c0193` desde el
+  `dataform-main` nuevo corrió `assert_cuarentena_proporcion`, `assert_silver_frescura` y `gold.dim_corrida` en verde
+  (42 acciones). `raw.corridas` recibe su primera fila con la corrida nocturna del 27.
