@@ -132,9 +132,10 @@ jobs:
         run: |
           gcloud run jobs update compras-mercadopublico --image="$IMAGE" --region="$GCP_REGION" --project="$GCP_PROJECT_ID"
           gcloud run jobs update compras-indicadores --image="$IMAGE" --region="$GCP_REGION" --project="$GCP_PROJECT_ID"
-      # dataform run --schema-suffix=ci --vars=raw_dataset=raw_ci,sal_dataset=pii_ci,policy_tag_rut=…, every action
-      # with its assertions (no --tags); the CI salt is pii_ci.sal (REQ-014 E8).
-      - name: Dataform run in ci (--schema-suffix=ci --vars=raw_dataset=raw_ci,sal_dataset=pii_ci,policy_tag_rut=$POLICY_TAG_RUT)
+      # dataform run --schema-suffix=ci --vars=raw_dataset=raw_ci,sal_dataset=pii_ci,policy_tag_rut=…,umbral_cuarentena=1,
+      # every action with its assertions (no --tags); the CI salt is pii_ci.sal (REQ-014 E8); the quarantine-share gate
+      # is off in ci because raw_ci holds bad rows on purpose (DEC-011).
+      - name: Dataform run in ci (--schema-suffix=ci --vars=raw_dataset=raw_ci,sal_dataset=pii_ci,policy_tag_rut=$POLICY_TAG_RUT,umbral_cuarentena=1)
         run: scripts/env.sh scripts/ci/dataform-ci.sh
       # Dataform clones the root of the GitHub remote and has no subdirectory setting, so the Workflow and the release
       # config compile from dataform-main: the history of dataform/ as a root, republished after every green ci run
