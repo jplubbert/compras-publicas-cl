@@ -1270,3 +1270,13 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   Workflow devuelve `estado_dia = SIN_REGISTRO` (no es error).
 - Próxima acción autorizada: el usuario hace merge de #16, #15 y de este PR, acepta el ADR 0011; después el README con
   el refresco completo como procedimiento y la corrección del paso de bootstrap en «Cómo reproducir».
+
+## 2026-10-27 · Claude (claude-fable-5-1) · sesión: rol de Logging para la cuenta de CI (DEC-012)
+- El despliegue del #17 falló en `Terraform apply`: crear la alerta por registros «Ingesta parcial» exige
+  `logging.notificationRules.create` y la cuenta de CI no tenía ningún rol de Logging. Quedaron aplicados el Workflow
+  nuevo, sus permisos y `raw.corridas`; faltan la alerta y la publicación de `dataform-main` (el job `release` no corrió,
+  así que Dataform sigue compilando la versión anterior: sin gate ni `dim_corrida` hasta que el despliegue pase).
+- `infra/bootstrap/ci.tf`: `roles/logging.configWriter` para la cuenta de CI (métricas de logs, sinks y reglas de
+  notificación; sin acceso a los datos de los logs). Prueba de bootstrap ajustada.
+- Próxima acción autorizada: el usuario hace merge, aplica `infra/bootstrap` con su `.tfvars` y relanza el
+  despliegue fallido (`gh run rerun <id> --failed`); después mergea #18 y acepta el ADR 0011.
