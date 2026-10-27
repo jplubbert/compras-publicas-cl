@@ -26,6 +26,8 @@ locals {
     scheduler-workflowsinvoker = { role = "roles/workflows.invoker", component = "scheduler" }
     workflow-dataformeditor    = { role = "roles/dataform.editor", component = "workflow" }
     workflow-runviewer         = { role = "roles/run.viewer", component = "workflow" }
+    # DEC-012: the Workflow queries raw.corridas for the state of the day (jobUser here, dataViewer on raw below).
+    workflow-jobuser = { role = "roles/bigquery.jobUser", component = "workflow" }
     # T-14: datacatalog.taxonomies.get, needed to set a policy tag on a column.
     dataform-datacatalogviewer = { role = "roles/datacatalog.viewer", component = "dataform" }
     lector-jobuser             = { role = "roles/bigquery.jobUser", component = "lector" }
@@ -41,6 +43,7 @@ locals {
   ingest_raw = [
     { role = "roles/bigquery.dataEditor", member = local.members["ingest"] },
     { role = "roles/bigquery.dataViewer", member = local.members["dataform"] },
+    { role = "roles/bigquery.dataViewer", member = local.members["workflow"] },
   ]
   dataform_writes = [{ role = "roles/bigquery.dataEditor", member = local.members["dataform"] }]
   # T-14: dataOwner carries bigquery.tables.setCategory, needed to set bigqueryPolicyTags.

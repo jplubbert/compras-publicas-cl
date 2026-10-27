@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const project = join(dirname(fileURLToPath(import.meta.url)), '..');
 const gold = createRequire(import.meta.url)(join(project, 'includes/gold.js'));
 
-const MODELS = ['fct_licitaciones', 'fct_ordenes_compra', 'dim_comprador', 'dim_proveedor', 'mart_organismo_mes'];
+const MODELS = ['fct_licitaciones', 'fct_ordenes_compra', 'dim_comprador', 'dim_proveedor', 'mart_organismo_mes', 'dim_corrida'];
 const FACTS = ['fct_licitaciones', 'fct_ordenes_compra'];
 
 const TAG = 'projects/p/locations/us-central1/taxonomies/1/policyTags/2';
@@ -38,7 +38,7 @@ const tablesCi = byId(ci);
 const assertions = Object.fromEntries((graph.assertions ?? []).map((a) => [id(a.target), a]));
 const declaredColumns = (t) => t.actionDescriptor.columns.map((c) => c.path.join('.'));
 
-test('the 5 gold models are tables tagged gold, in gold by default and in gold_ci with the ci suffix', () => {
+test('the 6 gold models are tables tagged gold, in gold by default and in gold_ci with the ci suffix', () => {
   for (const m of MODELS) {
     const t = tables[`gold.${m}`];
     assert.ok(t, m);

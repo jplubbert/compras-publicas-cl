@@ -27,6 +27,7 @@ RAW_TABLES = [
     "bcentral_ipc",
     "mindicador_uf",
     "mindicador_dolar",
+    "corridas",
 ]
 
 
@@ -187,7 +188,8 @@ def test_every_bronze_entity_has_a_schema():
         + [f"bcentral_{s}" for s in SERIES]
         + [f"mindicador_{i}" for i in INDICADORES]
     )
-    assert sorted(entities) == sorted(RAW_TABLES)
+    # corridas is the run record (DEC-012), not a bronze entity.
+    assert sorted(entities) == sorted(t for t in RAW_TABLES if t != "corridas")
 
 
 def test_schema_covers_every_record_key(mp):

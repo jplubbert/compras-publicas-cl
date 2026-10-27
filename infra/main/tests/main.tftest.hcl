@@ -233,13 +233,17 @@ run "t08_ingest_jobs" {
   }
 }
 
-# REQ-006 / DEC-006: 7 raw tables in raw and raw_ci, partitioned by _ingest_date, with the load job schema.
+# REQ-006 / DEC-006: 7 raw tables plus the run record (DEC-012) in raw and raw_ci, partitioned by _ingest_date.
 run "t08_raw_tables" {
   command = plan
 
   assert {
-    condition     = length(output.raw_tables) == 14
-    error_message = "there must be 7 raw tables in raw and in raw_ci"
+    condition     = length(output.raw_tables) == 16
+    error_message = "there must be 8 raw tables (7 sources and corridas) in raw and in raw_ci"
+  }
+  assert {
+    condition     = contains(keys(output.raw_tables), "raw.corridas") && contains(keys(output.raw_tables), "raw_ci.corridas")
+    error_message = "the run record raw.corridas must exist in raw and raw_ci (DEC-012)"
   }
   assert {
     condition     = alltrue([for t in values(output.raw_tables) : t.partition_field == "_ingest_date" && t.partition_type == "DAY" && t.expiration_ms == 34560000000])
@@ -356,6 +360,19 @@ run "t11_e4_alerta" {
     condition     = tolist(output.orchestration.alert.notification_channels) == tolist(["projects/demo-proj/notificationChannels/1"])
     error_message = "the alert must notify the email channel"
   }
+  # REQ-007 E6 / DEC-012: a PARCIAL day is a WARNING log of the Workflow, mailed by a log-match alert.
+  assert {
+    condition = (strcontains(output.orchestration.alert_parcial.filter, "workflows.googleapis.com/Workflow")
+      && strcontains(output.orchestration.alert_parcial.filter, "severity = \"WARNING\"")
+      && strcontains(output.orchestration.alert_parcial.filter, "ingesta parcial")
+    && strcontains(output.orchestration.alert_parcial.filter, "compras-diario"))
+    error_message = "the partial-day alert must match the WARNING log 'ingesta parcial' of compras-diario"
+  }
+  assert {
+    condition = (tolist(output.orchestration.alert_parcial.notification_channels) == tolist(["projects/demo-proj/notificationChannels/1"])
+    && output.orchestration.alert_parcial.rate_limit_period == "3600s")
+    error_message = "the partial-day alert must notify the email channel at most once an hour"
+  }
 }
 
 # REQ-007: grants of the Scheduler, the Workflow, the Dataform agent and CI.
@@ -367,9 +384,13 @@ run "t11_permisos" {
     error_message = "the Scheduler account must invoke the Workflow"
   }
   assert {
-    condition = alltrue([for r in ["roles/dataform.editor", "roles/run.viewer"] :
+    condition = alltrue([for r in ["roles/dataform.editor", "roles/run.viewer", "roles/bigquery.jobUser"] :
     contains(output.project_bindings, { role = r, member = "serviceAccount:${output.service_accounts["workflow"]}" })])
-    error_message = "the Workflow account must drive Dataform and read the job executions"
+    error_message = "the Workflow account must drive Dataform, read the job executions and run the raw.corridas query (DEC-012)"
+  }
+  assert {
+    condition     = contains(output.dataset_access["raw"], { role = "roles/bigquery.dataViewer", member = "serviceAccount:${output.service_accounts["workflow"]}" })
+    error_message = "the Workflow account must read raw (raw.corridas, DEC-012)"
   }
   assert {
     condition     = alltrue([for j in values(output.ingest_jobs) : contains(j.invokers, "serviceAccount:${output.service_accounts["workflow"]}")])

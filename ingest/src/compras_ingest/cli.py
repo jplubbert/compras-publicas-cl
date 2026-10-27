@@ -18,6 +18,7 @@ from dataclasses import asdict
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from . import corridas
 from .bcentral import BancoCentral
 from .bronze import GcsStore
 from .budget import RequestBudget
@@ -180,6 +181,9 @@ def main(
         cargas, failed = [], False
         if result.objetos:
             cargas, failed = _load(env, bucket, result.objetos, result.run_id, secrets, bq_client)
+        # The run row of raw.corridas (DEC-012): OK, PARCIAL or ERROR. Not writing it is an error: the Workflow and
+        # gold.dim_corrida would take the previous run for today's.
+        registrada = _registrar_corrida(env, args.command, result, cargas, failed, secrets, bq_client, now)
     except SystemExit as exc:
         return int(exc.code or 0)
     except (ConfigError, CursorPosterior) as exc:
@@ -191,4 +195,30 @@ def main(
     print(redact(json.dumps({**asdict(result), "cargas": cargas}, ensure_ascii=False), secrets), file=sys.stdout)
     if result.exit_code != 0:
         return result.exit_code
-    return 1 if failed else 0
+    return 1 if failed or not registrada else 0
+
+
+def _registrar_corrida(env, fuente: str, result, cargas: list[dict], failed: bool, secrets, bq_client, now) -> bool:
+    project = env.get("GOOGLE_CLOUD_PROJECT")
+    if not project:
+        raise ConfigError("falta GOOGLE_CLOUD_PROJECT para registrar la corrida")
+    if bq_client is None:
+        from google.cloud import bigquery
+
+        bq_client = bigquery.Client(project=project)
+    cargas_fallidas = sum(1 for c in cargas if c.get("error") is not None) or (1 if failed else 0)
+    row = corridas.fila(
+        run_id=result.run_id,
+        fuente=fuente,
+        fechas=result.dias if hasattr(result, "dias") else [result.fecha],
+        exit_code=result.exit_code,
+        requests=result.requests,
+        presupuesto_agotado=getattr(result, "presupuesto_agotado", False),
+        cursor=getattr(result, "cursor", None),
+        objetos=len(result.objetos),
+        cargas_fallidas=cargas_fallidas,
+        finished_at=now(),
+    )
+    return corridas.registrar(
+        bq_client, project=project, dataset=env.get("RAW_DATASET") or "raw", row=row, secrets=list(secrets)
+    )

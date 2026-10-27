@@ -1,0 +1,62 @@
+config {
+  type: "table",
+  schema: "gold",
+  tags: ["gold"],
+  dependOnDependencyAssertions: true,
+  // Fail-closed (DEC-011): gold is not rebuilt while the quality gate of silver fails.
+  dependencies: ["assert_cuarentena_proporcion", "assert_silver_frescura"],
+  assertions: {
+    uniqueKey: ["fuente", "_ingest_date"],
+    nonNull: ["fuente", "_ingest_date", "ultimo_run_id", "estado", "n_corridas"],
+    rowConditions: [
+      "estado IN ('OK', 'PARCIAL', 'ERROR')",
+      "n_corridas >= 1 AND n_parciales BETWEEN 0 AND n_corridas",
+      "(fuente = 'mercadopublico') = (filas_silver IS NOT NULL)"
+    ]
+  },
+  description: "Una fila por fuente de ingesta y fecha de ingesta con el estado del día (DEC-012): el de la última corrida del día por run_id, así que el día es OK solo si la última corrida fue OK; con las filas que ese día aportó a silver y a cuarentena. Cruza con el mart mensual (n_licitaciones_dias_parciales).",
+  columns: {
+    fuente: "Job que corrió: mercadopublico o indicadores (clave, con la fecha)",
+    _ingest_date: "Fecha UTC de inicio de las corridas (clave, con la fuente; partición de raw)",
+    ultimo_run_id: "run_id de la última corrida del día (la de inicio más tardío)",
+    estado: "Estado del día: OK, PARCIAL (presupuesto de requests agotado, cursor guardado) o ERROR; es el estado de la última corrida",
+    n_corridas: "Corridas del día (más de una cuando se solapan la manual y la programada)",
+    n_parciales: "Corridas del día que terminaron PARCIAL",
+    requests: "Requests HTTP consumidos por la última corrida",
+    fechas: "Fechas D procesadas por la última corrida",
+    cursor: "URI del cursor que dejó la última corrida si el día quedó parcial; nulo si terminó",
+    finished_at: "Momento UTC en que terminó la última corrida",
+    filas_silver: "Filas de silver.licitaciones y silver.ordenes_compra cuya versión vigente llegó ese día; nulo para indicadores",
+    filas_cuarentena: "Filas de quarantine.licitaciones y quarantine.ordenes_compra ingeridas ese día; nulo para indicadores"
+  }
+}
+
+WITH ultima AS (
+  ${corridas.ultimaCorridaSql(ref("corridas"))}
+),
+mercadopublico AS (
+  SELECT 'silver' AS origen, _ingest_date FROM ${ref({ schema: "silver", name: "licitaciones" })}
+  UNION ALL SELECT 'silver', _ingest_date FROM ${ref({ schema: "silver", name: "ordenes_compra" })}
+  UNION ALL SELECT 'cuarentena', _ingest_date FROM ${ref({ schema: "quarantine", name: "licitaciones" })}
+  UNION ALL SELECT 'cuarentena', _ingest_date FROM ${ref({ schema: "quarantine", name: "ordenes_compra" })}
+),
+conteos AS (
+  SELECT _ingest_date, COUNTIF(origen = 'silver') AS filas_silver, COUNTIF(origen = 'cuarentena') AS filas_cuarentena
+  FROM mercadopublico
+  GROUP BY _ingest_date
+)
+SELECT
+  u.fuente,
+  u._ingest_date,
+  u.run_id AS ultimo_run_id,
+  u.estado,
+  u.n_corridas,
+  u.n_parciales,
+  u.requests,
+  u.fechas,
+  u.cursor,
+  u.finished_at,
+  IF(u.fuente = 'mercadopublico', IFNULL(c.filas_silver, 0), NULL) AS filas_silver,
+  IF(u.fuente = 'mercadopublico', IFNULL(c.filas_cuarentena, 0), NULL) AS filas_cuarentena
+FROM ultima u
+LEFT JOIN conteos c ON c._ingest_date = u._ingest_date
