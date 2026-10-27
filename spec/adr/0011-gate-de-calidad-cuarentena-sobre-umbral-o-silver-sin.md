@@ -57,6 +57,13 @@ no raw, para no leer el payload; un documento bajado dos veces el mismo día cue
 leen silver y cuarentena de ambas entidades, todo modelo de gold depende de las dos, y el umbral entra al SQL y
 rechaza valores fuera de 0..1.
 
+## Evidencia del umbral
+
+Con la regla de fechas anterior al PR #11 (`reglas.js` de `2c8e35e`) corrida sobre raw el 2026-10-27, la primera
+corrida completa habría disparado el gate: licitaciones del `_ingest_date` 2026-10-26, 453 en silver y 932 en
+cuarentena, proporción 0,673 (> 0,2); las del 2026-10-27, 11 y 11, proporción 0,5. Las órdenes no lo habrían
+disparado solas (391 de 8.606, 0,045; 275 de 3.597, 0,076), pero la invocación falla con una sola assertion en rojo.
+
 ## Más información
 
 - Revisar si: la cuarentena legítima de un día normal se acerca al 20 %; o si aparece una entidad nueva en silver
