@@ -79,3 +79,14 @@ Incidentes de calidad reales atrapados (6.2):
   legítimas. La regla compara con la fecha del listado (`fecha` = 2026-10-23) más un día, pero el detalle se bajó el
   26, y `FechaAdjudicacion` es una fecha planificada (hasta 2029-02-26), como `FechaCierre`, que la regla ya excluye.
   Las órdenes caen por `FechaAceptacion` entre el 24 y el 26. Cambio de regla propuesto en un PR aparte (REQ-010).
+
+Tras el merge del PR #11 (regla de fechas, 2026-10-27) y un refresco completo de Dataform (37 de 37 acciones en verde),
+la cuarentena quedó en cero en ambas tablas y gold se recalculó con las dos corridas nocturnas ya ingeridas
+(ejecuciones `23575928` y `5ef20d3d`, ambas `SUCCEEDED`):
+
+| Tabla | Filas |
+|---|---|
+| gold.fct_licitaciones | 1.597 |
+| gold.fct_ordenes_compra | 10.452 |
+| quarantine.licitaciones | 0 |
+| quarantine.ordenes_compra | 0 |
