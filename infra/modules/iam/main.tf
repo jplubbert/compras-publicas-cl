@@ -28,6 +28,9 @@ locals {
     workflow-runviewer         = { role = "roles/run.viewer", component = "workflow" }
     # DEC-012: the Workflow queries raw.corridas for the state of the day (jobUser here, dataViewer on raw below).
     workflow-jobuser = { role = "roles/bigquery.jobUser", component = "workflow" }
+    # DEC-012: the Workflow logs the PARCIAL day with sys.log (logging.logEntries.create); without it the run of
+    # 2026-10-28 died at log_parcial with a 403 before indicadores and Dataform.
+    workflow-logwriter = { role = "roles/logging.logWriter", component = "workflow" }
     # T-14: datacatalog.taxonomies.get, needed to set a policy tag on a column.
     dataform-datacatalogviewer = { role = "roles/datacatalog.viewer", component = "dataform" }
     lector-jobuser             = { role = "roles/bigquery.jobUser", component = "lector" }

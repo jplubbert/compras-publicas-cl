@@ -1321,3 +1321,15 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Próxima acción autorizada: el usuario mergea el PR #22 con `scripts/merge-pr.sh`; la corrida nocturna del 27 escribe
   la primera fila de `raw.corridas` y el gate corre en producción por su cuenta; siguiente sesión: revisar
   `gold.dim_corrida` y el resultado de la nocturna.
+
+## 2026-10-28 · Claude (claude-fable-5-1) · sesión: la nocturna del 27 murió en `log_parcial` por falta de `logging.logWriter`
+- Ejecución `40474ea5` (02:30 a 04:54 UTC) `FAILED`: el job de Mercado Público terminó bien y escribió la primera fila
+  de `raw.corridas` (`PARCIAL`, 9000 requests, fechas 2026-10-24 y 25, 13 objetos, cursor guardado), pero el paso
+  `log_parcial` (`sys.log`, DEC-012) devolvió 403: `compras-workflow` no tenía `logging.logEntries.create`. No corrieron
+  ni indicadores ni Dataform. La nocturna del 26 no lo mostró porque no fue `PARCIAL`.
+- Corrección en `infra/modules/iam/main.tf` (`roles/logging.logWriter` a `compras-workflow`) y en
+  `infra/bootstrap/ci.tf` (el rol entra en `ci_grantable_project_roles`, si no el apply de CI no puede concederlo);
+  pruebas de ambos roots extendidas. El bootstrap lo aplica el usuario a mano antes del merge.
+- Próxima acción autorizada: el usuario aplica `infra/bootstrap` (`scripts/env.sh terraform -chdir=infra/bootstrap
+  apply -var-file=…`), mergea este PR con `scripts/merge-pr.sh` y relanza el Workflow con `scripts/it/run-workflow.sh`
+  para poner al día indicadores y Dataform; después revisa `gold.dim_corrida`.
