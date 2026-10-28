@@ -75,6 +75,10 @@ run "ci_account_without_billing" {
     condition     = strcontains(output.ci_iam_admin_condition, "hasOnly") && !strcontains(output.ci_iam_admin_condition, "billing")
     error_message = "the CI IAM admin role must be limited to the pipeline roles"
   }
+  assert {
+    condition     = strcontains(output.ci_iam_admin_condition, "'roles/logging.logWriter'")
+    error_message = "the CI account must be allowed to grant logging.logWriter to compras-workflow (DEC-012, sys.log of the PARCIAL day)"
+  }
 }
 
 # REQ-006: CI creates the ingest Cloud Run Jobs and the image repository in infra/main.
