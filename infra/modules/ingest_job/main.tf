@@ -11,8 +11,11 @@ locals {
     RAW_DATASET          = var.raw_dataset
   }
   job_env = {
-    mercadopublico = merge(local.common_env, { MP_DAILY_REQUEST_BUDGET = tostring(var.mp_daily_request_budget) })
-    indicadores    = local.common_env
+    mercadopublico = merge(local.common_env, {
+      MP_DAILY_REQUEST_BUDGET = tostring(var.mp_daily_request_budget)
+      MP_REQUEST_INTERVAL     = tostring(var.mp_request_interval)
+    })
+    indicadores = local.common_env
   }
   # Placeholder until deploy.yml publishes the first image; Terraform ignores later image changes.
   placeholder_image = "us-docker.pkg.dev/cloudrun/container/job:latest"

@@ -224,8 +224,8 @@ run "t08_ingest_jobs" {
     error_message = "the jobs need the bucket, project and raw dataset, and no secret env var (DEC-004)"
   }
   assert {
-    condition     = contains(output.ingest_jobs["mercadopublico"].env_names, "MP_DAILY_REQUEST_BUDGET")
-    error_message = "the Mercado Público job sets its request budget"
+    condition     = contains(output.ingest_jobs["mercadopublico"].env_names, "MP_DAILY_REQUEST_BUDGET") && contains(output.ingest_jobs["mercadopublico"].env_names, "MP_REQUEST_INTERVAL")
+    error_message = "the Mercado Público job sets its request budget and its request interval (S-06, S-28)"
   }
   assert {
     condition     = output.ingest_repository.format == "DOCKER" && output.ingest_repository.location == "us-central1" && output.ingest_repository.repository_id == "compras"

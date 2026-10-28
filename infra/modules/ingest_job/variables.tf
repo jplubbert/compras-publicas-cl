@@ -35,3 +35,9 @@ variable "mp_daily_request_budget" {
   type        = number
   default     = 9000
 }
+
+variable "mp_request_interval" {
+  description = "Seconds between the starts of two requests of the Mercado Público job (S-28); 0 disables the pacing."
+  type        = number
+  default     = 1
+}

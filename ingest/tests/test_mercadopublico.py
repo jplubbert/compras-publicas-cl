@@ -316,3 +316,49 @@ def test_e8_budget_running_out_in_d_minus_1_leaves_the_cursor_there(mp):
     assert cursor["fecha"] == "2026-10-20"
     assert cursor["codigos"] == {"licitaciones": ["B1"], "ordenes_compra": ["BO1"]}
     assert cursor["ultimo_codigo"] is None
+
+
+def test_s28_requests_are_spaced_by_the_interval_including_retries(mp):
+    """S-28: the client waits until `interval` seconds passed since the previous request started; a retry's own
+    backoff counts toward that spacing, and the first request never waits."""
+    from compras_ingest.budget import RequestBudget
+    from compras_ingest.mercadopublico import MercadoPublico
+
+    clock = {"t": 100.0}
+    sleeps: list[float] = []
+
+    def sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        clock["t"] += seconds
+
+    def get(request):
+        clock["t"] += 0.25  # every call takes a quarter of a second
+        return detalle_ok("X")
+
+    mp.router.get(url__startswith="https://api.mercadopublico.cl/").mock(side_effect=get)
+    api = MercadoPublico(httpx.Client(), TICKET, RequestBudget(50), sleep, interval=1.0, clock=lambda: clock["t"])
+
+    api.detalle("licitaciones", "L1")
+    api.detalle("licitaciones", "L2")
+    api.detalle("licitaciones", "L3")
+    assert sleeps == [0.75, 0.75]
+
+    # A retry: L4 takes 0.25 + 1 s of backoff + 0.25, more than the interval, so L5 does not wait at all.
+    mp.router.get(url__startswith="https://api.mercadopublico.cl/").mock(
+        side_effect=[httpx.Response(500), detalle_ok("L4"), detalle_ok("L5")]
+    )
+    api.detalle("licitaciones", "L4")
+    api.detalle("licitaciones", "L5")
+    assert sleeps == [0.75, 0.75, 0.75, 1.0]
+
+
+def test_s28_interval_zero_never_sleeps(mp):
+    from compras_ingest.budget import RequestBudget
+    from compras_ingest.mercadopublico import MercadoPublico
+
+    sleeps: list[float] = []
+    mp.router.get(url__startswith="https://api.mercadopublico.cl/").mock(return_value=detalle_ok("X"))
+    api = MercadoPublico(httpx.Client(), TICKET, RequestBudget(50), sleeps.append, interval=0.0)
+    api.detalle("licitaciones", "L1")
+    api.detalle("licitaciones", "L2")
+    assert sleeps == []

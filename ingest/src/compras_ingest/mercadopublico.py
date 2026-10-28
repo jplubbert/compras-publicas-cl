@@ -1,5 +1,6 @@
 """Mercado Público API client: daily listings and per-code details (endpoints confirmed by T-02)."""
 
+import time
 from collections.abc import Callable
 from datetime import date
 from typing import Any
@@ -23,13 +24,36 @@ class AuthError(Exception):
 
 
 class MercadoPublico:
-    def __init__(self, client: httpx.Client, ticket: str, budget: RequestBudget, sleep: Callable[[float], None]):
+    """Client of the API. `interval` is the minimum spacing, in seconds, between the starts of two requests (S-28):
+    the API fails fast on back-to-back calls (the run of 2026-10-28 spent ~4.300 of 9.000 requests on retries that
+    succeeded after a 1-3 s pause), so the client paces itself instead of paying the retries from the budget."""
+
+    def __init__(
+        self,
+        client: httpx.Client,
+        ticket: str,
+        budget: RequestBudget,
+        sleep: Callable[[float], None],
+        interval: float = 0.0,
+        clock: Callable[[], float] = time.monotonic,
+    ):
         self.client = client
         self.ticket = ticket
         self.budget = budget
         self.sleep = sleep
+        self.interval = interval
+        self.clock = clock
+        self._last_start: float | None = None
+
+    def _pace(self) -> None:
+        if self.interval > 0 and self._last_start is not None:
+            wait = self.interval - (self.clock() - self._last_start)
+            if wait > 0:
+                self.sleep(wait)
+        self._last_start = self.clock()
 
     def _get(self, entidad: str, params: dict) -> Fetched:
+        self._pace()
         return fetch(
             self.client,
             BASE_URL + ENDPOINT[entidad],

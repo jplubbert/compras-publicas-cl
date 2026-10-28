@@ -1321,3 +1321,15 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Próxima acción autorizada: el usuario mergea el PR #22 con `scripts/merge-pr.sh`; la corrida nocturna del 27 escribe
   la primera fila de `raw.corridas` y el gate corre en producción por su cuenta; siguiente sesión: revisar
   `gold.dim_corrida` y el resultado de la nocturna.
+
+## 2026-10-28 · Claude (claude-fable-5-1) · sesión: pausa entre consultas a Mercado Público (S-28)
+- La nocturna del 28 gastó 9.000 requests para 4.660 documentos: ~4.300 fueron reintentos. Las pausas entre filas de
+  raw (1 s, 3 s, 5-8 s) calzan con el backoff del job y no con timeouts ni `Retry-After`: la API falla rápido al
+  consultarla sin pausa y contesta bien 1 a 3 s después.
+- El cliente espacia las consultas: `MP_REQUEST_INTERVAL` (segundos entre el inicio de dos consultas, 1 por defecto,
+  0 lo apaga), fijado por Terraform en el job (`mp_request_interval`). Un día hábil toma ~3,5 h, bajo el tope de 7 h.
+  Supuesto S-28 en SPEC.md; pruebas del cliente y del CLI; las pruebas existentes apagan la pausa para que las
+  aserciones del backoff sigan exactas.
+- Próxima acción autorizada: el usuario mergea los PR #23 y este con `scripts/merge-pr.sh`; la nocturna del 28 corre
+  con ambos; siguiente sesión: comparar `requests` contra filas en raw (debe quedar cerca de 1 a 1) y revisar
+  `gold.dim_corrida`.

@@ -32,6 +32,28 @@ def test_invalid_budget_exits_2(mp, budget):
     assert "MP_DAILY_REQUEST_BUDGET" in outcome.err
 
 
+@pytest.mark.parametrize("interval", ["-1", "nan", "rapido"])
+def test_invalid_interval_exits_2(mp, interval):
+    outcome = mp.run(env_extra={"MP_REQUEST_INTERVAL": interval})
+    assert outcome.code == 2
+    assert "MP_REQUEST_INTERVAL" in outcome.err
+    assert mp.router.calls.call_count == 0
+
+
+def test_default_interval_paces_the_requests_one_second_apart(mp):
+    """S-28: without MP_REQUEST_INTERVAL the job waits up to 1 s between requests (the fake sleep takes no time, so
+    every request after the first waits the full second); the pause is not a retry and does not use the budget."""
+    mp.listado("licitaciones", "21102026", ["L1", "L2"])
+    mp.listado("ordenes_compra", "21102026", [])
+    mp.detalle("licitaciones", "L1")
+    mp.detalle("licitaciones", "L2")
+    outcome = mp.run(env_extra={"MP_REQUEST_INTERVAL": None})
+    assert outcome.code == 0
+    assert mp.router.calls.call_count == 4
+    assert all(0 < s <= 1.0 for s in mp.sleeps) and len(mp.sleeps) == 3
+    assert outcome.result["requests"] == 4
+
+
 def test_missing_bucket_exits_2(mp):
     outcome = mp.run(env_extra={"BRONZE_BUCKET": ""})
     assert outcome.code == 2
