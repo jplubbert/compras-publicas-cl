@@ -336,20 +336,47 @@ def test_s28_requests_are_spaced_by_the_interval_including_retries(mp):
         return detalle_ok("X")
 
     mp.router.get(url__startswith="https://api.mercadopublico.cl/").mock(side_effect=get)
-    api = MercadoPublico(httpx.Client(), TICKET, RequestBudget(50), sleep, interval=1.0, clock=lambda: clock["t"])
+    api = MercadoPublico(
+        httpx.Client(), TICKET, RequestBudget(50), sleep, interval=2.5, clock=lambda: clock["t"], retry_delay=1.0
+    )
 
     api.detalle("licitaciones", "L1")
     api.detalle("licitaciones", "L2")
     api.detalle("licitaciones", "L3")
-    assert sleeps == [0.75, 0.75]
+    assert sleeps == [2.25, 2.25]
 
-    # A retry: L4 takes 0.25 + 1 s of backoff + 0.25, more than the interval, so L5 does not wait at all.
+    # A retry (these canned responses take no clock time): L4 spends 1 s in the backoff, so L5 only waits the
+    # remaining 1.5 s of the interval.
     mp.router.get(url__startswith="https://api.mercadopublico.cl/").mock(
         side_effect=[httpx.Response(500), detalle_ok("L4"), detalle_ok("L5")]
     )
     api.detalle("licitaciones", "L4")
     api.detalle("licitaciones", "L5")
-    assert sleeps == [0.75, 0.75, 0.75, 1.0]
+    assert sleeps == [2.25, 2.25, 2.25, 1.0, 1.5]
+
+
+def test_s28_retry_delay_is_the_base_of_the_backoff(mp):
+    from compras_ingest.budget import RequestBudget
+    from compras_ingest.mercadopublico import MercadoPublico
+
+    sleeps: list[float] = []
+    mp.router.get(url__startswith="https://api.mercadopublico.cl/").mock(
+        side_effect=[httpx.Response(429), httpx.Response(429), detalle_ok("L1")]
+    )
+    api = MercadoPublico(httpx.Client(), TICKET, RequestBudget(50), sleeps.append, retry_delay=10.0)
+    fetched = api.detalle("licitaciones", "L1")
+    assert sleeps == [10.0, 20.0]
+    assert fetched.attempts == 3
+    assert fetched.estados_previos == [429, 429]
+
+
+def test_s28_line_records_the_attempts_and_the_codes_of_the_failed_ones(mp):
+    """S-28: every bronze line says how many attempts it cost and what the API answered on the failed ones."""
+    outcome, _route = scenario_e2(mp)
+    assert outcome.code == 0
+    lines = {x["codigo"]: x for x in mp.lines(LIC_PREFIX) if x["tipo"] == "detalle"}
+    assert lines["L1"]["intentos"] == 1 and lines["L1"]["estados_previos"] == []
+    assert lines["L2"]["intentos"] == 3 and lines["L2"]["estados_previos"] == [500, 500]
 
 
 def test_s28_interval_zero_never_sleeps(mp):

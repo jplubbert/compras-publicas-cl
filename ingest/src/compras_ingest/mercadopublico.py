@@ -24,9 +24,11 @@ class AuthError(Exception):
 
 
 class MercadoPublico:
-    """Client of the API. `interval` is the minimum spacing, in seconds, between the starts of two requests (S-28):
-    the API fails fast on back-to-back calls (the run of 2026-10-28 spent ~4.300 of 9.000 requests on retries that
-    succeeded after a 1-3 s pause), so the client paces itself instead of paying the retries from the budget."""
+    """Client of the API. `interval` is the minimum spacing, in seconds, between the starts of two requests, and
+    `retry_delay` the base of the exponential backoff after a failed attempt (S-28). The API lets through about one
+    call every 2 s (run of 2026-10-28: ~33 accepted per minute all night, never more than 3 successes in a row,
+    independent of the size or duration of the previous call) and rejects the rest, which still count against the
+    daily budget: that run spent ~4.300 of 9.000 requests on retries. So the client paces itself instead."""
 
     def __init__(
         self,
@@ -36,12 +38,14 @@ class MercadoPublico:
         sleep: Callable[[float], None],
         interval: float = 0.0,
         clock: Callable[[], float] = time.monotonic,
+        retry_delay: float = 1.0,
     ):
         self.client = client
         self.ticket = ticket
         self.budget = budget
         self.sleep = sleep
         self.interval = interval
+        self.retry_delay = retry_delay
         self.clock = clock
         self._last_start: float | None = None
 
@@ -61,6 +65,7 @@ class MercadoPublico:
             budget=self.budget,
             sleep=self.sleep,
             secrets=[self.ticket],
+            base_delay=self.retry_delay,
         )
 
     def listado(self, entidad: str, fecha: date) -> Fetched:

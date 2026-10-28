@@ -10,5 +10,7 @@
   {"name": "codigo", "type": "STRING", "mode": "NULLABLE", "description": "Código del documento o de la serie pedida"},
   {"name": "payload", "type": "JSON", "mode": "NULLABLE", "description": "Cuerpo JSON de la respuesta, tal como llegó"},
   {"name": "body", "type": "STRING", "mode": "NULLABLE", "description": "Cuerpo de la respuesta cuando no es JSON"},
-  {"name": "error", "type": "STRING", "mode": "NULLABLE", "description": "Descripción del error del pedido, si lo hubo"}
+  {"name": "error", "type": "STRING", "mode": "NULLABLE", "description": "Descripción del error del pedido, si lo hubo"},
+  {"name": "intentos", "type": "INTEGER", "mode": "NULLABLE", "description": "Intentos HTTP que costó esta respuesta (1 si salió a la primera); nulo en filas anteriores a S-28"},
+  {"name": "estados_previos", "type": "INTEGER", "mode": "REPEATED", "description": "Códigos HTTP de los intentos fallidos antes del último (0 si fue timeout o conexión cortada)"}
 ]

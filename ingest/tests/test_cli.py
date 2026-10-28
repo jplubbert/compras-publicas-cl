@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
-from conftest import TICKET
+from conftest import TICKET, detalle_ok
 
 from compras_ingest.secrets import ConfigError, bcentral_token_secret_name, read_secret, ticket_secret_name
 
@@ -32,17 +32,18 @@ def test_invalid_budget_exits_2(mp, budget):
     assert "MP_DAILY_REQUEST_BUDGET" in outcome.err
 
 
-@pytest.mark.parametrize("interval", ["-1", "nan", "rapido"])
-def test_invalid_interval_exits_2(mp, interval):
-    outcome = mp.run(env_extra={"MP_REQUEST_INTERVAL": interval})
+@pytest.mark.parametrize("name", ["MP_REQUEST_INTERVAL", "MP_RETRY_DELAY"])
+@pytest.mark.parametrize("value", ["-1", "nan", "rapido"])
+def test_invalid_seconds_exit_2(mp, name, value):
+    outcome = mp.run(env_extra={name: value})
     assert outcome.code == 2
-    assert "MP_REQUEST_INTERVAL" in outcome.err
+    assert name in outcome.err
     assert mp.router.calls.call_count == 0
 
 
-def test_default_interval_paces_the_requests_one_second_apart(mp):
-    """S-28: without MP_REQUEST_INTERVAL the job waits up to 1 s between requests (the fake sleep takes no time, so
-    every request after the first waits the full second); the pause is not a retry and does not use the budget."""
+def test_default_interval_paces_the_requests_2_5_seconds_apart(mp):
+    """S-28: without MP_REQUEST_INTERVAL the job waits up to 2.5 s between requests (the fake sleep takes no time, so
+    every request after the first waits the full interval); the pause is not a retry and does not use the budget."""
     mp.listado("licitaciones", "21102026", ["L1", "L2"])
     mp.listado("ordenes_compra", "21102026", [])
     mp.detalle("licitaciones", "L1")
@@ -50,8 +51,20 @@ def test_default_interval_paces_the_requests_one_second_apart(mp):
     outcome = mp.run(env_extra={"MP_REQUEST_INTERVAL": None})
     assert outcome.code == 0
     assert mp.router.calls.call_count == 4
-    assert all(0 < s <= 1.0 for s in mp.sleeps) and len(mp.sleeps) == 3
+    assert all(0 < s <= 2.5 for s in mp.sleeps) and len(mp.sleeps) == 3
     assert outcome.result["requests"] == 4
+
+
+def test_default_retry_delay_waits_10_then_20_seconds(mp):
+    """S-28: without MP_RETRY_DELAY a failed attempt waits 10 s, then 20 s, before the retries."""
+    mp.listado("licitaciones", "21102026", ["L1"])
+    mp.listado("ordenes_compra", "21102026", [])
+    route = mp.detalle("licitaciones", "L1", [httpx.Response(429), httpx.Response(429), detalle_ok("L1")])
+    outcome = mp.run(env_extra={"MP_RETRY_DELAY": None})
+    assert outcome.code == 0
+    assert route.call_count == 3
+    assert mp.sleeps == [10.0, 20.0]
+    assert outcome.result["requests"] == 5
 
 
 def test_missing_bucket_exits_2(mp):

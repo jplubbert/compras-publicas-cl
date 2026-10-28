@@ -2,7 +2,7 @@
 
 import json
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from typing import Any
@@ -21,6 +21,9 @@ class Fetched:
     body: str | None = None
     error: str | None = None
     attempts: int = 0
+    # HTTP codes of the attempts that failed before the last one (0 for a timeout or a dropped connection), so raw
+    # shows what the API answers when it rejects a call (S-28).
+    estados_previos: list[int] = field(default_factory=list)
 
 
 def _retry_after(response: httpx.Response) -> float | None:
@@ -57,6 +60,7 @@ def fetch(
     secrets = list(secrets)
     max_attempts = 1 + max_retries
     attempt = 0
+    previos: list[int] = []
     while True:
         attempt += 1
         budget.take()
@@ -66,18 +70,28 @@ def fetch(
             # Timeouts, refused or dropped connections (mindicador.cl closes the TLS handshake at times): retry with
             # the same backoff; after the last attempt the caller sees no status and the reason.
             if attempt < max_attempts:
+                previos.append(0)
                 sleep(base_delay * 2 ** (attempt - 1))
                 continue
             reason = "timeout" if isinstance(exc, httpx.TimeoutException) else f"sin respuesta: {type(exc).__name__}"
-            return Fetched(status=None, url=redact(str(exc.request.url), secrets), error=reason, attempts=attempt)
+            return Fetched(
+                status=None,
+                url=redact(str(exc.request.url), secrets),
+                error=reason,
+                attempts=attempt,
+                estados_previos=previos,
+            )
 
         status = response.status_code
         if _retryable(status) and attempt < max_attempts:
+            previos.append(status)
             delay = _retry_after(response)
             sleep(base_delay * 2 ** (attempt - 1) if delay is None else delay)
             continue
 
-        fetched = Fetched(status=status, url=redact(str(response.request.url), secrets), attempts=attempt)
+        fetched = Fetched(
+            status=status, url=redact(str(response.request.url), secrets), attempts=attempt, estados_previos=previos
+        )
         try:
             # response.text honors the charset of Content-Type (the BDE answers ISO-8859-1); response.json() would
             # decode the raw bytes as UTF-8 and fail on any accented character.

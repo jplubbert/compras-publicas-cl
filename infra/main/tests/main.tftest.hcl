@@ -201,7 +201,7 @@ run "secretos_sin_versiones" {
   }
 }
 
-# REQ-006 / REQ-007: the two ingest jobs, 7 h timeout, no retries, the ingest account and no secret env vars.
+# REQ-006 / REQ-007: the two ingest jobs, 9 h timeout, no retries, the ingest account and no secret env vars.
 run "t08_ingest_jobs" {
   command = apply
 
@@ -211,8 +211,8 @@ run "t08_ingest_jobs" {
   }
   assert {
     condition = alltrue([for j in values(output.ingest_jobs) :
-    j.location == "us-central1" && j.timeout == "25200s" && j.max_retries == 0 && j.service_account == output.service_accounts["ingest"]])
-    error_message = "every job runs in var.region for up to 7 h, without retries, as the ingest account"
+    j.location == "us-central1" && j.timeout == "32400s" && j.max_retries == 0 && j.service_account == output.service_accounts["ingest"]])
+    error_message = "every job runs in var.region for up to 9 h, without retries, as the ingest account"
   }
   assert {
     condition     = output.ingest_jobs["mercadopublico"].args == tolist(["mercadopublico"]) && output.ingest_jobs["indicadores"].args == tolist(["indicadores"])
@@ -224,8 +224,8 @@ run "t08_ingest_jobs" {
     error_message = "the jobs need the bucket, project and raw dataset, and no secret env var (DEC-004)"
   }
   assert {
-    condition     = contains(output.ingest_jobs["mercadopublico"].env_names, "MP_DAILY_REQUEST_BUDGET") && contains(output.ingest_jobs["mercadopublico"].env_names, "MP_REQUEST_INTERVAL")
-    error_message = "the Mercado Público job sets its request budget and its request interval (S-06, S-28)"
+    condition     = alltrue([for e in ["MP_DAILY_REQUEST_BUDGET", "MP_REQUEST_INTERVAL", "MP_RETRY_DELAY"] : contains(output.ingest_jobs["mercadopublico"].env_names, e)])
+    error_message = "the Mercado Público job sets its request budget, its request interval and its retry delay (S-06, S-28)"
   }
   assert {
     condition     = output.ingest_repository.format == "DOCKER" && output.ingest_repository.location == "us-central1" && output.ingest_repository.repository_id == "compras"

@@ -79,6 +79,8 @@ def record(
         "payload": fetched.payload,
         "body": fetched.body,
         "error": fetched.error,
+        "intentos": fetched.attempts,
+        "estados_previos": list(fetched.estados_previos),
     }
 
 

@@ -129,11 +129,13 @@ class Env:
     sleeps: list = field(default_factory=list)
 
     def run(self, argv=("mercadopublico",), env_extra=None) -> Outcome:
-        # The pacing (S-28) is off by default so the backoff assertions on `sleeps` stay exact; test_cli covers it.
+        # The pacing is off and the retry delay is 1 s by default (S-28) so the backoff assertions on `sleeps` stay
+        # exact; test_cli covers the production defaults.
         env = {
             "BRONZE_BUCKET": BUCKET,
             "GOOGLE_CLOUD_PROJECT": "proyecto-prueba",
             "MP_REQUEST_INTERVAL": "0",
+            "MP_RETRY_DELAY": "1",
             **(env_extra or {}),
         }
         env = {k: v for k, v in env.items() if v is not None}  # a None in env_extra drops the default
