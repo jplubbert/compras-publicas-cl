@@ -26,6 +26,7 @@ class RunResult:
     cursor: str | None = None
     objetos: list[str] = field(default_factory=list)
     exit_code: int = 0
+    oc_omitidas: int = 0
 
 
 def run_mercadopublico(
@@ -36,7 +37,11 @@ def run_mercadopublico(
     budget: RequestBudget,
     now: Callable[[], datetime],
     secrets: Iterable[str],
+    conocidas: set[str] | None = None,
 ) -> RunResult:
+    """`conocidas`: purchase orders with a detail already in raw; their detail is not asked again, and silver takes
+    their state from the listing (T-22, S-29). Orders whose detail this run gets join the set."""
+    conocidas = set() if conocidas is None else set(conocidas)
     run_id = new_run_id(now())
     saved = cursor_mod.load(store)
     days = pending_days(date.fromisoformat(saved.fecha) if saved else None, targets)
@@ -91,12 +96,17 @@ def run_mercadopublico(
                 if entidad == resume_fase and resume_codigo in lista:
                     start = lista.index(resume_codigo) + 1
                 for codigo in lista[start:]:
+                    if entidad == "ordenes_compra" and codigo in conocidas:
+                        result.oc_omitidas += 1
+                        continue
                     fetched = api.detalle(entidad, codigo)
                     rec = record(
                         fetched, run_id=run_id, fecha=day, entidad=entidad, tipo="detalle", codigo=codigo, now=now()
                     )
                     state.fase, state.ultimo_codigo = entidad, codigo
                     writer.add(entidad, day, rec)
+                    if entidad == "ordenes_compra" and fetched.status == 200:
+                        conocidas.add(codigo)
                     if fetched.status in AUTH_STATUSES:
                         raise AuthError(f"el detalle {codigo} de {entidad} respondió {fetched.status}")
 

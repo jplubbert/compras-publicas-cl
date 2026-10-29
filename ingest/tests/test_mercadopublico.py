@@ -389,3 +389,70 @@ def test_s28_interval_zero_never_sleeps(mp):
     api.detalle("licitaciones", "L1")
     api.detalle("licitaciones", "L2")
     assert sleeps == []
+
+
+def test_e9_a_purchase_order_with_a_detail_in_raw_is_not_asked_again(mp):
+    mp.bq.conocidas = {"O1"}
+    mp.listado("licitaciones", "21102026", ["L1"])
+    mp.listado("ordenes_compra", "21102026", ["O1", "O2"])
+    mp.detalle("licitaciones", "L1")
+    mp.detalle("ordenes_compra", "O2")
+    outcome = mp.run()
+    assert outcome.code == 0
+    assert [c[2] for c in mp.calls()[2:]] == ["L1", "O2"]
+    assert outcome.result["oc_omitidas"] == 1
+    assert outcome.result["requests"] == 4
+    oc = mp.lines(f"mercadopublico/ordenes_compra/fecha={D}/run={outcome.result['run_id']}/")
+    assert [(line["tipo"], line["codigo"]) for line in oc] == [("listado", None), ("detalle", "O2")]
+    assert any("mercadopublico_ordenes_compra" in q and "'detalle'" in q for q in mp.bq.queries)
+
+
+def test_e9_a_purchase_order_whose_detail_this_run_got_is_not_asked_on_a_later_day(mp):
+    mp.listado("licitaciones", "20102026", [])
+    mp.listado("ordenes_compra", "20102026", ["O1"])
+    mp.listado("licitaciones", "21102026", [])
+    mp.listado("ordenes_compra", "21102026", ["O1", "O2"])
+    mp.detalle("ordenes_compra", "O1")
+    mp.detalle("ordenes_compra", "O2")
+    outcome = mp.run(argv=("mercadopublico", "--from", "2026-10-20", "--to", "2026-10-21"))
+    assert outcome.code == 0
+    assert [c[2] for c in mp.calls() if c[1] == "codigo"] == ["O1", "O2"]
+    assert outcome.result["oc_omitidas"] == 1
+
+
+def test_e9_a_failed_purchase_order_detail_is_asked_again_on_a_later_day(mp):
+    mp.listado("licitaciones", "20102026", [])
+    mp.listado("ordenes_compra", "20102026", ["O1"])
+    mp.listado("licitaciones", "21102026", [])
+    mp.listado("ordenes_compra", "21102026", ["O1"])
+    mp.detalle("ordenes_compra", "O1", [httpx.Response(404, json={"Mensaje": "no existe"}), detalle_ok("O1")])
+    outcome = mp.run(argv=("mercadopublico", "--from", "2026-10-20", "--to", "2026-10-21"))
+    assert outcome.code == 0
+    assert [c[2] for c in mp.calls() if c[1] == "codigo"] == ["O1", "O1"]
+    assert outcome.result["oc_omitidas"] == 0
+
+
+def test_e9_tenders_are_always_asked_even_if_their_code_is_a_known_order(mp):
+    mp.bq.conocidas = {"L1"}
+    mp.listado("licitaciones", "21102026", ["L1"])
+    mp.listado("ordenes_compra", "21102026", [])
+    mp.detalle("licitaciones", "L1")
+    outcome = mp.run()
+    assert [c[2] for c in mp.calls()[2:]] == ["L1"]
+    assert outcome.result["oc_omitidas"] == 0
+
+
+def test_e9_without_the_known_orders_every_detail_is_asked(mp, caplog):
+    from google.api_core.exceptions import Forbidden
+
+    mp.bq.conocidas = {"O1"}
+    mp.bq.query_error = Forbidden(f"denied ticket={TICKET}")
+    mp.listado("licitaciones", "21102026", [])
+    mp.listado("ordenes_compra", "21102026", ["O1"])
+    mp.detalle("ordenes_compra", "O1")
+    with caplog.at_level(logging.WARNING):
+        outcome = mp.run()
+    assert outcome.code == 0
+    assert [c[2] for c in mp.calls()[2:]] == ["O1"]
+    assert "OC conocidas" in caplog.text
+    assert TICKET not in caplog.text

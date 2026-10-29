@@ -23,6 +23,7 @@ from . import corridas
 from .bcentral import BancoCentral
 from .bronze import GcsStore
 from .budget import RequestBudget
+from .conocidas import oc_conocidas
 from .cursor import CursorPosterior
 from .http import new_client
 from .indicadores import run_indicadores
@@ -71,6 +72,15 @@ def _parser() -> argparse.ArgumentParser:
     load.add_argument("--fuente", required=True, choices=FUENTES)
     load.add_argument("--run-id", required=True)
     return parser
+
+
+def _bq_client(env):
+    project = env.get("GOOGLE_CLOUD_PROJECT")
+    if not project:
+        raise ConfigError("falta GOOGLE_CLOUD_PROJECT para BigQuery")
+    from google.cloud import bigquery
+
+    return bigquery.Client(project=project)
 
 
 def _load(env, bucket: str, objetos: list[str], run_id: str, secrets: list[str], bq_client) -> tuple[list[dict], bool]:
@@ -185,7 +195,14 @@ def main(
             store = store or GcsStore(bucket, client=storage_client)
             client = http or new_client()
             api = MercadoPublico(client, ticket, budget, sleep, interval=_interval(env), retry_delay=_retry_delay(env))
-            result = run_mercadopublico(targets, api=api, store=store, budget=budget, now=now, secrets=secrets)
+            bq_client = bq_client or _bq_client(env)
+            conocidas = oc_conocidas(
+                bq_client, project=env["GOOGLE_CLOUD_PROJECT"], dataset=env.get("RAW_DATASET") or "raw", secrets=secrets
+            )
+            log.info("%d OC con detalle en raw: su estado se toma del listado", len(conocidas))
+            result = run_mercadopublico(
+                targets, api=api, store=store, budget=budget, now=now, secrets=secrets, conocidas=conocidas
+            )
         else:
             fecha = args.date or (now().astimezone(SANTIAGO).date() - timedelta(days=1))
             token = ticket_reader(bcentral_token_secret_name(env))

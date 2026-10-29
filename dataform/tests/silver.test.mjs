@@ -154,3 +154,15 @@ test('the incremental window reads raw partitions from 3 days before the newest 
   );
   assert.equal(silver.ventanaReciente, undefined, "the quarantine reads the same window as silver, measured from its own target");
 });
+
+test('REQ-008 (T-22): silver.ordenes_compra takes the state of a newer daily listing, only with a code of the catalog', () => {
+  const t = tables['silver.ordenes_compra'];
+  for (const q of [t.query, t.incrementalQuery]) {
+    assert.ok(q.includes("tipo = 'listado'"), q);
+    assert.ok(q.includes(`codigo_estado IN (${Object.keys(silver.ESTADOS_OC).join(', ')})`), q);
+    assert.ok(q.includes('ORDER BY ingested_at DESC LIMIT 1'), q);
+    assert.ok(q.includes('IF(x.l.ingested_at > u.ingested_at, x.l.codigo_estado, u.codigo_estado) AS codigo_estado'), q);
+    assert.ok(!q.includes('x.l.fecha_cambio'), 'fecha_cambio stays the one of the detail');
+  }
+  assert.ok(t.incrementalQuery.includes('OR codigo_oc IN (SELECT codigo_oc FROM listados)'));
+});

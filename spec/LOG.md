@@ -1379,3 +1379,15 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   por confirmar). Nuevas: S-29, Q-12 (variante para las OC ya conocidas) y T-22 en `specified`.
 - Próxima acción autorizada: el usuario responde Q-12; con su respuesta se ajustan REQ-004 y S-06 en sesión y T-22
   pasa a implementarse. El PR #24 (S-28) sigue abierto.
+
+## 2026-10-29 · José Pedro Lübbert y Claude (claude-opus-5-5) · sesión: T-22, el estado de las OC conocidas viene del listado
+- Q-12 respondida por el usuario: variante (a); la (b) se agrega cuando la ingesta esté al día. Medición previa sobre
+  raw: con la (b) un día hábil seguiría en ~13.500 requests y con la (a) en ~11.500, que bajan a ~6.800 con un mes de
+  historia; REQ-004 y S-06 corregidos con esas cifras.
+- Ingesta: lee de raw los códigos de OC con detalle 200 y no los vuelve a pedir (`oc_omitidas` en el resultado); si
+  la consulta falla, pide todos. Silver: `ordenes_compra` toma el estado del listado más reciente si es posterior al
+  último detalle. Comprobado contra producción sin escribir: el SQL pasa el dry-run y da las mismas 17.498 OC, 75 con
+  un estado más reciente y ninguna sin estado. T-22 en `in_progress`.
+- Próxima acción autorizada: el usuario mergea el PR con `scripts/merge-pr.sh`; tras el despliegue, corre
+  `scripts/it/full-refresh.sh` para aplicar el estado de los listados a todo silver; después de la nocturna, revisar
+  `oc_omitidas` y `requests` en la salida del job y el avance del cursor.
