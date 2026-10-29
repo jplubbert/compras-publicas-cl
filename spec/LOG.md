@@ -1345,3 +1345,37 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   para confirmar el código de rechazo; columnas nuevas, nulas en filas anteriores. S-28 actualizado.
 - Próxima acción autorizada: el usuario mergea #23 y #24 con `scripts/merge-pr.sh`; tras la nocturna del 28, consultar
   `estados_previos` en raw y `requests` contra filas en `raw.corridas` (debe quedar cerca de 1 a 1).
+## 2026-10-28 · Claude (claude-fable-5-1) · sesión: la nocturna del 27 murió en `log_parcial` por falta de `logging.logWriter`
+- Ejecución `40474ea5` (02:30 a 04:54 UTC) `FAILED`: el job de Mercado Público terminó bien y escribió la primera fila
+  de `raw.corridas` (`PARCIAL`, 9000 requests, fechas 2026-10-24 y 25, 13 objetos, cursor guardado), pero el paso
+  `log_parcial` (`sys.log`, DEC-012) devolvió 403: `compras-workflow` no tenía `logging.logEntries.create`. No corrieron
+  ni indicadores ni Dataform. La nocturna del 26 no lo mostró porque no fue `PARCIAL`.
+- Corrección en `infra/modules/iam/main.tf` (`roles/logging.logWriter` a `compras-workflow`) y en
+  `infra/bootstrap/ci.tf` (el rol entra en `ci_grantable_project_roles`, si no el apply de CI no puede concederlo);
+  pruebas de ambos roots extendidas. El bootstrap lo aplica el usuario a mano antes del merge.
+- Próxima acción autorizada: el usuario aplica `infra/bootstrap` (`scripts/env.sh terraform -chdir=infra/bootstrap
+  apply -var-file=…`), mergea este PR con `scripts/merge-pr.sh` y relanza el Workflow con `scripts/it/run-workflow.sh`
+  para poner al día indicadores y Dataform; después revisa `gold.dim_corrida`.
+
+## 2026-10-29 · José Pedro Lübbert y Claude (claude-opus-5-5) · sesión: la nocturna del 28 se detuvo por el código de estado 16
+- Ejecución `556da48c` (02:30 a 05:04 UTC) `FAILED`: la ingesta pasó (el arreglo de `logging.logWriter` funcionó),
+  pero Dataform se detuvo en `silver_licitaciones_assertions_rowConditions` (`estado IS NOT NULL`). Causa: la
+  licitación `2980-2-LQ25` llegó con `CodigoEstado` 16 y texto «Suspendida»; la documentación de la API lista solo
+  5, 6, 7, 8, 18 y 19, y en la práctica la API manda 15 (Revocada) y 16 (Suspendida); 18 y 19 nunca aparecieron.
+- Decisión del usuario (REQ-008 ajustado): un código fuera del catálogo toma el texto `Estado` que manda el endpoint
+  de detalle, en licitaciones y órdenes de compra; queda nulo solo si tampoco viene texto, y el assertion sigue
+  deteniendo la corrida en ese caso. Cambio en `dataform/includes/silver.js` y los dos modelos.
+- Próxima acción autorizada: el usuario mergea el PR con `scripts/merge-pr.sh` y relanza el Workflow con
+  `scripts/it/run-workflow.sh` para poner al día Dataform; después revisa `gold.dim_corrida`.
+
+## 2026-10-29 · José Pedro Lübbert y Claude (claude-opus-5-5) · sesión: refresco completo y el atraso de la ingesta de OC
+- PR #25 mergeado y desplegado. Una invocación incremental de Dataform volvió a fallar en la misma assertion: la fila
+  de `2980-2-LQ25` ya estaba en silver y su versión nueva empata en `fecha_cambio` e `ingested_at`. El usuario aprobó
+  `scripts/it/full-refresh.sh` (invocación `1793253729-f624b193`, 42 acciones `SUCCEEDED`): la licitación queda
+  «Suspendida» y no hay licitaciones sin estado; silver y gold al día con raw hasta la ingesta del 28.
+- Atraso: el cursor está en el 26-oct (OC 5.906 de 18.380) con el 27 y el 28 pendientes. El listado diario de OC trae
+  las órdenes con movimiento ese día (no solo las nuevas) y la ingesta pide el detalle de todas: ~20.000 requests por
+  día hábil contra 9.000. Medición sobre raw: en OC repetidas solo cambian el estado y la fecha de aceptación (S-29,
+  por confirmar). Nuevas: S-29, Q-12 (variante para las OC ya conocidas) y T-22 en `specified`.
+- Próxima acción autorizada: el usuario responde Q-12; con su respuesta se ajustan REQ-004 y S-06 en sesión y T-22
+  pasa a implementarse. El PR #24 (S-28) sigue abierto.

@@ -384,9 +384,9 @@ run "t11_permisos" {
     error_message = "the Scheduler account must invoke the Workflow"
   }
   assert {
-    condition = alltrue([for r in ["roles/dataform.editor", "roles/run.viewer", "roles/bigquery.jobUser"] :
+    condition = alltrue([for r in ["roles/dataform.editor", "roles/run.viewer", "roles/bigquery.jobUser", "roles/logging.logWriter"] :
     contains(output.project_bindings, { role = r, member = "serviceAccount:${output.service_accounts["workflow"]}" })])
-    error_message = "the Workflow account must drive Dataform, read the job executions and run the raw.corridas query (DEC-012)"
+    error_message = "the Workflow account must drive Dataform, read the job executions, run the raw.corridas query and log the PARCIAL day (DEC-012)"
   }
   assert {
     condition     = contains(output.dataset_access["raw"], { role = "roles/bigquery.dataViewer", member = "serviceAccount:${output.service_accounts["workflow"]}" })

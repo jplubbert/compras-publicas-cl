@@ -28,6 +28,8 @@ locals {
     "roles/workflows.invoker",
     "roles/dataform.editor",
     "roles/run.viewer",
+    # DEC-012: compras-workflow writes the PARCIAL-day WARNING with sys.log.
+    "roles/logging.logWriter",
     # T-14: compras-dataform reads the taxonomy to set the policy tag on a column.
     "roles/datacatalog.viewer",
   ]

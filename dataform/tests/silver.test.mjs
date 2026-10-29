@@ -123,9 +123,20 @@ test('REQ-008: the purchase order state catalog translates the 8 codes of T-02 a
   for (const [codigo, texto] of Object.entries(silver.ESTADOS_OC)) assert.ok(sql.includes(`WHEN ${codigo} THEN '${texto}'`));
 });
 
+test('REQ-008: a state code outside the catalog takes the given state text', () => {
+  const sql = silver.estadoSql('x', silver.ESTADOS_LICITACION, 'y');
+  assert.ok(sql.endsWith(' ELSE y END'), sql);
+});
+
 test('REQ-008: tender and purchase order models translate the state with their catalog', () => {
   assert.ok(tables['silver.licitaciones'].query.includes("WHEN 8 THEN 'Adjudicada'"));
   assert.ok(tables['silver.ordenes_compra'].query.includes("WHEN 6 THEN 'Aceptada'"));
+});
+
+test('REQ-008: outside the catalog, tender and purchase order models fall back to the state text of the API', () => {
+  const texto = "ELSE NULLIF(TRIM(JSON_VALUE(doc, '$.Estado')), '') END";
+  assert.ok(tables['silver.licitaciones'].query.includes(texto));
+  assert.ok(tables['silver.ordenes_compra'].query.includes(texto));
 });
 
 test('REQ-008: indicadores_diarios turns ND into a NULL valor with es_nd', () => {

@@ -1,7 +1,8 @@
 // Shared SQL helpers of the silver models (REQ-008): state catalogs (T-02), the incremental window and type casts.
 
 // Codes 15 and 11 are not in the published catalog: the detail endpoint sends them with the texts "Revocada" and
-// "No aceptada" (first daily run, 2026-10-26); the published 18 Revocada stays for the listing filter.
+// "No aceptada" (first daily run, 2026-10-26); the published 18 Revocada stays for the listing filter. Codes outside
+// the catalog take the state text the detail endpoint sends next to the code (16 "Suspendida", nightly run of 2026-10-28).
 const ESTADOS_LICITACION = {
   5: "Publicada",
   6: "Cerrada",
@@ -27,10 +28,13 @@ const ESTADOS_OC = {
 // Days re-read before the newest partition already in the target.
 const LOOKBACK_DIAS = 3;
 
-/** CASE that translates a state code; codes outside the catalog give NULL (the domain rule belongs to T-10). */
-function estadoSql(expr, catalogo) {
-  const whens = Object.entries(catalogo).map(([codigo, texto]) => `WHEN ${codigo} THEN '${texto}'`);
-  return `CASE ${expr} ${whens.join(" ")} ELSE NULL END`;
+/**
+ * CASE that translates a state code; codes outside the catalog take `texto` (the state text of the API), and NULL when
+ * it is empty too (the domain rule belongs to T-10).
+ */
+function estadoSql(expr, catalogo, texto = "NULL") {
+  const whens = Object.entries(catalogo).map(([codigo, nombre]) => `WHEN ${codigo} THEN '${nombre}'`);
+  return `CASE ${expr} ${whens.join(" ")} ELSE ${texto} END`;
 }
 
 /**
