@@ -246,7 +246,9 @@ convertidos (fechas, montos NUMERIC, moneda) y el código de estado traducido: l
 compra 4 Enviada a proveedor, 5 En proceso, 6 Aceptada, 9 Cancelada, 11 No aceptada, 12 Recepción conforme, 13 Pendiente de
 recepcionar, 14 Recepcionada parcialmente, 15 Recepción conforme incompleta (T-02; el 15 de licitaciones y el 11 de
 órdenes no están en la documentación publicada: los manda el endpoint de detalle con esos textos, primera corrida real,
-2026-10-26). En `indicadores_diarios`,
+2026-10-26). Un código fuera del catálogo toma el texto de estado (`Estado`) que manda el endpoint de detalle junto al
+código, y queda nulo solo si ese texto tampoco viene (decisión del usuario, 2026-10-29: el 16 «Suspendida» de la
+nocturna del 28 no está documentado y detuvo la corrida). En `indicadores_diarios`,
 `ND` pasa a `NULL` con `es_nd = TRUE`.
 Si llega una versión más antigua de una clave que ya está en silver, entonces no deberá sobrescribir la más reciente.
 Ejemplos (aceptación):

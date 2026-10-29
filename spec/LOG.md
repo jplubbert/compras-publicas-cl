@@ -1333,3 +1333,14 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
 - Próxima acción autorizada: el usuario aplica `infra/bootstrap` (`scripts/env.sh terraform -chdir=infra/bootstrap
   apply -var-file=…`), mergea este PR con `scripts/merge-pr.sh` y relanza el Workflow con `scripts/it/run-workflow.sh`
   para poner al día indicadores y Dataform; después revisa `gold.dim_corrida`.
+
+## 2026-10-29 · José Pedro Lübbert y Claude (claude-opus-5-5) · sesión: la nocturna del 28 se detuvo por el código de estado 16
+- Ejecución `556da48c` (02:30 a 05:04 UTC) `FAILED`: la ingesta pasó (el arreglo de `logging.logWriter` funcionó),
+  pero Dataform se detuvo en `silver_licitaciones_assertions_rowConditions` (`estado IS NOT NULL`). Causa: la
+  licitación `2980-2-LQ25` llegó con `CodigoEstado` 16 y texto «Suspendida»; la documentación de la API lista solo
+  5, 6, 7, 8, 18 y 19, y en la práctica la API manda 15 (Revocada) y 16 (Suspendida); 18 y 19 nunca aparecieron.
+- Decisión del usuario (REQ-008 ajustado): un código fuera del catálogo toma el texto `Estado` que manda el endpoint
+  de detalle, en licitaciones y órdenes de compra; queda nulo solo si tampoco viene texto, y el assertion sigue
+  deteniendo la corrida en ese caso. Cambio en `dataform/includes/silver.js` y los dos modelos.
+- Próxima acción autorizada: el usuario mergea el PR con `scripts/merge-pr.sh` y relanza el Workflow con
+  `scripts/it/run-workflow.sh` para poner al día Dataform; después revisa `gold.dim_corrida`.
