@@ -2324,7 +2324,7 @@
     {
       "id": "T-22",
       "title": "La ingesta no repite el detalle de las OC ya conocidas",
-      "description": "Pedido del usuario, 2026-10-29 (S-29). El listado diario de OC trae las órdenes con movimiento ese día y la ingesta pide el detalle de todas, también de las que ya están en raw: un día hábil pide ~20.000 requests contra el presupuesto de 9.000 (S-06) y el cursor se atrasa (al 2026-10-29: 26-oct a medio procesar, 27 y 28 pendientes). Cambio: para cada código del listado de OC, la ingesta consulta si ya está en raw con su último estado; uno nuevo pide el detalle como hoy; uno conocido sigue la variante que elija el usuario en Q-12: (a) se registra solo su estado desde el listado, sin detalle, y silver toma ese estado sobre la última versión del detalle; (b) se pide el detalle solo si el estado del listado difiere del último conocido. Primero, en sesión con el usuario: ajustar REQ-004 (texto, cálculo de capacidad y ejemplos) y S-06 a la variante elegida. Medir antes con raw (sin red de la API) cuántos requests pediría un día hábil con la variante elegida. Se suma a S-28 (PR #24, ~1 de cada 2 consultas rechazada por ritmo).",
+      "description": "Pedido del usuario, 2026-10-29 (S-29, Q-12 respondida: variante (a)). El listado diario de OC trae las órdenes con movimiento ese día y la ingesta pedía el detalle de todas, también de las que ya están en raw: ~20.000 requests por día hábil contra 9.000 y el cursor atrasado. Cambio: la ingesta lee de raw los códigos de OC con un detalle 200 (una consulta al inicio; si falla, pide todos los detalles) y no vuelve a pedirlos, ni los que obtiene en la misma corrida; RunResult cuenta `oc_omitidas`. En silver.ordenes_compra, el listado más reciente que vio una OC, si es posterior a su último detalle y trae un código del catálogo, le da el estado y el linaje (run_id, _ingest_date, ingested_at); fecha_cambio y los demás campos son los del detalle. Pruebas: E9 de REQ-004 en ingest/tests/test_mercadopublico.py y la de T-22 en dataform/tests/silver.test.mjs. La variante (b) queda para cuando la ingesta esté al día.",
       "decisions": [
         "DEC-004",
         "DEC-006"
@@ -2335,7 +2335,7 @@
       "reqs": [
         "REQ-004"
       ],
-      "status": "specified",
+      "status": "in_progress",
       "blocked_by": null,
       "evidence": null,
       "review": null,
@@ -2346,7 +2346,16 @@
         "dataform/tests/"
       ],
       "verify": "scripts/env.sh bash -c 'npm run test:ingest && npm run test:dataform && npm run check:spec'",
-      "notes": "2026-10-29: creada en sesión a pedido del usuario, en specified; no se implementa hasta que el usuario responda Q-12. S-29 queda por confirmar con una muestra más grande."
+      "notes": "2026-10-29: creada en sesión a pedido del usuario, en specified; no se implementa hasta que el usuario responda Q-12. S-29 queda por confirmar con una muestra más grande. 2026-10-29: Q-12 respondida (a); implementada en sesión. Comprobado contra producción sin escribir: el SQL completo e incremental pasa el dry-run (~55 MB) y, como SELECT, da las mismas 17.498 OC que silver, 75 con un estado más reciente del listado y ninguna sin estado.",
+      "status_log": [
+        {
+          "from": "specified",
+          "to": "in_progress",
+          "by": "Claude (claude-opus-5-5)",
+          "at": "2026-10-29T06:55:23.231Z",
+          "reason": "Q-12 respondida (a); implementación en sesión"
+        }
+      ]
     }
   ]
 }

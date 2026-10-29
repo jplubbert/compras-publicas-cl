@@ -76,6 +76,14 @@ class FakeLoadJob:
         return self
 
 
+class FakeQueryJob:
+    def __init__(self, rows: list[dict]):
+        self.rows = rows
+
+    def result(self):
+        return self.rows
+
+
 @dataclass
 class LoadCall:
     uris: list[str]
@@ -92,6 +100,16 @@ class FakeBigQueryClient:
         self.loads: list[LoadCall] = []
         self.json_loads: list[LoadCall] = []
         self.fail: dict[str, Exception] = {}
+        # T-22: codes of raw.mercadopublico_ordenes_compra with a 200 detail, and the error the query raises if set.
+        self.conocidas: set[str] = set()
+        self.query_error: Exception | None = None
+        self.queries: list[str] = []
+
+    def query(self, sql):
+        self.queries.append(sql)
+        if self.query_error is not None:
+            raise self.query_error
+        return FakeQueryJob([{"codigo": c} for c in sorted(self.conocidas)])
 
     def schema_from_json(self, path):
         with open(path, encoding="utf-8") as fh:
