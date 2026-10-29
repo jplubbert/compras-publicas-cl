@@ -1344,3 +1344,15 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   deteniendo la corrida en ese caso. Cambio en `dataform/includes/silver.js` y los dos modelos.
 - Próxima acción autorizada: el usuario mergea el PR con `scripts/merge-pr.sh` y relanza el Workflow con
   `scripts/it/run-workflow.sh` para poner al día Dataform; después revisa `gold.dim_corrida`.
+
+## 2026-10-29 · José Pedro Lübbert y Claude (claude-opus-5-5) · sesión: refresco completo y el atraso de la ingesta de OC
+- PR #25 mergeado y desplegado. Una invocación incremental de Dataform volvió a fallar en la misma assertion: la fila
+  de `2980-2-LQ25` ya estaba en silver y su versión nueva empata en `fecha_cambio` e `ingested_at`. El usuario aprobó
+  `scripts/it/full-refresh.sh` (invocación `1793253729-f624b193`, 42 acciones `SUCCEEDED`): la licitación queda
+  «Suspendida» y no hay licitaciones sin estado; silver y gold al día con raw hasta la ingesta del 28.
+- Atraso: el cursor está en el 26-oct (OC 5.906 de 18.380) con el 27 y el 28 pendientes. El listado diario de OC trae
+  las órdenes con movimiento ese día (no solo las nuevas) y la ingesta pide el detalle de todas: ~20.000 requests por
+  día hábil contra 9.000. Medición sobre raw: en OC repetidas solo cambian el estado y la fecha de aceptación (S-29,
+  por confirmar). Nuevas: S-29, Q-12 (variante para las OC ya conocidas) y T-22 en `specified`.
+- Próxima acción autorizada: el usuario responde Q-12; con su respuesta se ajustan REQ-004 y S-06 en sesión y T-22
+  pasa a implementarse. El PR #24 (S-28) sigue abierto.
