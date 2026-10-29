@@ -1322,6 +1322,29 @@ Formato de cada entrada (la última manda: "Próxima acción autorizada" es lo p
   la primera fila de `raw.corridas` y el gate corre en producción por su cuenta; siguiente sesión: revisar
   `gold.dim_corrida` y el resultado de la nocturna.
 
+## 2026-10-28 · Claude (claude-fable-5-1) · sesión: pausa entre consultas a Mercado Público (S-28)
+- La nocturna del 28 gastó 9.000 requests para 4.660 documentos: ~4.300 fueron reintentos. Las pausas entre filas de
+  raw (1 s, 3 s, 5-8 s) calzan con el backoff del job y no con timeouts ni `Retry-After`: la API falla rápido al
+  consultarla sin pausa y contesta bien 1 a 3 s después.
+- El cliente espacia las consultas: `MP_REQUEST_INTERVAL` (segundos entre el inicio de dos consultas, 1 por defecto,
+  0 lo apaga), fijado por Terraform en el job (`mp_request_interval`). Un día hábil toma ~3,5 h, bajo el tope de 7 h.
+  Supuesto S-28 en SPEC.md; pruebas del cliente y del CLI; las pruebas existentes apagan la pausa para que las
+  aserciones del backoff sigan exactas.
+- Próxima acción autorizada: el usuario mergea los PR #23 y este con `scripts/merge-pr.sh`; la nocturna del 28 corre
+  con ambos; siguiente sesión: comparar `requests` contra filas en raw (debe quedar cerca de 1 a 1) y revisar
+  `gold.dim_corrida`.
+
+## 2026-10-28 · José Pedro Lübbert y Claude (claude-opus-5-5) · sesión: la API acepta una consulta cada ~2 s (S-28)
+- Análisis de la nocturna del 28 en raw: ~33 consultas aceptadas por minuto toda la noche (5,4 por cada 10 s), nunca
+  más de 3 éxitos seguidos; la tasa de fallo no depende de la duración ni del tamaño de la consulta anterior, ni de la
+  hora ni de la entidad, y sube cuando hubo menos consultas en los 10 s previos. Es un tope de consultas por tiempo:
+  lo que se manda más rápido se rechaza y cuenta igual en el presupuesto.
+- Decisión del usuario: 2,5 s entre el inicio de dos consultas (`MP_REQUEST_INTERVAL`) y 10 s antes del primer
+  reintento (`MP_RETRY_DELAY`, luego 20 y 40). 9.000 requests toman ~6,25 h, así que el timeout del job y del conector
+  sube a 9 h (REQ-007, S-05). Cada fila de raw guarda `intentos` y `estados_previos` (códigos de los intentos fallidos)
+  para confirmar el código de rechazo; columnas nuevas, nulas en filas anteriores. S-28 actualizado.
+- Próxima acción autorizada: el usuario mergea #23 y #24 con `scripts/merge-pr.sh`; tras la nocturna del 28, consultar
+  `estados_previos` en raw y `requests` contra filas en `raw.corridas` (debe quedar cerca de 1 a 1).
 ## 2026-10-28 · Claude (claude-fable-5-1) · sesión: la nocturna del 27 murió en `log_parcial` por falta de `logging.logWriter`
 - Ejecución `40474ea5` (02:30 a 04:54 UTC) `FAILED`: el job de Mercado Público terminó bien y escribió la primera fila
   de `raw.corridas` (`PARCIAL`, 9000 requests, fechas 2026-10-24 y 25, 13 objetos, cursor guardado), pero el paso

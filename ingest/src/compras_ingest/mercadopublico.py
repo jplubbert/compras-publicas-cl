@@ -1,5 +1,6 @@
 """Mercado Público API client: daily listings and per-code details (endpoints confirmed by T-02)."""
 
+import time
 from collections.abc import Callable
 from datetime import date
 from typing import Any
@@ -23,13 +24,40 @@ class AuthError(Exception):
 
 
 class MercadoPublico:
-    def __init__(self, client: httpx.Client, ticket: str, budget: RequestBudget, sleep: Callable[[float], None]):
+    """Client of the API. `interval` is the minimum spacing, in seconds, between the starts of two requests, and
+    `retry_delay` the base of the exponential backoff after a failed attempt (S-28). The API lets through about one
+    call every 2 s (run of 2026-10-28: ~33 accepted per minute all night, never more than 3 successes in a row,
+    independent of the size or duration of the previous call) and rejects the rest, which still count against the
+    daily budget: that run spent ~4.300 of 9.000 requests on retries. So the client paces itself instead."""
+
+    def __init__(
+        self,
+        client: httpx.Client,
+        ticket: str,
+        budget: RequestBudget,
+        sleep: Callable[[float], None],
+        interval: float = 0.0,
+        clock: Callable[[], float] = time.monotonic,
+        retry_delay: float = 1.0,
+    ):
         self.client = client
         self.ticket = ticket
         self.budget = budget
         self.sleep = sleep
+        self.interval = interval
+        self.retry_delay = retry_delay
+        self.clock = clock
+        self._last_start: float | None = None
+
+    def _pace(self) -> None:
+        if self.interval > 0 and self._last_start is not None:
+            wait = self.interval - (self.clock() - self._last_start)
+            if wait > 0:
+                self.sleep(wait)
+        self._last_start = self.clock()
 
     def _get(self, entidad: str, params: dict) -> Fetched:
+        self._pace()
         return fetch(
             self.client,
             BASE_URL + ENDPOINT[entidad],
@@ -37,6 +65,7 @@ class MercadoPublico:
             budget=self.budget,
             sleep=self.sleep,
             secrets=[self.ticket],
+            base_delay=self.retry_delay,
         )
 
     def listado(self, entidad: str, fecha: date) -> Fetched:

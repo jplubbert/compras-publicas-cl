@@ -83,7 +83,7 @@ def test_jobs_con_conector_que_espera():
     for name, env in [("ingesta_mercadopublico", "JOB_MERCADOPUBLICO"), ("ingesta_indicadores", "JOB_INDICADORES")]:
         s = step(doc, name)
         assert s["call"] == RUN_JOB
-        assert s["args"]["connector_params"]["timeout"] == 25200
+        assert s["args"]["connector_params"]["timeout"] == 32400
         assert s["args"]["connector_params"].get("skip_polling") is not True
         assert env in s["args"]["name"]
 

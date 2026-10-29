@@ -36,6 +36,7 @@ def test_backoff_is_1_2_4_seconds_without_retry_after():
     assert sleeps == [1.0, 2.0, 4.0]
     assert fetched.status == 502
     assert fetched.attempts == 4
+    assert fetched.estados_previos == [502, 502, 502]
     assert fetched.error == "HTTP 502 tras 4 intentos"
     assert "ticket=***" in fetched.url
     assert SECRET not in fetched.url

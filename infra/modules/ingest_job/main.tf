@@ -11,8 +11,12 @@ locals {
     RAW_DATASET          = var.raw_dataset
   }
   job_env = {
-    mercadopublico = merge(local.common_env, { MP_DAILY_REQUEST_BUDGET = tostring(var.mp_daily_request_budget) })
-    indicadores    = local.common_env
+    mercadopublico = merge(local.common_env, {
+      MP_DAILY_REQUEST_BUDGET = tostring(var.mp_daily_request_budget)
+      MP_REQUEST_INTERVAL     = tostring(var.mp_request_interval)
+      MP_RETRY_DELAY          = tostring(var.mp_retry_delay)
+    })
+    indicadores = local.common_env
   }
   # Placeholder until deploy.yml publishes the first image; Terraform ignores later image changes.
   placeholder_image = "us-docker.pkg.dev/cloudrun/container/job:latest"
@@ -57,7 +61,7 @@ resource "google_cloud_run_v2_job" "this" {
 
     template {
       # 7 h, the window of R-04 (REQ-007). No retries: a second attempt would load the run twice.
-      timeout         = "25200s"
+      timeout         = "32400s"
       max_retries     = 0
       service_account = var.service_account_email
 

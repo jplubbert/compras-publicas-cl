@@ -10,6 +10,7 @@ Every ingest run loads the files it wrote into BigQuery raw (REQ-006); `load` re
 import argparse
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -35,6 +36,10 @@ from .secrets import ConfigError, bcentral_token_secret_name, read_secret, ticke
 log = logging.getLogger("compras_ingest")
 
 DEFAULT_BUDGET = 9000
+# S-28: seconds between the starts of two requests to Mercado Público (the API accepts about one every 2 s; 0
+# disables the pacing) and seconds before the first retry of a failed attempt (then 20 and 40).
+DEFAULT_INTERVAL = 2.5
+DEFAULT_RETRY_DELAY = 10.0
 # 5 URLs x 4 attempts = 20 requests at most; the cap only guards against a loop.
 INDICADORES_BUDGET = 50
 SANTIAGO = ZoneInfo("America/Santiago")
@@ -114,6 +119,27 @@ def _budget(env) -> int:
     return value
 
 
+def _seconds(env, name: str, default: float) -> float:
+    raw = env.get(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        value = -1.0
+    if not (value >= 0) or math.isinf(value):  # also rejects nan
+        raise ConfigError(f"{name} debe ser un número de segundos mayor o igual que 0 (vale {raw!r})")
+    return value
+
+
+def _interval(env) -> float:
+    return _seconds(env, "MP_REQUEST_INTERVAL", DEFAULT_INTERVAL)
+
+
+def _retry_delay(env) -> float:
+    return _seconds(env, "MP_RETRY_DELAY", DEFAULT_RETRY_DELAY)
+
+
 def main(
     argv=None,
     *,
@@ -158,7 +184,7 @@ def main(
             configure_logging(secrets)
             store = store or GcsStore(bucket, client=storage_client)
             client = http or new_client()
-            api = MercadoPublico(client, ticket, budget, sleep)
+            api = MercadoPublico(client, ticket, budget, sleep, interval=_interval(env), retry_delay=_retry_delay(env))
             result = run_mercadopublico(targets, api=api, store=store, budget=budget, now=now, secrets=secrets)
         else:
             fecha = args.date or (now().astimezone(SANTIAGO).date() - timedelta(days=1))

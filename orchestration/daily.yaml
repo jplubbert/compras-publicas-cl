@@ -17,7 +17,7 @@ main:
         args:
           name: ${"projects/" + project + "/locations/" + location + "/jobs/" + sys.get_env("JOB_MERCADOPUBLICO")}
           connector_params:
-            timeout: 25200
+            timeout: 32400
         result: ejecucion_mp
     # Day state of the Mercado Público ingest (DEC-012, REQ-007 E6): the job records OK, PARCIAL or ERROR in
     # raw.corridas; the last row by run_id is this run. A PARCIAL day (request budget exhausted, cursor kept) still
@@ -57,7 +57,7 @@ main:
         args:
           name: ${"projects/" + project + "/locations/" + location + "/jobs/" + sys.get_env("JOB_INDICADORES")}
           connector_params:
-            timeout: 25200
+            timeout: 32400
         result: ejecucion_indicadores
     - compilar_dataform:
         call: http.post
